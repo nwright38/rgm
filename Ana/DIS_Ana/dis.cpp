@@ -42,8 +42,8 @@ using namespace clas12;
 //#define D 
 //#define CA40_B //to be used: 80nA
 //#define CA40 //150nA
-#define CA48
-//#define C12 //6GeV 
+//#define CA48
+#define C12 //6GeV 
 //#define SIM 
 //#define SN
 

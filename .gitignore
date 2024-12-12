@@ -7,3 +7,4 @@
 *.ev
 *.hipo
 *.out
+build/

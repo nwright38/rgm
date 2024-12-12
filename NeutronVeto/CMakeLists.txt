@@ -1,4 +1,4 @@
-foreach (fname D_getfeatures.cpp N_getfeatures.cpp D_getfeatures_ppim.cpp veto_test.cpp)
+foreach (fname D_getfeatures.cpp N_getfeatures.cpp D_getfeatures_ppim.cpp veto_test.cpp neutronSkim.cpp)
   string (REPLACE ".cpp" "" fnameExe ${fname})
   add_executable(${fnameExe} ${fname})
   target_link_libraries(${fnameExe} ${ROOT_LIBRARIES} -lEG -lClas12Banks PkgConfig::hipo4 -lClas12Root -L${CLAS12ROOT}/lib -L${CLAS12ROOT}/ccdb/lib -lTMVA NeutronVeto EventCut Clas12Ana Clas12Debug)
