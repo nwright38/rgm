@@ -270,12 +270,15 @@ void SetLorentzVector_EnergyLossCorrection(TLorentzVector &p4, clas12::region_pa
     mom+=Function_Algebraic3(mom,params0,params1,params2);
   }
   else if(p->getRegion()==CD){
+    //CD Momentum Corrections were so small that we have turned them off
+    /*
     double params[3];
     for(int i = 0; i < 3; i++){
       params[i] = Function_Algebraic1(theta,params_EnergyLoss_CD[i][0],params_EnergyLoss_CD[i][1]);
     }
     mom+=Function_Algebraic3(mom,params[0],params[1],params[2]);    
-      }
+    */
+    }
   else{
     cout<<"Problem\n\n\n\n\n\n\n\n\n";
     exit(-2);
