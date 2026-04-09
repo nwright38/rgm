@@ -701,6 +701,10 @@ bool clas12ana::checkProtonPidCut(const region_part_ptr &p)
   if(p->par()->getBeta() <= 1e-3)
     return false;
 
+  //The "by hand" cut that was developed breaks down at 300MeV. Cut here.
+  if(p->par()->getP() <= 0.3)
+    return false;
+  
   //get the # of sigma away in PID cut from par file
   auto itter = pid_cuts_cd.find(2212);
   if(itter != pid_cuts_cd.end())
