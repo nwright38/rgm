@@ -57,6 +57,8 @@ void clas12ana::Clear()
 
    lead_proton.clear();
    recoil_proton.clear();
+   lead_proton_Corrected_4Vector.clear();
+   recoil_proton_Corrected_4Vector.clear();
 
    current_run = -1;
    beam_energy = 0;
@@ -1158,7 +1160,14 @@ void clas12ana::getLeadRecoilSRC(TLorentzVector beam, TLorentzVector target, TLo
 
   lead_proton.clear();
   recoil_proton.clear();
+  lead_proton_Corrected_4Vector.clear();
+  recoil_proton_Corrected_4Vector.clear();
 
+  //Set the SRC LorentzVectors
+  //There are non corrections applied in this function
+  //for backward compatability.
+  electron_Corrected_4Vector = el;
+  
   TLorentzVector ptr(0,0,0,0);
   TLorentzVector q = beam - el;                  //photon  4-vector	
   double q2        = -q.M2();
@@ -1192,6 +1201,11 @@ void clas12ana::getLeadRecoilSRC(TLorentzVector beam, TLorentzVector target, TLo
   
   for(int i = 0; i < lead_idx.size(); i++){
     lead_proton.push_back(protons.at(lead_idx.at(i)));
+    //Set the SRC LorentzVectors
+    //There are non corrections applied in this function
+    //for backward compatability.
+    ptr.SetXYZM(protons.at(lead_idx.at(i))->par()->getPx(),protons.at(lead_idx.at(i))->par()->getPy(),protons.at(lead_idx.at(i))->par()->getPz(),mass_proton);
+    lead_proton_Corrected_4Vector.push_back(ptr);
   }
 
 
@@ -1206,9 +1220,91 @@ void clas12ana::getLeadRecoilSRC(TLorentzVector beam, TLorentzVector target, TLo
 	}
       }
       if(isLead){continue;}
-      if(protons[idx_ptr]->par()->getP() > recoil_mom_cut[0] && protons[idx_ptr]->par()->getP() < recoil_mom_cut[1])
+      if(protons[idx_ptr]->par()->getP() > recoil_mom_cut[0] && protons[idx_ptr]->par()->getP() < recoil_mom_cut[1]){
 	recoil_proton.push_back(protons.at(idx_ptr));
+	//Set the SRC LorentzVectors
+	//There are non corrections applied in this function
+	//for backward compatability.
+	ptr.SetXYZM(protons.at(idx_ptr)->par()->getPx(),protons.at(idx_ptr)->par()->getPy(),protons.at(idx_ptr)->par()->getPz(),mass_proton);
+	recoil_proton_Corrected_4Vector.push_back(ptr);
+      }
+    }
 
+  //need to check if recoil momentum < lead momentum? 
+
+
+  return;  
+
+}
+
+
+void clas12ana::getLeadRecoilSRCwithCorrections(TLorentzVector beam, double isMC)
+{
+
+
+  lead_proton.clear();
+  recoil_proton.clear();
+  lead_proton_Corrected_4Vector.clear();
+  recoil_proton_Corrected_4Vector.clear();
+
+  //Define some lorentz vectors for this function
+  TLorentzVector el(0,0,0,me);
+  TLorentzVector lead_ptr(0,0,0,mass_proton);
+  TLorentzVector recoil_ptr(0,0,0,mass_proton);
+  TLorentzVector target(0,0,0,mD);
+
+  
+  //Start by getting the electron
+  if(electrons.size()!=1){return;}
+  GetLorentzVector_Corrected(el,electrons[0],isMC);
+  electron_Corrected_4Vector = el;
+  
+  TLorentzVector q = beam - el;                  //photon  4-vector	
+  double q2        = -q.M2();
+  double xb        = q2/(2 * mass_proton * (beam.E() - el.E()) ); //x-borken       
+  
+  if( !(q2 > q2_cut[0] && xb > xb_cut[0]) )
+    return; 
+  
+  std::vector<int> lead_idx;
+  
+  for(int idx_ptr = 0; idx_ptr != protons.size(); ++idx_ptr)
+    {
+
+      GetLorentzVector_Corrected(lead_ptr,protons.at(idx_ptr),isMC);
+      TLorentzVector miss = beam + target - el - lead_ptr; //missing 4-vector                   
+      double pmiss    = miss.P();
+      double mmiss    = miss.M();
+      double theta_pq = lead_ptr.Vect().Angle(q.Vect()) * TMath::RadToDeg(); //angle between vectors p_miss and q                                                                               
+      double p_q      = lead_ptr.Vect().Mag()/q.Vect().Mag(); // |p|/|q|                               
+      if( lead_ptr.P() > mom_lead_cut[0] &&  lead_ptr.P() < mom_lead_cut[1]   && 
+	  pmiss > pmiss_cut[0] && pmiss < pmiss_cut[1]              && 
+	  mmiss > mmiss_cut[0] && mmiss < mmiss_cut[1]              && 
+	  theta_pq > theta_pq_cut[0]  && theta_pq < theta_pq_cut[1] &&
+	  p_q > pq_cut[0] && p_q < pq_cut[1])
+	{
+	  lead_idx.push_back(idx_ptr);
+	  lead_proton.push_back(protons.at(idx_ptr));
+	  lead_proton_Corrected_4Vector.push_back(lead_ptr);
+	}
+    }
+
+
+
+  for(int idx_ptr = 0; idx_ptr != protons.size(); ++idx_ptr)
+    {
+      bool isLead = false;
+      for(int i = 0; i < lead_idx.size(); i++){
+	if(idx_ptr == lead_idx.at(i)){
+	  isLead = true;
+	}
+      }
+      if(isLead){continue;}
+      GetLorentzVector_Corrected(recoil_ptr,protons.at(idx_ptr),isMC);
+      if(recoil_ptr.P() > recoil_mom_cut[0] && recoil_ptr.P() < recoil_mom_cut[1]){
+	recoil_proton.push_back(protons.at(idx_ptr));
+	recoil_proton_Corrected_4Vector.push_back(recoil_ptr);
+      }
     }
 
   //need to check if recoil momentum < lead momentum? 

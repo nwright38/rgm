@@ -16,6 +16,7 @@
  #include "TCanvas.h"
  #include <sstream>
  #include "clas12debug.h"
+ #include "Corrections.h"
 
  #define CLAS12ANA_DIR _CLAS12ANA_DIR
 
@@ -177,10 +178,17 @@
    void checkCutParameters();
 
    void setCDCutRegion(int region){region_cut = region;};
-   
+
+   //This is an old function to keep for backwards compatability
    void getLeadRecoilSRC(TLorentzVector beam, TLorentzVector target, TLorentzVector el);
+   //This is the new one with all of the corrections
+   void getLeadRecoilSRCwithCorrections(TLorentzVector beam, double isMC);
+   
    std::vector<region_part_ptr> getLeadSRC(){return lead_proton;};
    std::vector<region_part_ptr> getRecoilSRC(){return recoil_proton;};
+   TLorentzVector getElectronSRC4Vector(){return electron_Corrected_4Vector;};
+   std::vector<TLorentzVector> getLeadSRC4Vectors(){return lead_proton_Corrected_4Vector;};
+   std::vector<TLorentzVector> getRecoilSRC4Vectors(){return recoil_proton_Corrected_4Vector;};
    std::vector<region_part_ptr> getByPid(std::vector<region_part_ptr> particles, int pid);
 
 
@@ -203,6 +211,12 @@
    //SRC 
    std::vector<region_part_ptr> lead_proton;
    std::vector<region_part_ptr> recoil_proton;
+   TLorentzVector electron_Corrected_4Vector;
+   std::vector<TLorentzVector> lead_proton_Corrected_4Vector;
+   std::vector<TLorentzVector> recoil_proton_Corrected_4Vector;
+
+   const double mD = 1.8756;
+   const double me = 0.000511;
 
    //prototype function for fitting ECAL electron cuts
    TF1 *ecal_p_fcn[2][7];  //0 upper 1 lower fiducial
