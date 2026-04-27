@@ -95,9 +95,8 @@ int main(int argc, char ** argv)
   const double mass_p = db->GetParticle(2212)->Mass();
   const double mD = 1.8756;
   TLorentzVector beam(0,0,beam_E,beam_E);
-  TLorentzVector deut_ptr(0,0,0,mD);
-  TLorentzVector el(0,0,0,db->GetParticle(11)->Mass());
-  TLorentzVector lead_ptr(0,0,0,db->GetParticle(2212)->Mass());
+  TLorentzVector el;
+  TLorentzVector lead_ptr;
 
   //This is the reweighter which you can use to define
   //new GCF variables on the weight such as sigma_CM
@@ -118,9 +117,9 @@ int main(int argc, char ** argv)
   //Define some histograms and a vector to put them
   //in so that we can manipulate them quickly.
   vector<TH1*> hist_list;
-  TH1D * h_xB = new TH1D("xB","xB",100,1.1,2.0);
+  TH1D * h_xB = new TH1D("xB","xB",100,1.0,2.0);
   hist_list.push_back(h_xB);
-  TH1D * h_Q2 = new TH1D("Q2","Q2",100,1.4,5.0);
+  TH1D * h_Q2 = new TH1D("Q2","Q2",200,1.0,5.0);
   hist_list.push_back(h_Q2);
   TH1D * h_plead = new TH1D("plead","plead",100,0.9,4.0);
   hist_list.push_back(h_plead);
@@ -158,25 +157,25 @@ int main(int argc, char ** argv)
       //It does the pid, fiducial, and vertex cuts
       //on all particles and returns particles
       //by PID number.
+      //Right underneath we do the SRC cuts.
       clasAna.Run(c12);
       auto electrons = clasAna.getByPid(11);
       auto protons = clasAna.getByPid(2212);
-      if(electrons.size() != 1){continue;}
+      clasAna.getLeadRecoilSRCwithCorrections(beam,isMC);
+      auto lead    = clasAna.getLeadSRC();
+      auto recoil  = clasAna.getRecoilSRC();
+      auto lead_vectors = clasAna.getLeadSRC4Vectors();
+      auto recoil_vectors = clasAna.getRecoilSRC4Vectors();
 
-      //This line grabs the momentum after the
-      //energy loss corrections, angular corrections,
-      //momentum corrections, and smearing.
-      GetLorentzVector_Corrected(el,electrons[0],isMC);
+      if(electrons.size() != 1){continue;}
+      el = clasAna.getElectronSRC4Vector();
+
       TLorentzVector q = beam - el;
       double Q2        = -q.M2();
       double xB       = Q2/(2 * mass_p * (beam.E() - el.E()) );
-
-      clasAna.getLeadRecoilSRC(beam,deut_ptr,el);
-      auto lead    = clasAna.getLeadSRC();
-      auto recoil  = clasAna.getRecoilSRC();
       
       if(lead.size()!=1){continue;}
-      GetLorentzVector_Corrected(lead_ptr,lead[0],isMC);
+      lead_ptr = lead_vectors[0];
       double mom_lead = lead_ptr.P();
       double theta_lead = lead_ptr.Theta() * 180 / M_PI;
 
