@@ -353,9 +353,9 @@ int main(int argc, char ** argv)
       if((counter%100000) == 0){
 	cerr << "\n" <<counter/100000 <<" hundred thousand completed";
       }    
-      if((counter%10000) == 0){
-	cerr << ".";
-      }    
+  //     if((counter%10000) == 0){
+	// cerr << ".";
+  //     }    
 
       clasAna.Run(c12);
       auto electrons = clasAna.getByPid(11);

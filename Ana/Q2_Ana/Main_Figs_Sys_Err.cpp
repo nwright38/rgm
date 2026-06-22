@@ -217,10 +217,10 @@ int main(int argc, char ** argv)
     Z=nucleus_A/2;
     N=nucleus_A/2;
   }
-  reweighter newWeight(beam_E,Z,N,kelly,uType);
+  reweighter newWeight(beam_E,Z,N,kelly,uType,.15);
   vector<reweighter> Weight_List;
   for(int i = 0; i < 100; i++){
-    reweighter Random_Weight(beam_E,Z,N,kelly,uType);
+    reweighter Random_Weight(beam_E,Z,N,kelly,uType,.15);
     Random_Weight.randomize_Config();
     Weight_List.push_back(Random_Weight);
   }
@@ -242,16 +242,19 @@ int main(int argc, char ** argv)
   }
   
   int ctr = 0;
-  while(chain.Next() && ctr <1000000)
+  while(chain.Next() && ctr <100000)
     {
 
+      if(ctr%1000 == 0){
+        cout << "Event " << ctr << endl;
+      }
       double wep = 1;
       double wepp = 1;
       double original_weight; 
       if(isMC){
-	original_weight = c12->mcevent()->getWeight(); 
-	wep = original_weight * newWeight.get_weight_ep(c12->mcparts());
-	wepp = original_weight * newWeight.get_weight_epp(c12->mcparts());
+        original_weight = c12->mcevent()->getWeight(); 
+        wep = original_weight * newWeight.get_weight_ep(c12->mcparts());
+        wepp = original_weight * newWeight.get_weight_epp(c12->mcparts());
       }
 
       double qSq,x,pL,tL,pR,px,py,pz,mM,pM,kM,E0,E1,E2;      
@@ -265,17 +268,16 @@ int main(int argc, char ** argv)
       fillUpHistGroup(dataGroup,qSq,px,py,pz,pM,kM,E0,E1,E2,passep_cut,passepp_cut,wep,wepp);      
 
       for(int i = 0; i < 100; i++){
-	double wep_Sys,wepp_Sys;
-	if(isMC){
-	  wep_Sys = original_weight * Weight_List[i].get_weight_ep(c12->mcparts());
-	  wepp_Sys = original_weight * Weight_List[i].get_weight_epp(c12->mcparts());	  
-	}
-	bool passep_cut_SysErr = passep;
-	bool passepp_cut_SysErr = passepp;
-	CutRandom(x,qSq,mM,kM,pL,tL,pR,passep_cut_SysErr,passepp_cut_SysErr,true);
-	fillUpHistGroup(dataGroup_SysErr[i],qSq,px,py,pz,pM,kM,E0,E1,E2,passep_cut_SysErr,passepp_cut_SysErr,wep_Sys,wepp_Sys);	
+        double wep_Sys,wepp_Sys;
+            if(isMC){
+              wep_Sys = original_weight * Weight_List[i].get_weight_ep(c12->mcparts());
+              wepp_Sys = original_weight * Weight_List[i].get_weight_epp(c12->mcparts());	  
+        }
+        bool passep_cut_SysErr = passep;
+        bool passepp_cut_SysErr = passepp;
+        CutRandom(x,qSq,mM,kM,pL,tL,pR,passep_cut_SysErr,passepp_cut_SysErr,true);
+        fillUpHistGroup(dataGroup_SysErr[i],qSq,px,py,pz,pM,kM,E0,E1,E2,passep_cut_SysErr,passepp_cut_SysErr,wep_Sys,wepp_Sys);	
       }
-      
     }
 
   /////////////////////////////////////////////////////
@@ -453,6 +455,7 @@ int main(int argc, char ** argv)
   TGraphErrors * g_sigma_E1miss_ep_kmiss[4];
   TGraphErrors * g_sigma_E1miss_epp_kmiss[4];
   TGraphErrors * g_sigma_E2miss_epp_kmiss[4];
+  
   TGraphErrors * g_mean_E1miss_ep_pmiss[4];
   TGraphErrors * g_mean_E1miss_epp_pmiss[4];
   TGraphErrors * g_mean_E2miss_epp_pmiss[4];
@@ -575,6 +578,40 @@ int main(int argc, char ** argv)
     }
   }
 
+    // --- Mean of E_miss vs Q^2 (parallels the sigma loops above) ---
+  for(int k = 0; k < 4; k++){
+    for(int j=0; j<(bQ2); j++){
+      vector<double> mean_list;
+      for(int i = 0; i < 100; i++){mean_list.push_back(getMean(f,myCanvas,fileName,dataGroup_SysErr[i].h_E1miss_ep_SRC_pmiss_Q2[k][j],-0.2,0.4));}
+      double mean, sigma;
+      getMeanStddev(mean_list,mean,sigma);
+      g_mean_E1miss_ep_pmiss[k]->SetPoint(g_mean_E1miss_ep_pmiss[k]->GetN(),Q2_mean[j],mean);
+      g_mean_E1miss_ep_pmiss[k]->SetPointError(g_mean_E1miss_ep_pmiss[k]->GetN()-1,0,sigma);
+    }
+  }
+
+  for(int k = 0; k < 4; k++){
+    for(int j=0; j<(bQ2); j++){
+      vector<double> mean_list;
+      for(int i = 0; i < 100; i++){mean_list.push_back(getMean(f,myCanvas,fileName,dataGroup_SysErr[i].h_E1miss_epp_SRC_pmiss_Q2[k][j],-0.2,0.4));}
+      double mean, sigma;
+      getMeanStddev(mean_list,mean,sigma);
+      g_mean_E1miss_epp_pmiss[k]->SetPoint(g_mean_E1miss_epp_pmiss[k]->GetN(),Q2_mean[j],mean);
+      g_mean_E1miss_epp_pmiss[k]->SetPointError(g_mean_E1miss_epp_pmiss[k]->GetN()-1,0,sigma);
+    }
+  }
+
+  for(int k = 0; k < 4; k++){
+    for(int j=0; j<(bQ2); j++){
+      vector<double> mean_list;
+      for(int i = 0; i < 100; i++){mean_list.push_back(getMean(f,myCanvas,fileName,dataGroup_SysErr[i].h_E2miss_epp_SRC_pmiss_Q2[k][j],-0.2,0.4));}
+      double mean, sigma;
+      getMeanStddev(mean_list,mean,sigma);
+      g_mean_E2miss_epp_pmiss[k]->SetPoint(g_mean_E2miss_epp_pmiss[k]->GetN(),Q2_mean[j],mean);
+      g_mean_E2miss_epp_pmiss[k]->SetPointError(g_mean_E2miss_epp_pmiss[k]->GetN()-1,0,sigma);
+    }
+  }
+
   
   for(int k = 0; k < 4; k++){
     g_sigma_E1miss_ep_pmiss[k]->Write();
@@ -597,6 +634,31 @@ int main(int argc, char ** argv)
     g_sigma_E1miss_epp_kmiss[k]->Draw("");
     myCanvas->cd(6);    
     g_sigma_E2miss_epp_kmiss[k]->Draw("");
+    myCanvas->Print(fileName,"pdf");
+    myCanvas->Clear();  
+  }
+
+  for(int k = 0; k < 4; k++){
+    g_mean_E1miss_ep_pmiss[k]->Write();
+    g_mean_E1miss_epp_pmiss[k]->Write();
+    g_mean_E2miss_epp_pmiss[k]->Write();
+    g_mean_E1miss_ep_kmiss[k]->Write();
+    g_mean_E1miss_epp_kmiss[k]->Write();
+    g_mean_E2miss_epp_kmiss[k]->Write();
+    
+    myCanvas->Divide(2,3);
+    myCanvas->cd(1);    
+    g_mean_E1miss_ep_pmiss[k]->Draw("");
+    myCanvas->cd(2);    
+    g_mean_E1miss_epp_pmiss[k]->Draw("");
+    myCanvas->cd(3);    
+    g_mean_E2miss_epp_pmiss[k]->Draw("");
+    myCanvas->cd(4);    
+    g_mean_E1miss_ep_kmiss[k]->Draw("");
+    myCanvas->cd(5);    
+    g_mean_E1miss_epp_kmiss[k]->Draw("");
+    myCanvas->cd(6);    
+    g_mean_E2miss_epp_kmiss[k]->Draw("");
     myCanvas->Print(fileName,"pdf");
     myCanvas->Clear();  
   }

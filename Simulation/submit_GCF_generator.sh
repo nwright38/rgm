@@ -25,7 +25,7 @@
 source environment_gemc.sh
 
 #ADD YOUR PATHS FROM INPUT TO OUTPUT HERE
-GCFGEN=/w/hallb-scshelf2102/clas12/users/esteejus/rgm/Simulation/GCF_Generator_Suite/src/programs/genQE/ #path to compiled GCF generator
+GCFGEN=/work/clas12/users/nwright/GCF_Generator_Suite/src/programs/genQE/ #path to compiled GCF generator
 OUTPATH=/volatile/clas12/rg-m/mc/
 
 Z=2
