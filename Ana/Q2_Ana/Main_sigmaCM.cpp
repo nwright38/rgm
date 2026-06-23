@@ -43,7 +43,7 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.050;
-const double max_sigma = 0.250;
+const double max_sigma = 0.25;
 
 
 const double c = 29.9792458;
@@ -75,7 +75,7 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
 void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scale, double & min_chi2);
 void Usage()
 {
-  std::cerr << "Usage: ./code A outputfile.root outputfile.pdf inputdatafile.hipo inputsimfiles.hipo \n\n\n";
+  std::cerr << "Usage: ./code A outputfile.root inputdatafile.hipo inputsimfiles.hipo \n\n\n";
 }
 
 int main(int argc, char ** argv)
@@ -139,11 +139,20 @@ int main(int argc, char ** argv)
   TH1D * h_pcmT_epp = new TH1D("pcmT_epp","pcmT_epp",25,0.0,0.75);
   TH1D * h_pcmyP_epp = new TH1D("pcmyP_epp","pcmyP_epp",25,-0.55,0.55);
 
+
+  h_pcmx_epp->Sumw2();
+  h_pcmy_epp->Sumw2();
+  h_pcmz_epp->Sumw2();
+  h_pcmT_epp->Sumw2();
+  h_pcmyP_epp->Sumw2();
+
   TH1D * h_pcmx_epp_SRC_Q2[bQ2];
   TH1D * h_pcmy_epp_SRC_Q2[bQ2];
   TH1D * h_pcmz_epp_SRC_Q2[bQ2];
   TH1D * h_pcmT_epp_SRC_Q2[bQ2];
   TH1D * h_pcmyP_epp_SRC_Q2[bQ2];
+
+
   for(int i=0; i<(bQ2); i++){
     sprintf(temp_title,"%f - %f",bE_Q2[i],bE_Q2[i+1]);
 
@@ -161,6 +170,12 @@ int main(int argc, char ** argv)
 
     sprintf(temp_name,"h_pcmyP_epp_SRC_Q2_%d",i);
     h_pcmyP_epp_SRC_Q2[i] = new TH1D(temp_name,temp_title,15,-0.55,0.55);
+
+    h_pcmx_epp_SRC_Q2[i]->Sumw2();
+    h_pcmy_epp_SRC_Q2[i]->Sumw2();
+    h_pcmz_epp_SRC_Q2[i]->Sumw2();
+    h_pcmT_epp_SRC_Q2[i]->Sumw2();
+    h_pcmyP_epp_SRC_Q2[i]->Sumw2();
   }
 
 
@@ -200,6 +215,12 @@ int main(int argc, char ** argv)
     sprintf(temp_name,"h_pcmyP_epp_simSCM_%d",j);
     h_pcmyP_epp_simSCM[j] = new TH1D(temp_name,"pcmyP_epp",25,-0.55,0.55);
 
+    h_pcmx_epp_simSCM[j]->Sumw2();
+    h_pcmy_epp_simSCM[j]->Sumw2();
+    h_pcmz_epp_simSCM[j]->Sumw2();
+    h_pcmT_epp_simSCM[j]->Sumw2();
+    h_pcmyP_epp_simSCM[j]->Sumw2();
+
     for(int i=0; i<(bQ2); i++){
       int sCM= ((double)j/(double)linbin)*(max_sigma-min_sigma) + min_sigma;
       sprintf(temp_title,"sCM=%f %f - %f",sCM,bE_Q2[i],bE_Q2[i+1]);
@@ -218,6 +239,12 @@ int main(int argc, char ** argv)
 
       sprintf(temp_name,"h_pcmyP_epp_SRC_simSCM_Q2_%d_%d",j,i);
       h_pcmyP_epp_SRC_simSCM_Q2[j][i] = new TH1D(temp_name,temp_title,15,-0.55,0.55);
+
+      h_pcmx_epp_SRC_simSCM_Q2[j][i]->Sumw2();
+      h_pcmy_epp_SRC_simSCM_Q2[j][i]->Sumw2();
+      h_pcmz_epp_SRC_simSCM_Q2[j][i]->Sumw2();
+      h_pcmT_epp_SRC_simSCM_Q2[j][i]->Sumw2();
+      h_pcmyP_epp_SRC_simSCM_Q2[j][i]->Sumw2();
     }
   }
 

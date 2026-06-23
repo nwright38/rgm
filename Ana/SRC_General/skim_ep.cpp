@@ -86,9 +86,10 @@ int main(int argc, char ** argv)
   while(chain.Next())
     {
       counter++;
-      if((counter % 1000000) == 0){
-	cerr << "\n" << counter/1000000 << " million completed";
+      if((counter % 100000) == 0){
+	cerr << "\n" << counter << " completed";
       }
+      if(counter > 1000000) break;
   //     if((counter % 100000) == 0){
 	// cerr << ".";
   //     }

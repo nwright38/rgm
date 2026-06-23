@@ -44,7 +44,7 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.050;
-const double max_sigma = 0.250;
+const double max_sigma = 0.25;
 //////////////////////////////////
 
 const double c = 29.9792458;
@@ -76,10 +76,20 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
 void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scale, double & min_chi2);
 void getValue(TGraph * thisGraph,double min_sigma, double max_sigma, double & chi2NDF, double & center, double & lower, double & upper);
 int getMinBin(double sigma){
+  // double bin_double = (double)linbin*(sigma-min_sigma)/(max_sigma-min_sigma);
+  // int bin_truncated = bin_double;
+  // if(bin_double-bin_truncated<0.5){return bin_truncated;}
+  // return bin_truncated+1;
+
   double bin_double = (double)linbin*(sigma-min_sigma)/(max_sigma-min_sigma);
   int bin_truncated = bin_double;
-  if(bin_double-bin_truncated<0.5){return bin_truncated;}
-  return bin_truncated+1;
+  int result;
+  if(bin_double - bin_truncated < 0.5){ result = bin_truncated; }
+  else { result = bin_truncated + 1; }
+  // Clamp to valid range
+  if(result < 0) result = 0;
+  if(result >= linbin) result = linbin - 1;
+  return result;
 }
 
 void Usage()
@@ -101,7 +111,7 @@ int main(int argc, char ** argv)
   cout<<"Ouput file "<< outFile <<endl;
   cout<<"Ouput PDF file "<< pdfFile <<endl;
   int intcutRange = atoi(argv[3]);
-  double cutRange = (double)intcutRange/100.0;
+  double cutRange = (double)intcutRange/100.0; // 
   TFile * inFile = new TFile(argv[4]);
 
   
@@ -301,7 +311,7 @@ int main(int argc, char ** argv)
     
     for(int i=0; i<(bQ2); i++){
       double chi2_x, chi2_y, chi2_z, chi2_T, scale_x, scale_y, scale_z, scale_T;
-      /*
+      
       getChi2(h_pcmx_epp_SRC_Q2[i],h_pcmx_epp_SRC_simSCM_Q2[j][i],-0.2,0.2,scale_x,chi2_x);
       h_pcmx_epp_SRC_simSCM_Q2_scale[j][i]=scale_x;
       g_chi2_pcmx_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmx_epp_SRC_Q2[i]->GetN(),sCM,chi2_x);
@@ -316,7 +326,7 @@ int main(int argc, char ** argv)
       h_pcmz_epp_SRC_simSCM_Q2_scale[j][i]=scale_z;
       g_chi2_pcmz_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmz_epp_SRC_Q2[i]->GetN(),sCM,chi2_z);
       g_scale_pcmz_epp_SRC_Q2[i]->SetPoint(g_scale_pcmz_epp_SRC_Q2[i]->GetN(),sCM,scale_z);
-      */
+      
       getChi2(h_pcmT_epp_SRC_Q2[i],h_pcmT_epp_SRC_simSCM_Q2[j][i],0.0,cutRange,scale_T,chi2_T);
       h_pcmT_epp_SRC_simSCM_Q2_scale[j][i]=scale_T;      
       g_chi2_pcmT_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmT_epp_SRC_Q2[i]->GetN(),sCM,chi2_T);
@@ -330,33 +340,44 @@ int main(int argc, char ** argv)
   TGraphAsymmErrors * g_sigmacmx_int = new TGraphAsymmErrors;
   g_sigmacmx_int->SetName("sigmacmx_int");
   g_sigmacmx_int->SetPoint(g_sigmacmx_int->GetN(),1.0,pcmx_cent_int);
-  g_sigmacmx_int->SetPointError(g_sigmacmx_int->GetN()-1,0.0,2.0,pcmx_lower_err_int,pcmx_upper_err_int);
+  g_sigmacmx_int->SetPointError(g_sigmacmx_int->GetN()-1,0.0,2.0,pcmx_cent_int-pcmx_lower_err_int,pcmx_upper_err_int-pcmx_cent_int);
 
   double pcmy_chiNDF_int, pcmy_cent_int, pcmy_lower_err_int, pcmy_upper_err_int;
   getValue(g_chi2_pcmy_epp,min_sigma,max_sigma,pcmy_chiNDF_int,pcmy_cent_int,pcmy_lower_err_int,pcmy_upper_err_int);  
   TGraphAsymmErrors * g_sigmacmy_int = new TGraphAsymmErrors;
   g_sigmacmy_int->SetName("sigmacmy_int");
   g_sigmacmy_int->SetPoint(g_sigmacmy_int->GetN(),1.0,pcmy_cent_int);
-  g_sigmacmy_int->SetPointError(g_sigmacmy_int->GetN()-1,0.0,2.0,pcmy_lower_err_int,pcmy_upper_err_int);
+  g_sigmacmy_int->SetPointError(g_sigmacmy_int->GetN()-1,0.0,2.0,pcmy_cent_int-pcmy_lower_err_int,pcmy_upper_err_int-pcmy_cent_int);
 
   double pcmz_chiNDF_int, pcmz_cent_int, pcmz_lower_err_int, pcmz_upper_err_int;
   getValue(g_chi2_pcmz_epp,min_sigma,max_sigma,pcmz_chiNDF_int,pcmz_cent_int,pcmz_lower_err_int,pcmz_upper_err_int);  
   TGraphAsymmErrors * g_sigmacmz_int = new TGraphAsymmErrors;
   g_sigmacmz_int->SetName("sigmacmz_int");
   g_sigmacmz_int->SetPoint(g_sigmacmz_int->GetN(),1.0,pcmz_cent_int);
-  g_sigmacmz_int->SetPointError(g_sigmacmz_int->GetN()-1,0.0,2.0,pcmz_lower_err_int,pcmz_upper_err_int);
+  g_sigmacmz_int->SetPointError(g_sigmacmz_int->GetN()-1,0.0,2.0,pcmz_cent_int-pcmz_lower_err_int,pcmz_upper_err_int-pcmz_cent_int);
 
   double pcmT_chiNDF_int, pcmT_cent_int, pcmT_lower_err_int, pcmT_upper_err_int;
   getValue(g_chi2_pcmT_epp,min_sigma,max_sigma,pcmT_chiNDF_int,pcmT_cent_int,pcmT_lower_err_int,pcmT_upper_err_int);  
   TGraphAsymmErrors * g_sigmacmT_int = new TGraphAsymmErrors;
   g_sigmacmT_int->SetName("sigmacmT_int");
   g_sigmacmT_int->SetPoint(g_sigmacmT_int->GetN(),1.0,pcmT_cent_int);
-  g_sigmacmT_int->SetPointError(g_sigmacmT_int->GetN()-1,0.0,2.0,pcmT_lower_err_int,pcmT_upper_err_int);
+  g_sigmacmT_int->SetPointError(g_sigmacmT_int->GetN()-1,0.0,2.0,pcmT_cent_int-pcmT_lower_err_int,pcmT_upper_err_int-pcmT_cent_int);
   
   ////For Q2 bins///
   TGraphAsymmErrors * g_sigmacmT_Q2 = new TGraphAsymmErrors;
+  TGraphAsymmErrors * g_sigmacmx_Q2 = new TGraphAsymmErrors;
+  TGraphAsymmErrors * g_sigmacmy_Q2 = new TGraphAsymmErrors;
+  TGraphAsymmErrors * g_sigmacmz_Q2 = new TGraphAsymmErrors;
+
+
   g_sigmacmT_Q2->SetName("sigmacmT_Q2");
+  g_sigmacmx_Q2->SetName("sigmacmx_Q2");
+  g_sigmacmy_Q2->SetName("sigmacmy_Q2");
+  g_sigmacmz_Q2->SetName("sigmacmz_Q2");
   double pcmT_cent_Q2bin[bQ2];
+  double pcmx_cent_Q2bin[bQ2];
+  double pcmy_cent_Q2bin[bQ2];
+  double pcmz_cent_Q2bin[bQ2];
   for(int i=0; i<(bQ2); i++){    
     double thisQ2_center = h_Q2[i]->GetMean();
     double thisQ2_lower = thisQ2_center - bE_Q2[i];
@@ -367,6 +388,25 @@ int main(int argc, char ** argv)
     pcmT_cent_Q2bin[i]=pcmT_cent;
     g_sigmacmT_Q2->SetPoint(g_sigmacmT_Q2->GetN(),thisQ2_center,pcmT_cent);
     g_sigmacmT_Q2->SetPointError(g_sigmacmT_Q2->GetN()-1,thisQ2_lower,thisQ2_upper,pcmT_cent-pcmT_lower_err,pcmT_upper_err-pcmT_cent);
+ 
+    double pcmx_chiNDF, pcmx_cent, pcmx_lower_err, pcmx_upper_err;
+    getValue(g_chi2_pcmx_epp_SRC_Q2[i],min_sigma,max_sigma,pcmx_chiNDF,pcmx_cent,pcmx_lower_err,pcmx_upper_err);      
+    pcmx_cent_Q2bin[i]=pcmx_cent;
+    g_sigmacmx_Q2->SetPoint(g_sigmacmx_Q2->GetN(),thisQ2_center,pcmx_cent);
+    g_sigmacmx_Q2->SetPointError(g_sigmacmx_Q2->GetN()-1,thisQ2_lower,thisQ2_upper,pcmx_cent-pcmx_lower_err,pcmx_upper_err-pcmx_cent);
+
+    double pcmy_chiNDF, pcmy_cent, pcmy_lower_err, pcmy_upper_err;
+    getValue(g_chi2_pcmy_epp_SRC_Q2[i],min_sigma,max_sigma,pcmy_chiNDF,pcmy_cent,pcmy_lower_err,pcmy_upper_err);      
+    pcmy_cent_Q2bin[i]=pcmy_cent;
+    g_sigmacmy_Q2->SetPoint(g_sigmacmy_Q2->GetN(),thisQ2_center,pcmy_cent);
+    g_sigmacmy_Q2->SetPointError(g_sigmacmy_Q2->GetN()-1,thisQ2_lower,thisQ2_upper,pcmy_cent-pcmy_lower_err,pcmy_upper_err-pcmy_cent);    
+
+    double pcmz_chiNDF, pcmz_cent, pcmz_lower_err, pcmz_upper_err;
+    getValue(g_chi2_pcmz_epp_SRC_Q2[i],min_sigma,max_sigma,pcmz_chiNDF,pcmz_cent,pcmz_lower_err,pcmz_upper_err);
+    pcmz_cent_Q2bin[i]=pcmz_cent;
+    g_sigmacmz_Q2->SetPoint(g_sigmacmz_Q2->GetN(),thisQ2_center,pcmz_cent);
+    g_sigmacmz_Q2->SetPointError(g_sigmacmz_Q2->GetN()-1,thisQ2_lower,thisQ2_upper,pcmz_cent-pcmz_lower_err,pcmz_upper_err-pcmz_cent);
+ 
   }
 
   
@@ -402,7 +442,9 @@ int main(int argc, char ** argv)
   g_sigmacmT_int->Write();
 
   g_sigmacmT_Q2->Write();
-  
+  g_sigmacmx_Q2->Write();
+  g_sigmacmy_Q2->Write();
+  g_sigmacmz_Q2->Write();
   int pixelx = 1980;
   int pixely = 1530;
   TCanvas * myCanvas = new TCanvas("myPage","myPage",pixelx,pixely);
@@ -415,62 +457,271 @@ int main(int argc, char ** argv)
   myText->SaveAs(fileName);
   sprintf(fileName,"%s",pdfFile);
 
-  
+  // helper lambda: write a named canvas snapshot to the ROOT file
+  // (data hist already drawn on myCanvas; clone it into a dedicated TCanvas)
+  auto writeCanvas = [&](const char* cname, const char* ctitle){
+    f->cd();
+    TCanvas * cOut = new TCanvas(cname, ctitle, pixelx, pixely);
+    myCanvas->DrawClonePad();
+    cOut->Write();
+    delete cOut;
+    f->cd();
+  };
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_chi2_pcmx_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_chi2_pcmx_epp","chi2 vs sigma - pcmX integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_scale_pcmx_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_scale_pcmx_epp","scale vs sigma - pcmX integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  h_pcmx_epp->Draw();
+  {
+    int thisbin=getMinBin(pcmx_cent_int);
+    double scale = h_pcmx_epp_simSCM_scale[thisbin];
+    h_pcmx_epp_simSCM[thisbin]->SetLineColor(2);
+    h_pcmx_epp_simSCM[thisbin]->Scale(scale);
+    h_pcmx_epp_simSCM[thisbin]->Draw("SAME");
+  }
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_overlay_pcmx_epp","data+sim overlay - pcmX integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_chi2_pcmy_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_chi2_pcmy_epp","chi2 vs sigma - pcmY integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_scale_pcmy_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_scale_pcmy_epp","scale vs sigma - pcmY integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  h_pcmy_epp->Draw();
+  {
+    int thisbin=getMinBin(pcmy_cent_int);
+    double scale = h_pcmy_epp_simSCM_scale[thisbin];
+    h_pcmy_epp_simSCM[thisbin]->SetLineColor(2);
+    h_pcmy_epp_simSCM[thisbin]->Scale(scale);
+    h_pcmy_epp_simSCM[thisbin]->Draw("SAME");
+  }
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_overlay_pcmy_epp","data+sim overlay - pcmY integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_chi2_pcmz_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_chi2_pcmz_epp","chi2 vs sigma - pcmZ integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_scale_pcmz_epp->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_scale_pcmz_epp","scale vs sigma - pcmZ integrated");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  h_pcmz_epp->Draw();
+  {
+    int thisbin=getMinBin(pcmz_cent_int);
+    double scale = h_pcmz_epp_simSCM_scale[thisbin];
+    h_pcmz_epp_simSCM[thisbin]->SetLineColor(2);
+    h_pcmz_epp_simSCM[thisbin]->Scale(scale);
+    h_pcmz_epp_simSCM[thisbin]->Draw("SAME");
+  }
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_overlay_pcmz_epp","data+sim overlay - pcmZ integrated");
+  myCanvas->Clear();  
+
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_chi2_pcmT_epp->Draw();
   myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_chi2_pcmT_epp","chi2 vs sigma - pcmT integrated");
   myCanvas->Clear();  
   
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_scale_pcmT_epp->Draw();
   myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_scale_pcmT_epp","scale vs sigma - pcmT integrated");
   myCanvas->Clear();  
   
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   h_pcmT_epp->Draw();
-  int thisbin=getMinBin(pcmT_cent_int);
-  double scale = h_pcmT_epp_simSCM_scale[thisbin];
-  h_pcmT_epp_simSCM[thisbin]->SetLineColor(2);
-  h_pcmT_epp_simSCM[thisbin]->Scale(scale);
-  h_pcmT_epp_simSCM[thisbin]->Draw("SAME");
+  {
+    int thisbin=getMinBin(pcmT_cent_int);
+    double scale = h_pcmT_epp_simSCM_scale[thisbin];
+    h_pcmT_epp_simSCM[thisbin]->SetLineColor(2);
+    h_pcmT_epp_simSCM[thisbin]->Scale(scale);
+    h_pcmT_epp_simSCM[thisbin]->Draw("SAME");
+  }
   myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_overlay_pcmT_epp","data+sim overlay - pcmT integrated");
   myCanvas->Clear();  
 
   //////////////////////////////////////
   
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
+  g_sigmacmx_Q2->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_sigmacmx_Q2","sigma_cmx vs Q2");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_sigmacmy_Q2->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_sigmacmy_Q2","sigma_cmy vs Q2");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
+  g_sigmacmz_Q2->Draw();
+  myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_sigmacmz_Q2","sigma_cmz vs Q2");
+  myCanvas->Clear();  
+
+  myCanvas->Divide(1,1);
+  myCanvas->cd(1);    
   g_sigmacmT_Q2->Draw();
   myCanvas->Print(fileName,"pdf");
+  writeCanvas("c_sigmacmT_Q2","sigma_cmT vs Q2");
   myCanvas->Clear();  
 
   for(int i=0; i<(bQ2); i++){    
 
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
+    g_chi2_pcmx_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_chi2_pcmx_Q2_%d",i),Form("chi2 pcmX Q2bin=%d",i));
+    myCanvas->Clear();  
+  
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    g_scale_pcmx_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_scale_pcmx_Q2_%d",i),Form("scale pcmX Q2bin=%d",i));
+    myCanvas->Clear();  
+    
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    h_pcmx_epp_SRC_Q2[i]->Draw();
+    {
+      int thisbin=getMinBin(pcmx_cent_Q2bin[i]);
+      double scale = h_pcmx_epp_SRC_simSCM_Q2_scale[thisbin][i];
+      h_pcmx_epp_SRC_simSCM_Q2[thisbin][i]->SetLineColor(2);
+      h_pcmx_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
+      h_pcmx_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
+    }
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_overlay_pcmx_Q2_%d",i),Form("data+sim pcmX Q2bin=%d",i));
+    myCanvas->Clear();  
+
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    g_chi2_pcmy_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_chi2_pcmy_Q2_%d",i),Form("chi2 pcmY Q2bin=%d",i));
+    myCanvas->Clear();  
+  
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    g_scale_pcmy_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_scale_pcmy_Q2_%d",i),Form("scale pcmY Q2bin=%d",i));
+    myCanvas->Clear();  
+    
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    h_pcmy_epp_SRC_Q2[i]->Draw();
+    {
+      int thisbin=getMinBin(pcmy_cent_Q2bin[i]);
+      double scale = h_pcmy_epp_SRC_simSCM_Q2_scale[thisbin][i];
+      h_pcmy_epp_SRC_simSCM_Q2[thisbin][i]->SetLineColor(2);
+      h_pcmy_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
+      h_pcmy_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
+    }
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_overlay_pcmy_Q2_%d",i),Form("data+sim pcmY Q2bin=%d",i));
+    myCanvas->Clear();  
+
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    g_chi2_pcmz_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_chi2_pcmz_Q2_%d",i),Form("chi2 pcmZ Q2bin=%d",i));
+    myCanvas->Clear();  
+  
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    g_scale_pcmz_epp_SRC_Q2[i]->Draw();
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_scale_pcmz_Q2_%d",i),Form("scale pcmZ Q2bin=%d",i));
+    myCanvas->Clear();  
+    
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
+    h_pcmz_epp_SRC_Q2[i]->Draw();
+    {
+      int thisbin=getMinBin(pcmz_cent_Q2bin[i]);
+      double scale = h_pcmz_epp_SRC_simSCM_Q2_scale[thisbin][i];
+      h_pcmz_epp_SRC_simSCM_Q2[thisbin][i]->SetLineColor(2);
+      h_pcmz_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
+      h_pcmz_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
+    }
+    myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_overlay_pcmz_Q2_%d",i),Form("data+sim pcmZ Q2bin=%d",i));
+    myCanvas->Clear();  
+
+    myCanvas->Divide(1,1);
+    myCanvas->cd(1);    
     g_chi2_pcmT_epp_SRC_Q2[i]->Draw();
     myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_chi2_pcmT_Q2_%d",i),Form("chi2 pcmT Q2bin=%d",i));
     myCanvas->Clear();  
   
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_scale_pcmT_epp_SRC_Q2[i]->Draw();
     myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_scale_pcmT_Q2_%d",i),Form("scale pcmT Q2bin=%d",i));
     myCanvas->Clear();  
     
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     h_pcmT_epp_SRC_Q2[i]->Draw();
-    int thisbin=getMinBin(pcmT_cent_Q2bin[i]);
-    double scale = h_pcmT_epp_SRC_simSCM_Q2_scale[thisbin][i];
-    h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->SetLineColor(2);
-    h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
-    h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
-    
+    {
+      int thisbin=getMinBin(pcmT_cent_Q2bin[i]);
+      double scale = h_pcmT_epp_SRC_simSCM_Q2_scale[thisbin][i];
+      h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->SetLineColor(2);
+      h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
+      h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
+    }
     myCanvas->Print(fileName,"pdf");
+    writeCanvas(Form("c_overlay_pcmT_Q2_%d",i),Form("data+sim pcmT Q2bin=%d",i));
     myCanvas->Clear();  
   }
   
@@ -635,12 +886,15 @@ void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scal
       double ob_err = h_d->GetBinError(j);
       double ex = h_s_clone->GetBinContent(j);
       double ex_err = h_s_clone->GetBinError(j);
-      double chi2_point = 0.5 * sq(ob - ex) / sq(ob_err + ex_err);   
+   //   double chi2_point = 0.5 * sq(ob - ex) / sq(ob_err + ex_err);   
+      double chi2_point = sq(ob - ex) / (sq(ob_err) + sq(ex_err));
+
       chi2+=chi2_point;
     }
     if(chi2<min_chi2){
       final_scale=scale;
-      min_chi2=chi2;}
+      min_chi2=chi2;
+    }
   }
   //double NDF = h_d->FindBin(max)+1-h_d->FindBin(min);
   //cout<<NDF<<endl;
@@ -769,6 +1023,8 @@ void getGraph(TFile *f, TCanvas * myCanvas, char fileName[100], string objectNam
   g_sigma->Write();
   
 }
+
+
 
 void getValue(TGraph * thisGraph,double min_sigma, double max_sigma, double & chi2NDF, double & center, double & lower, double & upper){
   double center_int_y = 10000000000;
