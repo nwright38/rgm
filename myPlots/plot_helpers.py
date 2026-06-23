@@ -1,37 +1,39 @@
 """
 plot_helpers.py
 
-Higher-level plotting building blocks layered on top of plotTOOL (pto).
+Higher-level plotting building blocks layered on top of graph_io (ROOT I/O)
+and plot_primitives (matplotlib drawing). Replaces the previous version of
+this file, which called into plotTOOL.py's TGraph-name-based functions
+directly; now every Series knows the (task_name, selection, axis_bin) triple
+that names its graph (see graph_names.py), and plot_helpers reads, scales,
+and draws plain (x, y, yerr) lists.
 
-The original analysis script repeated the same matplotlib scaffolding many
-times: single-axis overlays, 4x2 / 4x1 E_miss panels, and 2x2 Q^2 panels,
-each with the same loop of pto.plotTGE* calls. These helpers capture that
-scaffolding once.
-
-A `Series` describes one thing to draw (data histogram, a simulation line, or
-a scaled+offset data marker set). The same Series objects can be reused across
-every figure, which is what makes the driver script short.
-
-This module deliberately avoids dataclasses / f-strings so it stays compatible
-with the Python 2-style `from __future__ import division` header the original
-used; it works unchanged on Python 3.
+A `Series` describes one thing to draw (a data histogram, a simulation
+line, or a scaled+offset data marker set). The same Series objects can be
+reused across every figure, which is what keeps driver scripts short.
 """
 
 from __future__ import division
 import matplotlib.pyplot as plt
-import plotTOOL as pto
+
+import graph_io
+import graph_names
+import plot_primitives as pp
+import ratio
 
 
 class Series(object):
     """One drawable element of a figure.
 
     kind:
-        'data'    -> pto.plotTGEStep   (unscaled reference histogram)
-        'sim'     -> pto.plotTGELine   (scaled simulation curve)
-        'data_ex' -> pto.plotTGEStepEx (scaled data with x-offset + marker)
+        'data'    -> step + error bars   (unscaled reference histogram)
+        'sim'     -> line + shaded band  (scaled simulation curve)
+        'data_ex' -> scaled marker set with an x-offset (other nuclei)
 
     scale_ep / scale_epp let the same Series carry the (e,e'p) and (e,e'pp)
-    normalisation factors; `draw` picks the right one based on the channel.
+    normalization factors; draw() picks the right one based on `selection`.
+    Graphs whose selection is 'ratio' (already a ratio quantity, e.g.
+    pMiss_epp_over_pMiss_ep) are never scaled, regardless of these values.
     `offset` is a base x-offset; figures can shrink it via offset_scale.
     """
 
@@ -47,35 +49,63 @@ class Series(object):
         self.marker = marker
 
 
-def _scale_for(series, channel, unit_scale):
-    if unit_scale:
-        return 1
-    return series.scale_ep if channel == 'ep' else series.scale_epp
+def _scale_for(series, selection):
+    if selection == 'ratio':
+        return 1.0
+    return series.scale_ep if selection == 'ep' else series.scale_epp
 
 
-def draw(ax, series, hist, channel='epp', offset_scale=1.0, unit_scale=False):
-    """Draw a single Series onto an axis for the given histogram/channel.
+def get_xy_err(series, task_name, selection, axis_bin=(), offset_scale=1.0,
+               integrated=False, pattern=None):
+    """Reads, scales, and x-shifts one Series' graph. Returns (x, y, yerr).
 
-    unit_scale=True forces the normalisation to 1, used for ratio histograms
-    (e.g. pMiss_epp) where no scaling should be applied.
+    Set integrated=True and pass `pattern` to read from the integrated
+    table's graphs instead of the differential ones.
     """
+    if integrated:
+        name = graph_names.integrated_graph_name(task_name, selection, pattern)
+    else:
+        name = graph_names.diff_graph_name(task_name, selection, list(axis_bin))
+
+    x, y, yerr = graph_io.read_graph(series.file, name)
+    scale = _scale_for(series, selection)
+    shift = series.offset * offset_scale
+
+    x = [xi + shift for xi in x]
+    y = [yi * scale for yi in y]
+    yerr = [ei * scale for ei in yerr]
+    return x, y, yerr
+
+
+def draw(ax, series, task_name, selection, axis_bin=(), offset_scale=1.0,
+         integrated=False, pattern=None, q2_panel=False):
+    """Draws one Series onto an axis for the given (task_name, selection,
+    axis_bin) graph. q2_panel=True uses the wide-step/band padding used by
+    the vs-Q^2 panels (matches the old plotTGEStepQ2/plotTGELineQ2 look)."""
+    x, y, yerr = get_xy_err(series, task_name, selection, axis_bin,
+                            offset_scale, integrated, pattern)
+
     if series.kind == 'data':
-        pto.plotTGEStep(ax, series.file, hist, series.color)
+        if q2_panel:
+            pp.step_with_error_q2(ax, x, y, yerr, series.color)
+        else:
+            pp.step_with_error(ax, x, y, yerr, series.color)
     elif series.kind == 'sim':
-        scale = _scale_for(series, channel, unit_scale)
-        pto.plotTGELine(ax, series.file, hist, series.color, scale)
+        if q2_panel:
+            pp.line_with_band_q2(ax, x, y, yerr, series.color)
+        else:
+            pp.line_with_band(ax, x, y, yerr, series.color)
     elif series.kind == 'data_ex':
-        scale = _scale_for(series, channel, unit_scale)
-        pto.plotTGEStepEx(ax, series.file, hist, series.color,
-                          scale, series.offset * offset_scale, series.marker)
+        pp.errorbar_marker(ax, x, y, yerr, series.color, series.marker)
     else:
         raise ValueError("Unknown Series kind: %r" % series.kind)
+
+    return x, y, yerr
 
 
 def annotate(ax, items):
     """Place text labels. Each item is a dict with keys:
-    x, y, text, and optional color, fontsize, bbox.
-    """
+    x, y, text, and optional color, fontsize, bbox."""
     for it in (items or []):
         ax.text(it['x'], it['y'], it['text'],
                 color=it.get('color', 'black'),
@@ -83,32 +113,84 @@ def annotate(ax, items):
                 bbox=it.get('bbox'))
 
 
-def plot_overlay(pdf, hist, series, xlabel, ylabel, xlim, ylim,
-                 annotations=None, channel='epp',
-                 offset_scale=1.0, unit_scale=False,
+def _draw_ratio_panel(ax_ratio, ref_xy, series_list, task_name, selection,
+                      axis_bin, offset_scale, integrated, pattern):
+    """Draws data/sim for each 'sim'-kind Series in series_list against the
+    reference (data) series' (x, y, yerr), already read by the caller."""
+    ref_x, ref_y, ref_err = ref_xy
+    for s in series_list:
+        if s.kind != 'sim':
+            continue
+        sim_x, sim_y, sim_err = get_xy_err(s, task_name, selection, axis_bin,
+                                           offset_scale, integrated, pattern)
+        if sim_x != ref_x:
+            raise ValueError(
+                "Cannot build a ratio panel: data and sim graphs for "
+                "task '%s' have different binning (%d vs %d points). They "
+                "should come from the same FillTask definition run over "
+                "different input files." % (task_name, len(ref_x), len(sim_x)))
+        r, e = ratio.ratio_series_with_error(ref_y, ref_err, sim_y, sim_err)
+        ax_ratio.errorbar(ref_x, r, e, color=s.color, linestyle='', marker='o',
+                          markersize=3)
+    ax_ratio.axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+    ax_ratio.set_ylabel('data/sim', fontsize=10)
+
+
+def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
+                 selection='epp', axis_bin=(), annotations=None,
+                 offset_scale=1.0, with_ratio=True, ratio_ylim=(0.5, 1.5),
                  xlabel_size=15, ylabel_size=15):
-    """Single-axis figure with any number of overlaid Series."""
-    fig, ax = plt.subplots(1, 1)
-    ax.set_xlabel(xlabel, fontsize=xlabel_size)
+    """Single-axis figure with any number of overlaid Series, plus an
+    optional ratio subpanel (data/sim) underneath.
+
+    with_ratio is on by default for any figure that has both a 'data' and
+    at least one 'sim' Series; set it False for ratio-quantity plots (where
+    a second ratio-of-a-ratio panel wouldn't mean anything) or A-dependence
+    plots that have no single simulation reference.
+    """
+    has_data = any(s.kind == 'data' for s in series)
+    has_sim = any(s.kind == 'sim' for s in series)
+    show_ratio = with_ratio and has_data and has_sim
+
+    if show_ratio:
+        fig, (ax, ax_ratio) = plt.subplots(
+            2, 1, sharex=True, gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05})
+    else:
+        fig, ax = plt.subplots(1, 1)
+        ax_ratio = None
+
     ax.set_ylabel(ylabel, fontsize=ylabel_size)
-    fig.tight_layout()
     ax.set_xlim(*xlim)
     ax.set_ylim(*ylim)
+
+    ref_xy = None
     for s in series:
-        draw(ax, s, hist, channel,
-             offset_scale=offset_scale, unit_scale=unit_scale)
+        x, y, yerr = draw(ax, s, task_name, selection, axis_bin, offset_scale)
+        if s.kind == 'data':
+            ref_xy = (x, y, yerr)
     annotate(ax, annotations)
+
+    if show_ratio:
+        _draw_ratio_panel(ax_ratio, ref_xy, series, task_name, selection,
+                          axis_bin, offset_scale, integrated=False, pattern=None)
+        ax_ratio.set_xlabel(xlabel, fontsize=xlabel_size)
+        ax_ratio.set_xlim(*xlim)
+        ax_ratio.set_ylim(*ratio_ylim)
+    else:
+        ax.set_xlabel(xlabel, fontsize=xlabel_size)
+
+    fig.tight_layout()
     pdf.savefig(fig)
     return fig
 
 
-def plot_emiss_4x2(pdf, series, var_label, hist_ep_prefix, hist_epp_prefix,
+def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
                    ylim_ep, ylim_epp, labely_ep, labely_epp, pmiss_labels,
                    xlim=(-0.15, 0.4), offset_scale=1.0):
-    """4-row x 2-col E_miss panel: (e,e'p) on the left, (e,e'pp) on the right,
-    one pmiss bin per row. Each Series in `series` is drawn in every panel.
-    Histogram names are built as '<prefix>_<bin>' for bin = 1..4.
-    """
+    """4-row x 2-col E_miss panel: (e,e'p) on the left, (e,e'pp) on the
+    right, one pMiss bin per row. task_ep/task_epp are the FillTask names
+    (e.g. 'E1miss_ep_SRC_pmiss' / 'E1miss_epp_SRC_pmiss'); pMiss bin index
+    `r` (0..3) is passed as axis_bin=[r] when reading each graph."""
     fig, ax = plt.subplots(4, 2, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=False)
     for r in range(4):
@@ -125,19 +207,17 @@ def plot_emiss_4x2(pdf, series, var_label, hist_ep_prefix, hist_epp_prefix,
     ax[0, 0].set_title(r'$(e,e^{\prime}p)$', fontsize=15)
     ax[0, 1].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
     for r in range(4):
-        hep = '{0}_{1}'.format(hist_ep_prefix, r + 1)
-        hepp = '{0}_{1}'.format(hist_epp_prefix, r + 1)
         for s in series:
-            draw(ax[r, 0], s, hep, 'ep', offset_scale=offset_scale)
-            draw(ax[r, 1], s, hepp, 'epp', offset_scale=offset_scale)
+            draw(ax[r, 0], s, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
+            draw(ax[r, 1], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
     pdf.savefig(fig)
     return fig
 
 
-def plot_emiss_4x1(pdf, series, var_label, hist_prefix,
+def plot_emiss_4x1(pdf, series, var_label, task_epp,
                    ylim, labely, pmiss_labels,
                    xlim=(-0.2, 0.4), offset_scale=1.0):
-    """4-row x 1-col (e,e'pp) E_miss panel, one pmiss bin per row."""
+    """4-row x 1-col (e,e'pp) E_miss panel, one pMiss bin per row."""
     fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=False)
     for r in range(4):
@@ -148,41 +228,27 @@ def plot_emiss_4x1(pdf, series, var_label, hist_prefix,
     ax[3].set_xlim(*xlim)
     ax[0].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
     for r in range(4):
-        hist = '{0}_{1}'.format(hist_prefix, r + 1)
         for s in series:
-            draw(ax[r], s, hist, 'epp', offset_scale=offset_scale)
+            draw(ax[r], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
     pdf.savefig(fig)
     return fig
 
 
-def plot_q2_single(pdf, ref, sim, hist, ylabel,
-                   xlim=(1.5, 5.0), ylim=(0.0, 0.34)):
-    """Single quantity vs Q^2: data step + (optional) simulation line."""
-    fig, ax = plt.subplots(1, 1)
-    ax.set_ylabel(ylabel, fontsize=15)
-    ax.set_xlabel(r'$Q^{2} GeV$', fontsize=15)
-    fig.tight_layout()
-    ax.set_xlim(*xlim)
-    ax.set_ylim(*ylim)
-    pto.plotTGEStepQ2(ax, ref.file, hist, ref.color)
-    if sim is not None:
-        pto.plotTGELineQ2(ax, sim.file, hist, sim.color)
-    pdf.savefig(fig)
-    return fig
+def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
+                     pmiss_labels, xlim=(1.5, 5.0), ylim=(0.0, 0.25),
+                     label_xy=(2.3, 0.2), ylabel_size=15,
+                     big_label=None, big_label_xy=(1.7, 0.12), draw_sim=True):
+    """2x2 panel of a ratio quantity (e.g. epp/ep) vs Q^2, one pMiss bin per
+    panel in row-major order (bins 0..3 -> [0,0], [0,1], [1,0], [1,1]).
 
-
-def plot_q2_2x2(pdf, ref, sim, hist_prefix, ylabel, pmiss_labels,
-                xlim=(1.5, 5.0), ylim=(0.0, 0.25),
-                label_xy=(2.3, 0.2), ylabel_size=15,
-                big_label=None, big_label_xy=(1.7, 0.12), draw_sim=True):
-    """2x2 panel vs Q^2, one pmiss bin per panel in row-major order
-    (bins 1..4 -> [0,0], [0,1], [1,0], [1,1]).
-
-    NOTE: the original script placed the pmiss text labels for the [0,1] and
-    [1,0] panels swapped in the g_sigma_* figures (they matched the data only
-    in the h_Q2_epp figure). Labels here always follow the histogram drawn in
-    each panel, which corrects that inconsistency.
+    numerator_task/denominator_task must be a pair registered in
+    Main_Figs_Binned.cpp's ratioSpecs (e.g. 'Q2_epp_SRC_pmiss' /
+    'Q2_ep_SRC_pmiss'), sharing a single selector axis (pMiss) -- axis_bin
+    picks the panel, and Q2 (the value axis of that task) is what ends up
+    on the x-axis, read from the differential ratio graph BuildGraphs.cpp
+    already computed (buildRatioDiffRows in BinnedHistStore.h).
     """
+    ratio_task = numerator_task + '_over_' + denominator_task
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
     ax[0, 0].set_ylabel(ylabel, fontsize=ylabel_size)
@@ -194,11 +260,21 @@ def plot_q2_2x2(pdf, ref, sim, hist_prefix, ylabel, pmiss_labels,
     if big_label is not None:
         ax[0, 0].text(big_label_xy[0], big_label_xy[1], big_label, fontsize=25)
     positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
-    for (r, c), label, b in zip(positions, pmiss_labels, range(1, 5)):
-        hist = '{0}_{1}'.format(hist_prefix, b)
-        pto.plotTGEStepQ2(ax[r, c], ref.file, hist, ref.color)
+    for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
+        draw(ax[r, c], ref, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
         if draw_sim and sim is not None:
-            pto.plotTGELineQ2(ax[r, c], sim.file, hist, sim.color)
+            draw(ax[r, c], sim, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
         ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
     pdf.savefig(fig)
     return fig
+
+
+# NOTE: the old g_sigma_pcmx / g_sigma_E1miss_*_pmiss / g_mean_E1miss_*_pmiss
+# plots (C.M. width vs Q^2, E_miss mean/width vs Q^2) came from Gaussian
+# fits across the 100 toy histograms, not from simple bin sums. That data
+# was deliberately NOT put into diffTable/integratedTable -- only the
+# nominal+toy histograms themselves were persisted (hists/nominal/...,
+# hists/toy_NNN/...) for exactly this purpose. Reproducing those plots needs
+# a separate fit-extraction step (read each toy's histogram, fit, collect
+# mean/sigma across toys) that hasn't been built yet -- intentionally left
+# out of plot_data_vs_sim.py / plot_A_dependence.py rather than faked here.
