@@ -37,6 +37,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <cstdio>
 
 #include <TFile.h>
 #include <TDirectory.h>
@@ -126,6 +127,15 @@ TH1D* getHist(TDirectory* histsDir, const string& label, const string& name) {
   return (TH1D*)d->Get(name.c_str());
 }
 
+// Matches how Main_Figs_Sys_Err.cpp defines Q2_mean[]:
+// Q2_mean[j] = dataGroup.h_Q2_epp_SRC_Q2[j]->GetMean().
+double q2MeanFromNominal(TDirectory* histsDir, int q2Bin) {
+  string hname = histName("nominal", "Q2_epp_SRC_Q2", "", 0, q2Bin);
+  TH1D* h = getHist(histsDir, "nominal", hname);
+  if (!h || h->GetEntries() == 0) return Q2center(q2Bin);
+  return h->GetMean();
+}
+
 enum Method { STDDEV, MEAN, FIT_SIGMA };
 
 // One row per quantity to extract. nAxisBins=1 with axisName="" means "no
@@ -199,8 +209,13 @@ void ExtractFitQuantities(const char* filename) {
   TDirectory* graphsDir = f->GetDirectory("graphs");
   if (!graphsDir) graphsDir = f->mkdir("graphs");
 
+  vector<double> q2x(kNQ2Bins, 0.0);
+  for (int j = 0; j < kNQ2Bins; j++) q2x[j] = q2MeanFromNominal(histsDir, j);
+
   vector<FitSpec> specs = buildSpecs();
   int nWritten = 0;
+  int nSkipped = 0;
+  int nMissing = 0;
 
   for (auto& spec : specs) {
     for (int axisBin = 0; axisBin < spec.nAxisBins; axisBin++) {
@@ -213,26 +228,55 @@ void ExtractFitQuantities(const char* filename) {
       for (int j = 0; j < kNQ2Bins; j++) {
         vector<double> toyVals;
         toyVals.reserve(kNToys);
+        int missingThisPoint = 0;
+        string firstMissing;
         for (int i = 0; i < kNToys; i++) {
           string label = toyLabel(i);
           string hname = histName(label, spec.sourceTask, spec.axisName, axisBin, j);
           TH1D* h = getHist(histsDir, label, hname);
+          if (!h) {
+            missingThisPoint++;
+            if (firstMissing.empty()) firstMissing = label + "/" + hname;
+            continue;
+          }
           toyVals.push_back(extract(spec, h));
+        }
+
+        if (missingThisPoint > 0) {
+          nMissing += missingThisPoint;
+          cerr << "[ExtractFitQuantities] Missing " << missingThisPoint
+               << " toy hist(s) for graph '" << gname << "', Q2 bin " << j
+               << ". Example missing path: hists/" << firstMissing << "\n";
+        }
+
+        // Preserve the original methodology: central value is the mean over
+        // toy-derived quantities and error is the toy spread. If no toy hists
+        // were found for this point, skip it rather than silently writing zero.
+        if (toyVals.empty()) {
+          continue;
         }
         double mean, stddev;
         meanStddev(toyVals, mean, stddev);
         int n = g->GetN();
-        g->SetPoint(n, Q2center(j), mean);
+        g->SetPoint(n, q2x[j], mean);
         g->SetPointError(n, 0.0, stddev);
       }
 
+      if (g->GetN() == 0) {
+        nSkipped++;
+        delete g;
+        continue;
+      }
+
       graphsDir->cd();
-      g->Write();
+      g->Write("", TObject::kOverwrite);
       nWritten++;
     }
   }
 
-  cout << "Wrote " << nWritten << " fit-derived graphs into " << filename << ":/graphs\n";
+  cout << "Wrote " << nWritten << " fit-derived graphs into " << filename << ":/graphs"
+       << " (" << nSkipped << " skipped with no valid points, "
+       << nMissing << " missing toy histogram lookups).\n";
 
   f->cd();
   f->Write("", TObject::kOverwrite);

@@ -133,7 +133,7 @@ def _draw_ratio_panel(ax_ratio, ref_xy, series_list, task_name, selection,
         ax_ratio.errorbar(ref_x, r, e, color=s.color, linestyle='', marker='o',
                           markersize=3)
     ax_ratio.axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
-    ax_ratio.set_ylabel('data/sim', fontsize=10)
+    ax_ratio.set_ylabel('Data/Sim', fontsize=10)
 
 
 def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
@@ -226,8 +226,8 @@ def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
     fig, ax = plt.subplots(4, 2, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=True)
     for r in range(4):
-        ax[r, 0].set_ylabel('data/sim', fontsize=13)
-        ax[r, 1].set_ylabel('data/sim', fontsize=13)
+        ax[r, 0].set_ylabel('Data/Sim', fontsize=13)
+        ax[r, 1].set_ylabel('Data/Sim', fontsize=13)
         ax[r, 0].set_ylim(*ylim)
         ax[r, 1].set_ylim(*ylim)
         ax[r, 0].text(-0.14, labely, pmiss_labels[r], fontsize=9)
@@ -308,7 +308,7 @@ def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
     fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=True)
     for r in range(4):
-        ax[r].set_ylabel('data/sim', fontsize=13)
+        ax[r].set_ylabel('Data/Sim', fontsize=13)
         ax[r].set_ylim(*ylim)
         ax[r].text(-0.14, labely, pmiss_labels[r], fontsize=9)
         ax[r].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
@@ -387,8 +387,8 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
     ratio_task = numerator_task + '_over_' + denominator_task
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
-    ax[0, 0].set_ylabel('data/sim', fontsize=ylabel_size)
-    ax[1, 0].set_ylabel('data/sim', fontsize=ylabel_size)
+    ax[0, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
+    ax[1, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
     ax[1, 0].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[1, 1].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[0, 0].set_xlim(*xlim)
