@@ -444,8 +444,9 @@ int main(int argc, char** argv) {
   }
 
   int ctr = 0;
-  while (chain.Next() && ctr < 100000) {
-    if (ctr % 1000 == 0) cout << "Event " << ctr << endl;
+  int max_ev = 10000000;
+  while (chain.Next() && ctr < max_ev) {
+    if (ctr % 1000 == 0) cout << "Event " << ctr << " of " << max_ev << ". " << '\t' << (double)ctr / max_ev * 100 << "%\r" << flush;
 
     double wep = 1, wepp = 1, original_weight = 1;
     if (isMC) {

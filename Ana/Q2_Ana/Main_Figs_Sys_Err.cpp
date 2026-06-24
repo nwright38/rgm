@@ -242,7 +242,7 @@ int main(int argc, char ** argv)
   }
   
   int ctr = 0;
-  while(chain.Next() && ctr <100000)
+  while(chain.Next() && ctr < 10000000)
     {
 
       if(ctr%1000 == 0){
