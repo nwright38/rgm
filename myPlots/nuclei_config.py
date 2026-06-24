@@ -16,6 +16,8 @@ temporarily missing.
 DATA_DIR = '/work/clas12/users/awild/RGM/CLAS_note/Boston2024/Main/Dec2024/Sys_Err/'
 SIM_DIR = '/work/clas12/users/nwright/RGM/Q2/Sys_Err/rootFiles/'
 
+N_DATA_DIR = '/work/clas12/users/nwright/RGM/Q2/binned/He/'
+
 # The reference nucleus everything else in the A-dependence plots is
 # normalized to.
 REFERENCE_KEY = 'He'
@@ -25,7 +27,7 @@ REFERENCE_KEY = 'He'
 # exactly on top of each other in the overlay plots; 'marker' is the
 # matplotlib marker style.
 NUCLEI = [
-    {'key': 'He',   'label': r'${}^{4}He$',   'file': DATA_DIR + 'Data_He.root',
+    {'key': 'He',   'label': r'${}^{4}He$',   'file': N_DATA_DIR + 'Data_He_hists_6GeV.root',
      'color': 'black',           'marker': None, 'offset': 0.0},
     {'key': 'C',    'label': r'${}^{12}C$',   'file': DATA_DIR + 'Data_C.root',
      'color': 'darkred',         'marker': '<',  'offset': -0.01},
@@ -39,7 +41,7 @@ NUCLEI = [
 
 # One entry per simulation model used in the He data-vs-sim plots.
 SIM_MODELS = [
-    {'key': 'AV18',  'label': 'AV18',         'file': SIM_DIR + 'Sim_He_AV18.root',
+    {'key': 'AV18',  'label': 'AV18',         'file': N_DATA_DIR + 'Sim_He_hists_6GeV.root',
      'color': 'red'},
     {'key': 'AV4',   'label': "AV4'",         'file': SIM_DIR + 'Sim_He_AV4.root',
      'color': 'pink'},
