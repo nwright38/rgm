@@ -15,6 +15,7 @@ reused across every figure, which is what keeps driver scripts short.
 
 from __future__ import division
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 import graph_io
 import graph_names
@@ -47,6 +48,75 @@ class Series(object):
         self.scale_epp = scale_epp
         self.offset = offset
         self.marker = marker
+
+
+def _drop_extreme_ytick(ax, which):
+    """Drops the min or max y tick to avoid overlap across stacked panels."""
+    ticks = list(ax.get_yticks())
+    if len(ticks) <= 2:
+        return
+    if which == 'min':
+        ticks = ticks[1:]
+    elif which == 'max':
+        ticks = ticks[:-1]
+    ax.set_yticks(ticks)
+
+
+def _auto_panel_label(ax, text, fontsize=9, manual_pos=None):
+    """Places a panel label in a low-density corner in axes coordinates.
+
+    manual_pos can be a tuple (x, y) or (x, y, ha, va) in axes coordinates.
+    """
+    if manual_pos is not None:
+        if len(manual_pos) == 2:
+            x, y = manual_pos
+            ha, va = 'left', 'top'
+        else:
+            x, y, ha, va = manual_pos
+        ax.text(x, y, text, transform=ax.transAxes, fontsize=fontsize,
+                ha=ha, va=va)
+        return
+
+    # Candidate corners: (x, y, ha, va)
+    candidates = [
+        (0.04, 0.88, 'left', 'top'),
+        (0.96, 0.88, 'right', 'top'),
+        (0.04, 0.12, 'left', 'bottom'),
+        (0.96, 0.12, 'right', 'bottom'),
+    ]
+
+    # Build point cloud from all Line2D artists already drawn on this axis.
+    points_axes = []
+    for line in ax.lines:
+        xdata = line.get_xdata()
+        ydata = line.get_ydata()
+        for x, y in zip(xdata, ydata):
+            try:
+                xa, ya = ax.transAxes.inverted().transform(ax.transData.transform((x, y)))
+                points_axes.append((xa, ya))
+            except Exception:
+                continue
+
+    # Approximate text box size in axes coordinates; pick least-overlapping corner.
+    box_w = 0.34
+    box_h = 0.14
+    best = candidates[0]
+    best_score = None
+    for x, y, ha, va in candidates:
+        left = x if ha == 'left' else (x - box_w)
+        right = left + box_w
+        bottom = (y - box_h) if va == 'top' else y
+        top = bottom + box_h
+        score = 0
+        for px, py in points_axes:
+            if left <= px <= right and bottom <= py <= top:
+                score += 1
+        if best_score is None or score < best_score:
+            best = (x, y, ha, va)
+            best_score = score
+
+    ax.text(best[0], best[1], text, transform=ax.transAxes, fontsize=fontsize,
+            ha=best[2], va=best[3])
 
 
 def _scale_for(series, selection):
@@ -168,6 +238,7 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
     ax.set_ylabel(ylabel, fontsize=ylabel_size)
     ax.set_xlim(*xlim)
     ax.set_ylim(*ylim)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     ref_xy = None
     for s in series:
@@ -184,6 +255,9 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
         ax_ratio.set_xlabel(xlabel, fontsize=xlabel_size)
         ax_ratio.set_xlim(*xlim)
         ax_ratio.set_ylim(*ratio_ylim)
+        ax_ratio.yaxis.set_major_locator(MaxNLocator(nbins=4))
+        _drop_extreme_ytick(ax, 'min')
+        _drop_extreme_ytick(ax_ratio, 'max')
     else:
         ax.set_xlabel(xlabel, fontsize=xlabel_size)
 
@@ -194,7 +268,8 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
 
 def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
                    ylim_ep, ylim_epp, labely_ep, labely_epp, pmiss_labels,
-                   xlim=(-0.15, 0.4), offset_scale=1.0):
+                   xlim=(-0.15, 0.4), offset_scale=1.0,
+                   label_positions=None):
     """4-row x 2-col E_miss panel: (e,e'p) on the left, (e,e'pp) on the
     right, one pMiss bin per row. task_ep/task_epp are the FillTask names
     (e.g. 'E1miss_ep_SRC_pmiss' / 'E1miss_epp_SRC_pmiss'); pMiss bin index
@@ -206,8 +281,12 @@ def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
         ax[r, 1].set_ylabel('Counts', fontsize=15)
         ax[r, 0].set_ylim(0, ylim_ep[r])
         ax[r, 1].set_ylim(0, ylim_epp[r])
-        ax[r, 0].text(-0.14, labely_ep[r], pmiss_labels[r], fontsize=9)
-        ax[r, 1].text(-0.14, labely_epp[r], pmiss_labels[r], fontsize=9)
+        ax[r, 0].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        ax[r, 1].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual_ep = None if label_positions is None else label_positions.get(('ep', r))
+        manual_epp = None if label_positions is None else label_positions.get(('epp', r))
+        _auto_panel_label(ax[r, 0], pmiss_labels[r], fontsize=9, manual_pos=manual_ep)
+        _auto_panel_label(ax[r, 1], pmiss_labels[r], fontsize=9, manual_pos=manual_epp)
     ax[3, 0].set_xlabel(var_label, fontsize=15)
     ax[3, 1].set_xlabel(var_label, fontsize=15)
     ax[3, 0].set_xlim(*xlim)
@@ -225,7 +304,7 @@ def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
 def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
                               pmiss_labels, xlim=(-0.15, 0.4),
                               ylim=(0.5, 1.5), labely=1.35,
-                              offset_scale=1.0):
+                              offset_scale=1.0, label_positions=None):
     """4-row x 2-col data/sim-only panel for E_miss plots.
 
     Errors are propagated bin-by-bin assuming independent data and
@@ -238,8 +317,12 @@ def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
         ax[r, 1].set_ylabel('Data/Sim', fontsize=13)
         ax[r, 0].set_ylim(*ylim)
         ax[r, 1].set_ylim(*ylim)
-        ax[r, 0].text(-0.14, labely, pmiss_labels[r], fontsize=9)
-        ax[r, 1].text(-0.14, labely, pmiss_labels[r], fontsize=9)
+        ax[r, 0].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        ax[r, 1].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual_ep = None if label_positions is None else label_positions.get(('ep', r))
+        manual_epp = None if label_positions is None else label_positions.get(('epp', r))
+        _auto_panel_label(ax[r, 0], pmiss_labels[r], fontsize=9, manual_pos=manual_ep)
+        _auto_panel_label(ax[r, 1], pmiss_labels[r], fontsize=9, manual_pos=manual_epp)
         ax[r, 0].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
         ax[r, 1].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
     ax[3, 0].set_xlabel(var_label, fontsize=15)
@@ -286,14 +369,17 @@ def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
 
 def plot_emiss_4x1(pdf, series, var_label, task_epp,
                    ylim, labely, pmiss_labels,
-                   xlim=(-0.2, 0.4), offset_scale=1.0):
+                   xlim=(-0.2, 0.4), offset_scale=1.0,
+                   label_positions=None):
     """4-row x 1-col (e,e'pp) E_miss panel, one pMiss bin per row."""
     fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=False)
     for r in range(4):
         ax[r].set_ylabel('Counts', fontsize=15)
         ax[r].set_ylim(0, ylim[r])
-        ax[r].text(-0.14, labely[r], pmiss_labels[r], fontsize=9)
+        ax[r].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(r)
+        _auto_panel_label(ax[r], pmiss_labels[r], fontsize=9, manual_pos=manual)
     ax[3].set_xlabel(var_label, fontsize=15)
     ax[3].set_xlim(*xlim)
     ax[0].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
@@ -307,7 +393,7 @@ def plot_emiss_4x1(pdf, series, var_label, task_epp,
 def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
                               pmiss_labels, xlim=(-0.2, 0.4),
                               ylim=(0.5, 1.5), labely=1.35,
-                              offset_scale=1.0):
+                              offset_scale=1.0, label_positions=None):
     """4-row x 1-col data/sim-only panel for E_miss(e,e'pp) plots.
 
     Errors are propagated bin-by-bin assuming independent data and
@@ -318,7 +404,9 @@ def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
     for r in range(4):
         ax[r].set_ylabel('Data/Sim', fontsize=13)
         ax[r].set_ylim(*ylim)
-        ax[r].text(-0.14, labely, pmiss_labels[r], fontsize=9)
+        ax[r].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(r)
+        _auto_panel_label(ax[r], pmiss_labels[r], fontsize=9, manual_pos=manual)
         ax[r].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
     ax[3].set_xlabel(var_label, fontsize=15)
     ax[3].set_xlim(*xlim)
@@ -347,7 +435,8 @@ def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
 def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
                      pmiss_labels, xlim=(1.5, 5.0), ylim=(0.0, 0.25),
                      label_xy=(2.3, 0.2), ylabel_size=15,
-                     big_label=None, big_label_xy=(1.7, 0.12), draw_sim=True):
+                     big_label=None, big_label_xy=(1.7, 0.12), draw_sim=True,
+                     label_positions=None):
     """2x2 panel of a ratio quantity (e.g. epp/ep) vs Q^2, one pMiss bin per
     panel in row-major order (bins 0..3 -> [0,0], [0,1], [1,0], [1,1]).
 
@@ -374,7 +463,9 @@ def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
         draw(ax[r, c], ref, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
         if draw_sim and sim is not None:
             draw(ax[r, c], sim, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
-        ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+        ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(bin_idx)
+        _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
     pdf.savefig(fig)
     return fig
 
@@ -385,7 +476,8 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
                                          xlim=(1.5, 5.0), ylim=(0.5, 1.5),
                                          label_xy=(2.3, 1.35), ylabel_size=13,
                                          big_label=None,
-                                         big_label_xy=(1.7, 1.12)):
+                                         big_label_xy=(1.7, 1.12),
+                                         label_positions=None):
     """2x2 panel of (data/sim) for a ratio quantity vs Q^2.
 
     Each panel uses one pMiss bin. Errors are propagated with the
@@ -421,7 +513,9 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
                           color=sim.color, linestyle='', marker='o',
                           markersize=3)
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
-        ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+        ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(bin_idx)
+        _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
     pdf.savefig(fig)
     return fig
@@ -448,6 +542,7 @@ def plot_q2_single(pdf, ref, sim, task_name, ylabel,
     ax.set_xlim(*xlim)
     if ylim is not None:
         ax.set_ylim(*ylim)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     ref_xy = draw(ax, ref, task_name, selection, axis_bin=axis_bin,
                   q2_panel=True, unit_scale=unit_scale)
@@ -462,6 +557,9 @@ def plot_q2_single(pdf, ref, sim, task_name, ylabel,
         ax_ratio.set_xlabel(xlabel, fontsize=15)
         ax_ratio.set_xlim(*xlim)
         ax_ratio.set_ylim(*ratio_ylim)
+        ax_ratio.yaxis.set_major_locator(MaxNLocator(nbins=4))
+        _drop_extreme_ytick(ax, 'min')
+        _drop_extreme_ytick(ax_ratio, 'max')
     else:
         ax.set_xlabel(xlabel, fontsize=15)
 
@@ -479,7 +577,8 @@ def plot_q2_2x2(pdf, ref, sim, task_name, ylabel,
                 xlim=(1.5, 5.0), ylim=(0.0, 0.25),
                 label_xy=(2.3, 0.2), ylabel_size=15,
                 big_label=None, big_label_xy=(1.7, 0.12),
-                unit_scale=False, suptitle=None):
+                unit_scale=False, suptitle=None,
+                label_positions=None):
     """2x2 panel of one vs-Q^2 quantity in pMiss bins 0..3."""
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
@@ -497,8 +596,10 @@ def plot_q2_2x2(pdf, ref, sim, task_name, ylabel,
         draw(ax[r, c], ref, task_name, selection, axis_bin=[bin_idx],
              q2_panel=True, unit_scale=unit_scale)
         draw(ax[r, c], sim, task_name, selection, axis_bin=[bin_idx],
-             q2_panel=True, unit_scale=unit_scale)
-        ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+               q2_panel=True, unit_scale=unit_scale)
+        ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(bin_idx)
+        _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
     if suptitle is not None:
         fig.suptitle(suptitle, fontsize=14)
@@ -513,7 +614,8 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sim, task_name,
                               xlim=(1.5, 5.0), ylim=(0.5, 1.5),
                               label_xy=(2.3, 1.35), ylabel_size=13,
                               big_label=None, big_label_xy=(1.7, 1.12),
-                              unit_scale=False, suptitle=None):
+                              unit_scale=False, suptitle=None,
+                              label_positions=None):
     """2x2 panel of Data/Sim for one vs-Q^2 quantity in pMiss bins 0..3."""
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
@@ -543,7 +645,9 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sim, task_name,
                           color=sim.color, linestyle='', marker='o',
                           markersize=3)
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
-        ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+        ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        manual = None if label_positions is None else label_positions.get(bin_idx)
+        _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
     if suptitle is not None:
         fig.suptitle(suptitle, fontsize=14)

@@ -189,12 +189,12 @@ def main():
             pdf, data, sim, 'sigma_pcmx', r'$\sigma_{x,C.M.} [GeV]$',
             selection='epp', xlim=(1.5, 5.0), with_ratio=True,
             unit_scale=True,
-            suptitle='Extracted quantity: sigma_pcmx (overlay + Data/Sim)')
+            suptitle=r'$\sigma_{x,C.M.} [GeV]$')
         ph.plot_q2_single(
             pdf, data, sim, 'sigma_pcmy', r'$\sigma_{y,C.M.} [GeV]$',
             selection='epp', xlim=(1.5, 5.0), with_ratio=True,
             unit_scale=True,
-            suptitle='Extracted quantity: sigma_pcmy (overlay + Data/Sim)')
+            suptitle=r'$\sigma_{y,C.M.} [GeV]$')
     else:
         missing_notes.append(
             'Skipped sigma_{x/y,C.M.} vs Q^2 pages because required extracted graphs were missing.')
@@ -238,7 +238,7 @@ def main():
             PMISS_LABELS, selection=selection,
             ylim=(0.5, 1.5), label_xy=(2.3, 1.35), ylabel_size=13,
             unit_scale=True,
-            suptitle='Extracted quantity: %s (Data/Sim)' % task_name)
+            suptitle=ylabel)
 
     pdf.close()
     if missing_notes:
