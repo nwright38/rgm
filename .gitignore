@@ -8,3 +8,4 @@
 *.hipo
 *.out
 build/*
+*.pyc
