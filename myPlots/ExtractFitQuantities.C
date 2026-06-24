@@ -49,10 +49,21 @@
 using namespace std;
 
 const int kNToys = 100;
-vector<double> bE_Q2 = {1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0};
-const int kNQ2Bins = (int)bE_Q2.size() - 1;
+const vector<double>& q2Edges() {
+  static const vector<double> e = {1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0};
+  return e;
+}
 
-double Q2center(int j) { return 0.5 * (bE_Q2[j] + bE_Q2[j + 1]); }
+int nQ2Bins() {
+  const vector<double>& e = q2Edges();
+  if (e.size() < 2) return 0;
+  return (int)e.size() - 1;
+}
+
+double Q2center(int j) {
+  const vector<double>& e = q2Edges();
+  return 0.5 * (e[j] + e[j + 1]);
+}
 
 // Same normalized-Gaussian form as the original G() in Main_Figs_Sys_Err.cpp.
 double G(double x, double N, double mu, double sigma) {
@@ -193,92 +204,108 @@ double extract(const FitSpec& spec, TH1D* h) {
 }
 
 void ExtractFitQuantities(const char* filename) {
-  TFile* f = TFile::Open(filename, "UPDATE");
-  if (!f || f->IsZombie()) {
-    cerr << "Could not open " << filename << " in UPDATE mode.\n";
-    return;
-  }
+  try {
+    int kNQ2Bins = nQ2Bins();
+    if (kNQ2Bins <= 0) {
+      cerr << "[ExtractFitQuantities] Invalid Q2 binning: nQ2Bins=" << kNQ2Bins << "\n";
+      return;
+    }
+    if (kNToys <= 0) {
+      cerr << "[ExtractFitQuantities] Invalid toy count: kNToys=" << kNToys << "\n";
+      return;
+    }
 
-  TDirectory* histsDir = f->GetDirectory("hists");
-  if (!histsDir) {
-    cerr << "No 'hists' directory in " << filename
-         << " -- is this a Main_Figs_Binned output file?\n";
-    return;
-  }
+    TFile* f = TFile::Open(filename, "UPDATE");
+    if (!f || f->IsZombie()) {
+      cerr << "Could not open " << filename << " in UPDATE mode.\n";
+      return;
+    }
 
-  TDirectory* graphsDir = f->GetDirectory("graphs");
-  if (!graphsDir) graphsDir = f->mkdir("graphs");
+    TDirectory* histsDir = f->GetDirectory("hists");
+    if (!histsDir) {
+      cerr << "No 'hists' directory in " << filename
+           << " -- is this a Main_Figs_Binned output file?\n";
+      f->Close();
+      return;
+    }
 
-  vector<double> q2x(kNQ2Bins, 0.0);
-  for (int j = 0; j < kNQ2Bins; j++) q2x[j] = q2MeanFromNominal(histsDir, j);
+    TDirectory* graphsDir = f->GetDirectory("graphs");
+    if (!graphsDir) graphsDir = f->mkdir("graphs");
 
-  vector<FitSpec> specs = buildSpecs();
-  int nWritten = 0;
-  int nSkipped = 0;
-  int nMissing = 0;
+    vector<double> q2x;
+    q2x.reserve((size_t)kNQ2Bins);
+    for (int j = 0; j < kNQ2Bins; j++) q2x.push_back(q2MeanFromNominal(histsDir, j));
 
-  for (auto& spec : specs) {
-    for (int axisBin = 0; axisBin < spec.nAxisBins; axisBin++) {
-      TGraphErrors* g = new TGraphErrors();
-      vector<int> binKey;
-      if (!spec.axisName.empty()) binKey.push_back(axisBin);
-      string gname = spec.quantityName + "|" + spec.selection + "|" + joinBins(binKey);
-      g->SetName(gname.c_str());
+    vector<FitSpec> specs = buildSpecs();
+    int nWritten = 0;
+    int nSkipped = 0;
+    int nMissing = 0;
 
-      for (int j = 0; j < kNQ2Bins; j++) {
-        vector<double> toyVals;
-        toyVals.reserve(kNToys);
-        int missingThisPoint = 0;
-        string firstMissing;
-        for (int i = 0; i < kNToys; i++) {
-          string label = toyLabel(i);
-          string hname = histName(label, spec.sourceTask, spec.axisName, axisBin, j);
-          TH1D* h = getHist(histsDir, label, hname);
-          if (!h) {
-            missingThisPoint++;
-            if (firstMissing.empty()) firstMissing = label + "/" + hname;
+    for (auto& spec : specs) {
+      for (int axisBin = 0; axisBin < spec.nAxisBins; axisBin++) {
+        TGraphErrors* g = new TGraphErrors();
+        vector<int> binKey;
+        if (!spec.axisName.empty()) binKey.push_back(axisBin);
+        string gname = spec.quantityName + "|" + spec.selection + "|" + joinBins(binKey);
+        g->SetName(gname.c_str());
+
+        for (int j = 0; j < kNQ2Bins; j++) {
+          vector<double> toyVals;
+          toyVals.reserve((size_t)kNToys);
+          int missingThisPoint = 0;
+          string firstMissing;
+          for (int i = 0; i < kNToys; i++) {
+            string label = toyLabel(i);
+            string hname = histName(label, spec.sourceTask, spec.axisName, axisBin, j);
+            TH1D* h = getHist(histsDir, label, hname);
+            if (!h) {
+              missingThisPoint++;
+              if (firstMissing.empty()) firstMissing = label + "/" + hname;
+              continue;
+            }
+            toyVals.push_back(extract(spec, h));
+          }
+
+          if (missingThisPoint > 0) {
+            nMissing += missingThisPoint;
+            cerr << "[ExtractFitQuantities] Missing " << missingThisPoint
+                 << " toy hist(s) for graph '" << gname << "', Q2 bin " << j
+                 << ". Example missing path: hists/" << firstMissing << "\n";
+          }
+
+          // Preserve the original methodology: central value is the mean over
+          // toy-derived quantities and error is the toy spread. If no toy hists
+          // were found for this point, skip it rather than silently writing zero.
+          if (toyVals.empty()) {
             continue;
           }
-          toyVals.push_back(extract(spec, h));
+          double mean, stddev;
+          meanStddev(toyVals, mean, stddev);
+          int n = g->GetN();
+          g->SetPoint(n, q2x[j], mean);
+          g->SetPointError(n, 0.0, stddev);
         }
 
-        if (missingThisPoint > 0) {
-          nMissing += missingThisPoint;
-          cerr << "[ExtractFitQuantities] Missing " << missingThisPoint
-               << " toy hist(s) for graph '" << gname << "', Q2 bin " << j
-               << ". Example missing path: hists/" << firstMissing << "\n";
-        }
-
-        // Preserve the original methodology: central value is the mean over
-        // toy-derived quantities and error is the toy spread. If no toy hists
-        // were found for this point, skip it rather than silently writing zero.
-        if (toyVals.empty()) {
+        if (g->GetN() == 0) {
+          nSkipped++;
+          delete g;
           continue;
         }
-        double mean, stddev;
-        meanStddev(toyVals, mean, stddev);
-        int n = g->GetN();
-        g->SetPoint(n, q2x[j], mean);
-        g->SetPointError(n, 0.0, stddev);
-      }
 
-      if (g->GetN() == 0) {
-        nSkipped++;
-        delete g;
-        continue;
+        graphsDir->cd();
+        g->Write("", TObject::kOverwrite);
+        nWritten++;
       }
-
-      graphsDir->cd();
-      g->Write("", TObject::kOverwrite);
-      nWritten++;
     }
+
+    cout << "Wrote " << nWritten << " fit-derived graphs into " << filename << ":/graphs"
+         << " (" << nSkipped << " skipped with no valid points, "
+         << nMissing << " missing toy histogram lookups).\n";
+
+    f->cd();
+    f->Write("", TObject::kOverwrite);
+    f->Close();
+  } catch (const exception& e) {
+    cerr << "[ExtractFitQuantities] Exception: " << e.what() << "\n";
   }
-
-  cout << "Wrote " << nWritten << " fit-derived graphs into " << filename << ":/graphs"
-       << " (" << nSkipped << " skipped with no valid points, "
-       << nMissing << " missing toy histogram lookups).\n";
-
-  f->cd();
-  f->Write("", TObject::kOverwrite);
-  f->Close();
 }
