@@ -214,6 +214,68 @@ def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
     return fig
 
 
+def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
+                              pmiss_labels, xlim=(-0.15, 0.4),
+                              ylim=(0.5, 1.5), labely=1.35,
+                              offset_scale=1.0):
+    """4-row x 2-col data/sim-only panel for E_miss plots.
+
+    Errors are propagated bin-by-bin assuming independent data and
+    simulation uncertainties.
+    """
+    fig, ax = plt.subplots(4, 2, gridspec_kw={'hspace': 0, 'wspace': 0.3},
+                           sharex=True, sharey=True)
+    for r in range(4):
+        ax[r, 0].set_ylabel('data/sim', fontsize=13)
+        ax[r, 1].set_ylabel('data/sim', fontsize=13)
+        ax[r, 0].set_ylim(*ylim)
+        ax[r, 1].set_ylim(*ylim)
+        ax[r, 0].text(-0.14, labely, pmiss_labels[r], fontsize=9)
+        ax[r, 1].text(-0.14, labely, pmiss_labels[r], fontsize=9)
+        ax[r, 0].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+        ax[r, 1].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+    ax[3, 0].set_xlabel(var_label, fontsize=15)
+    ax[3, 1].set_xlabel(var_label, fontsize=15)
+    ax[3, 0].set_xlim(*xlim)
+    ax[3, 1].set_xlim(*xlim)
+    ax[0, 0].set_title(r'$(e,e^{\prime}p)$', fontsize=15)
+    ax[0, 1].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
+
+    for r in range(4):
+        ref_x_ep, ref_y_ep, ref_err_ep = get_xy_err(
+            ref, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
+        sim_x_ep, sim_y_ep, sim_err_ep = get_xy_err(
+            sim, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
+        if sim_x_ep != ref_x_ep:
+            raise ValueError(
+                "Cannot build data/sim panel for task '%s' bin %d: "
+                "data and sim have different x binning (%d vs %d points)."
+                % (task_ep, r, len(ref_x_ep), len(sim_x_ep)))
+        ratio_ep, ratio_err_ep = ratio.ratio_series_with_error(
+            ref_y_ep, ref_err_ep, sim_y_ep, sim_err_ep)
+        ax[r, 0].errorbar(ref_x_ep, ratio_ep, ratio_err_ep,
+                          color=sim.color, linestyle='', marker='o',
+                          markersize=3)
+
+        ref_x_epp, ref_y_epp, ref_err_epp = get_xy_err(
+            ref, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+        sim_x_epp, sim_y_epp, sim_err_epp = get_xy_err(
+            sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+        if sim_x_epp != ref_x_epp:
+            raise ValueError(
+                "Cannot build data/sim panel for task '%s' bin %d: "
+                "data and sim have different x binning (%d vs %d points)."
+                % (task_epp, r, len(ref_x_epp), len(sim_x_epp)))
+        ratio_epp, ratio_err_epp = ratio.ratio_series_with_error(
+            ref_y_epp, ref_err_epp, sim_y_epp, sim_err_epp)
+        ax[r, 1].errorbar(ref_x_epp, ratio_epp, ratio_err_epp,
+                          color=sim.color, linestyle='', marker='o',
+                          markersize=3)
+
+    pdf.savefig(fig)
+    return fig
+
+
 def plot_emiss_4x1(pdf, series, var_label, task_epp,
                    ylim, labely, pmiss_labels,
                    xlim=(-0.2, 0.4), offset_scale=1.0):
@@ -230,6 +292,46 @@ def plot_emiss_4x1(pdf, series, var_label, task_epp,
     for r in range(4):
         for s in series:
             draw(ax[r], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+    pdf.savefig(fig)
+    return fig
+
+
+def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
+                              pmiss_labels, xlim=(-0.2, 0.4),
+                              ylim=(0.5, 1.5), labely=1.35,
+                              offset_scale=1.0):
+    """4-row x 1-col data/sim-only panel for E_miss(e,e'pp) plots.
+
+    Errors are propagated bin-by-bin assuming independent data and
+    simulation uncertainties.
+    """
+    fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
+                           sharex=True, sharey=True)
+    for r in range(4):
+        ax[r].set_ylabel('data/sim', fontsize=13)
+        ax[r].set_ylim(*ylim)
+        ax[r].text(-0.14, labely, pmiss_labels[r], fontsize=9)
+        ax[r].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+    ax[3].set_xlabel(var_label, fontsize=15)
+    ax[3].set_xlim(*xlim)
+    ax[0].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
+
+    for r in range(4):
+        ref_x, ref_y, ref_err = get_xy_err(
+            ref, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+        sim_x, sim_y, sim_err = get_xy_err(
+            sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+        if sim_x != ref_x:
+            raise ValueError(
+                "Cannot build data/sim panel for task '%s' bin %d: "
+                "data and sim have different x binning (%d vs %d points)."
+                % (task_epp, r, len(ref_x), len(sim_x)))
+        ratio_y, ratio_err = ratio.ratio_series_with_error(
+            ref_y, ref_err, sim_y, sim_err)
+        ax[r].errorbar(ref_x, ratio_y, ratio_err,
+                       color=sim.color, linestyle='', marker='o',
+                       markersize=3)
+
     pdf.savefig(fig)
     return fig
 
@@ -265,6 +367,54 @@ def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
         if draw_sim and sim is not None:
             draw(ax[r, c], sim, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
         ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+    pdf.savefig(fig)
+    return fig
+
+
+def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
+                                         numerator_task, denominator_task,
+                                         pmiss_labels,
+                                         xlim=(1.5, 5.0), ylim=(0.5, 1.5),
+                                         label_xy=(2.3, 1.35), ylabel_size=13,
+                                         big_label=None,
+                                         big_label_xy=(1.7, 1.12)):
+    """2x2 panel of (data/sim) for a ratio quantity vs Q^2.
+
+    Each panel uses one pMiss bin. Errors are propagated with the
+    independent-uncertainty formula using the precomputed ratio graph errors
+    from data and simulation.
+    """
+    ratio_task = numerator_task + '_over_' + denominator_task
+    fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
+                           sharex=True, sharey=True)
+    ax[0, 0].set_ylabel('data/sim', fontsize=ylabel_size)
+    ax[1, 0].set_ylabel('data/sim', fontsize=ylabel_size)
+    ax[1, 0].set_xlabel(r'$Q^{2}$', fontsize=15)
+    ax[1, 1].set_xlabel(r'$Q^{2}$', fontsize=15)
+    ax[0, 0].set_xlim(*xlim)
+    ax[0, 0].set_ylim(*ylim)
+    if big_label is not None:
+        ax[0, 0].text(big_label_xy[0], big_label_xy[1], big_label, fontsize=25)
+
+    positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
+        ref_x, ref_y, ref_err = get_xy_err(
+            ref, ratio_task, 'ratio', axis_bin=[bin_idx])
+        sim_x, sim_y, sim_err = get_xy_err(
+            sim, ratio_task, 'ratio', axis_bin=[bin_idx])
+        if sim_x != ref_x:
+            raise ValueError(
+                "Cannot build data/sim panel for task '%s' bin %d: "
+                "data and sim have different x binning (%d vs %d points)."
+                % (ratio_task, bin_idx, len(ref_x), len(sim_x)))
+        ratio_y, ratio_err = ratio.ratio_series_with_error(
+            ref_y, ref_err, sim_y, sim_err)
+        ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
+                          color=sim.color, linestyle='', marker='o',
+                          markersize=3)
+        ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+        ax[r, c].text(label_xy[0], label_xy[1], label, fontsize=13)
+
     pdf.savefig(fig)
     return fig
 

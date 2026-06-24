@@ -25,7 +25,7 @@ def _integrated_yield(root_file, task_name, selection):
     x, y, yerr = graph_io.read_graph(root_file, name)
     if not y:
         raise ValueError("No integrated yield found for %s/%s in %s" %
-                          (task_name, selection, root_file.GetName()))
+                          (task_name, selection, root_file.file_path))
     return y[0], yerr[0]
 
 
