@@ -378,11 +378,11 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
 
   // Center-of-mass momentum components, no selector and selected by Q2 bin.
   tasks.push_back({"pcmx_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.px; }, 100, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.px; }, 50, -0.75, 0.75, {}});
   tasks.push_back({"pcmy_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.py; }, 100, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.py; }, 50, -0.75, 0.75, {}});
   tasks.push_back({"pcmz_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pz; }, 100, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.pz; }, 50, -0.75, 0.75, {}});
 
   tasks.push_back({"pcmx_epp_SRC_Q2", Selection::EPP, passEPP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
