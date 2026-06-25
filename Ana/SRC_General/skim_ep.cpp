@@ -89,7 +89,7 @@ int main(int argc, char ** argv)
       if((counter % 100000) == 0){
 	cerr << "\n" << counter << " completed";
       }
-      if(counter > 10000000) break;
+      if(isMC && counter > 10000000) break;
   //     if((counter % 100000) == 0){
 	// cerr << ".";
   //     }

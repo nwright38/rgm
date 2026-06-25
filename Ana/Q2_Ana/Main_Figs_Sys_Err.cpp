@@ -245,7 +245,7 @@ int main(int argc, char ** argv)
   while(chain.Next() && ctr < 10000000)
     {
 
-      if(ctr%1000 == 0){
+      if(ctr%10000 == 0){
         cout << "Event " << ctr << endl;
       }
       double wep = 1;
@@ -723,6 +723,7 @@ void getG(TFile *f, TCanvas * myCanvas, char fileName[100], string objectName, T
     gFit->Draw("SAME");
     myCanvas->Print(fileName,"pdf");
     myCanvas->Clear();  
+    delete gFit;
   }
 
   myCanvas->Divide(1,1);
@@ -776,6 +777,8 @@ void getGraph(TFile *f, TCanvas * myCanvas, char fileName[100], string objectNam
       g_sigma->SetPoint(g_sigma->GetN(),x,gPoint->Parameter(2));
       g_sigma->SetPointError(g_sigma->GetN()-1,0,gPoint->ParError(2));
     }
+
+    delete gFit;
     /*
     proj->Write();
 
@@ -831,6 +834,8 @@ double getSigma(TFile *f, TCanvas * myCanvas, char fileName[100],TH1D * h_myhist
     myCanvas->Clear();  
     */
     return gPoint->Parameter(2);    
+
+  delete gFit;
 }
 
 double getStdDev(TFile *f, TCanvas * myCanvas, char fileName[100],TH1D * h_myhist, double min, double max){
@@ -1010,6 +1015,8 @@ void CutRandom(double x, double qSq, double mM, double kM, double pL, double tL,
     tLead_upper += thisRand->Gaus(0.0,1.0);
 
     pRecoil_lower += thisRand->Gaus(0.0,0.045);
+
+    delete thisRand;
   }
   
   if(passep==false){return;}  
