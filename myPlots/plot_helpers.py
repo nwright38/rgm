@@ -14,6 +14,7 @@ reused across every figure, which is what keeps driver scripts short.
 """
 
 from __future__ import division
+import math
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
@@ -227,7 +228,7 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
                  selection='epp', axis_bin=(), annotations=None,
                  offset_scale=1.0, with_ratio=True, ratio_ylim=(0.5, 1.5),
                  xlabel_size=15, ylabel_size=15, unit_scale=False,
-                 save_as=None):
+                 corner_label=None, save_as=None):
     """Single-axis figure with any number of overlaid Series, plus an
     optional ratio subpanel (data/sim) underneath.
 
@@ -235,6 +236,9 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
     at least one 'sim' Series; set it False for ratio-quantity plots (where
     a second ratio-of-a-ratio panel wouldn't mean anything) or A-dependence
     plots that have no single simulation reference.
+
+    corner_label, if given, is drawn inside the top axis (e.g. "(e,e'p)")
+    in the top-left corner, in axes coordinates.
     """
     has_data = any(s.kind == 'data' for s in series)
     has_sim = any(s.kind == 'sim' for s in series)
@@ -259,6 +263,9 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
         if s.kind == 'data':
             ref_xy = (x, y, yerr)
     annotate(ax, annotations)
+    if corner_label is not None:
+        ax.text(0.04, 0.92, corner_label, transform=ax.transAxes,
+                fontsize=15, ha='left', va='top')
 
     if show_ratio:
         _draw_ratio_panel(ax_ratio, ref_xy, series, task_name, selection,
@@ -443,6 +450,118 @@ def plot_emiss_4x1_ratio_only(pdf, ref, sims, var_label, task_epp,
             ax[r].errorbar(ref_x, ratio_y, ratio_err,
                            color=sim.color, linestyle='', marker='o',
                            markersize=3)
+
+    return _save(pdf, fig, save_as)
+
+
+def _row_box_label(fig, ax_left, ax_right, text, fontsize=11):
+    """Places one boxed label centered above a row, spanning ax_left and
+    ax_right (or just ax_left if ax_right is None), sitting just inside the
+    top of the panel -- used by the *_note Emiss panels below in place of
+    the corner label plot_emiss_4x2/4x1 use, to match an analysis-note
+    figure where the pMiss-bin range is a single centered box per row."""
+    pos_l = ax_left.get_position()
+    pos_r = ax_right.get_position() if ax_right is not None else pos_l
+    x_center = 0.5 * (pos_l.x0 + pos_r.x1)
+    y = pos_l.y1 - 0.08 * (pos_l.y1 - pos_l.y0)
+    fig.text(x_center, y, text, ha='center', va='center', fontsize=fontsize,
+             bbox=dict(boxstyle='square', facecolor='white', edgecolor='black'))
+
+
+def plot_emiss_4x2_note(pdf, series, var_label, task_ep, task_epp,
+                        pmiss_centers_ep, pmiss_centers_epp, box_labels, mN,
+                        xlim=(-0.15, 0.4), offset_scale=1.0, save_as=None):
+    """Like plot_emiss_4x2, but styled for an analysis-note figure instead
+    of the existing makePlots.py/plot_data_vs_sim.py/plot_A_dependence.py
+    look (kept as a separate function so those callers' figures don't
+    change): a single boxed pMiss-bin label centered above each row instead
+    of a corner label, a thin vertical line at the quasi-free
+    single-nucleon-knockout threshold E_miss = sqrt(pMiss^2 + mN^2) - mN
+    (evaluated at each row's mean pMiss -- pmiss_centers_ep/epp are
+    per-row averages measured from data, not bin-edge midpoints, since the
+    e'p and e'pp populations' pMiss distributions within a nominal bin can
+    differ slightly), per-row y-limits computed from the data+sim peak
+    instead of caller-tuned ylim arrays, and fewer/dropped y-ticks to
+    reduce clutter between stacked rows.
+    """
+    fig, ax = plt.subplots(4, 2, gridspec_kw={'hspace': 0, 'wspace': 0},
+                           sharex=True, sharey=False)
+    ax[3, 0].set_xlabel(var_label, fontsize=15)
+    ax[3, 1].set_xlabel(var_label, fontsize=15)
+    ax[3, 0].set_xlim(*xlim)
+    ax[3, 1].set_xlim(*xlim)
+    ax[0, 0].set_title(r'$(e,e^{\prime}p)$', fontsize=15)
+    ax[0, 1].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
+
+    for r in range(4):
+        ax[r, 0].set_ylabel('Counts', fontsize=13)
+        ax[r, 1].set_ylabel('Counts', fontsize=13)
+        # wspace=0 above butts the two columns together at a shared
+        # boundary line; move the right column's ticks/label to its own
+        # right-hand side so they don't collide with that boundary.
+        ax[r, 1].yaxis.tick_right()
+        ax[r, 1].yaxis.set_label_position('right')
+        ax[r, 0].yaxis.set_major_locator(MaxNLocator(nbins=3))
+        ax[r, 1].yaxis.set_major_locator(MaxNLocator(nbins=3))
+
+        peak_ep, peak_epp = 0.0, 0.0
+        for s in series:
+            _, y_ep, e_ep = get_xy_err(s, task_ep, 'ep', axis_bin=[r],
+                                       offset_scale=offset_scale)
+            _, y_epp, e_epp = get_xy_err(s, task_epp, 'epp', axis_bin=[r],
+                                         offset_scale=offset_scale)
+            peak_ep = max([peak_ep] + [v + e for v, e in zip(y_ep, e_ep)])
+            peak_epp = max([peak_epp] + [v + e for v, e in zip(y_epp, e_epp)])
+            draw(ax[r, 0], s, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
+            draw(ax[r, 1], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+
+        ax[r, 0].set_ylim(0, peak_ep * 1.2 if peak_ep > 0.0 else 1.0)
+        ax[r, 1].set_ylim(0, peak_epp * 1.2 if peak_epp > 0.0 else 1.0)
+        if r != 3:
+            _drop_extreme_ytick(ax[r, 0], 'max')
+            _drop_extreme_ytick(ax[r, 1], 'max')
+
+        thresh_ep = math.sqrt(pmiss_centers_ep[r] ** 2 + mN ** 2) - mN
+        thresh_epp = math.sqrt(pmiss_centers_epp[r] ** 2 + mN ** 2) - mN
+        ax[r, 0].axvline(thresh_ep, color='black', linewidth=0.8)
+        ax[r, 1].axvline(thresh_epp, color='black', linewidth=0.8)
+
+        _row_box_label(fig, ax[r, 0], ax[r, 1], box_labels[r])
+
+    return _save(pdf, fig, save_as)
+
+
+def plot_emiss_4x1_note(pdf, series, var_label, task_epp,
+                        pmiss_centers, box_labels, mN,
+                        xlim=(-0.2, 0.4), offset_scale=1.0, save_as=None):
+    """Like plot_emiss_4x1, but styled to match plot_emiss_4x2_note above
+    (see there for what changed and why) -- used for E2miss, which has no
+    e'p counterpart since it requires a detected recoil."""
+    fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
+                           sharex=True, sharey=False)
+    ax[3].set_xlabel(var_label, fontsize=15)
+    ax[3].set_xlim(*xlim)
+    ax[0].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
+
+    for r in range(4):
+        ax[r].set_ylabel('Counts', fontsize=13)
+        ax[r].yaxis.set_major_locator(MaxNLocator(nbins=3))
+
+        peak = 0.0
+        for s in series:
+            _, y, e = get_xy_err(s, task_epp, 'epp', axis_bin=[r],
+                                 offset_scale=offset_scale)
+            peak = max([peak] + [v + ei for v, ei in zip(y, e)])
+            draw(ax[r], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+
+        ax[r].set_ylim(0, peak * 1.2 if peak > 0.0 else 1.0)
+        if r != 3:
+            _drop_extreme_ytick(ax[r], 'max')
+
+        thresh = math.sqrt(pmiss_centers[r] ** 2 + mN ** 2) - mN
+        ax[r].axvline(thresh, color='black', linewidth=0.8)
+
+        _row_box_label(fig, ax[r], None, box_labels[r])
 
     return _save(pdf, fig, save_as)
 

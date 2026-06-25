@@ -1,6 +1,6 @@
 add_library(many_plots many_plots.cpp)
 target_link_libraries(many_plots ${ROOT_LIBRARIES})
-foreach(fnameSrc KMiss.cpp Analysis_Note_Q2.cpp Analysis_Note_Q2_comp.cpp Analysis_Note_Q2_manyTheory.cpp KMiss_comparison_plot.cpp p_LUND.cpp Electron_DeltaE.cpp Radiation_Offset.cpp Central_Detector_Proton.cpp iso_p_LUND.cpp Main_Figs.cpp Andrew_skim.cpp SRC_Cuts.cpp Main_Figs_Sys_Err.cpp Main_sigmaCM.cpp Main_sigmaCM_Hists.cpp Main_Figs_Binned.cpp BuildGraphs.cpp)
+foreach(fnameSrc KMiss.cpp Analysis_Note_Q2.cpp Analysis_Note_Q2_comp.cpp Analysis_Note_Q2_manyTheory.cpp KMiss_comparison_plot.cpp p_LUND.cpp Electron_DeltaE.cpp Radiation_Offset.cpp Central_Detector_Proton.cpp iso_p_LUND.cpp Main_Figs.cpp Andrew_skim.cpp SRC_Cuts.cpp Main_Figs_Sys_Err.cpp Main_sigmaCM.cpp Main_sigmaCM_Hists.cpp Main_Figs_Binned.cpp BuildGraphs.cpp AvgPMiss.cpp)
   message(STATUS ${fnameSRC})
   string (REPLACE ".cpp" "" fnameExe ${fnameSrc})
   add_executable(${fnameExe} ${fnameSrc})
