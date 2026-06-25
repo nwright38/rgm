@@ -289,10 +289,10 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   // h_Q2_ep_SRC_Q2 / h_Q2_epp_SRC_Q2 (used to get each Q2 bin's mean Q2).
   tasks.push_back({"Q2_ep_SRC_Q2", legacyCompatMode ? Selection::EPP : Selection::EP, passEP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
-                    [](const EventKinematics& ek) { return ek.qSq; }, 100, 1.5, 5.0, {}});
+                    [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}});
   tasks.push_back({"Q2_epp_SRC_Q2", Selection::EPP, passEPP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
-                    [](const EventKinematics& ek) { return ek.qSq; }, 100, 1.5, 5.0, {}});
+                    [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}});
 
   // Q2 yield, selected by pMiss / kMiss bin.
   tasks.push_back({"Q2_ep_SRC_pmiss", Selection::EP, passEP, {&pMissAxis},
