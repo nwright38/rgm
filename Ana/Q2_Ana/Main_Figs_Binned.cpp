@@ -268,35 +268,35 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   // pMiss_epp_over_pMiss_ep / kMiss_epp_over_kMiss_ep ratio tasks, which
   // depend on the variable-width bE_pmiss_long/bE_kmiss_long edges.
   tasks.push_back({"pMiss_ep_note", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 50, 0.4, 1.2, {}});
+                    [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}});
   tasks.push_back({"pMiss_epp_note", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 50, 0.4, 1.2, {}});
+                    [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}});
   tasks.push_back({"kMiss_ep_note", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 50, 0.3, 1.1, {}});
+                    [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}});
   tasks.push_back({"kMiss_epp_note", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 50, 0.3, 1.1, {}});
+                    [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}});
 
   // q (virtual photon 3-momentum magnitude), no selector binning.
   tasks.push_back({"q_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qMag; }, 50, 0, 4, {}});
+                    [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}});
   tasks.push_back({"q_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qMag; }, 50, 0, 4, {}});
+                    [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}});
 
   // theta_pmiss (angle between p_miss and q), no selector binning.
   tasks.push_back({"theta_pmiss_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 50, 100, 180, {}});
+                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}});
   tasks.push_back({"theta_pmiss_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 50, 100, 180, {}});
+                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}});
 
   // theta_pLead,q (angle between leading nucleon and q), no selector binning.
   tasks.push_back({"theta_pLeadq_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 50, 0, 40, {}});
+                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}});
   tasks.push_back({"theta_pLeadq_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 50, 0, 40, {}});
+                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}});
 
   // pRel (relative momentum of the lead/recoil pair), e'pp only.
   tasks.push_back({"pRel_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pRel; }, 50, 0.15, 1.0, {}});
+                    [](const EventKinematics& ek) { return ek.pRel; }, 30, 0.15, 1.0, {}});
 
   // Q2 yield, selected (rebinned) by its own Q2 bin -- matches the original
   // h_Q2_ep_SRC_Q2 / h_Q2_epp_SRC_Q2 (used to get each Q2 bin's mean Q2).
@@ -378,11 +378,11 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
 
   // Center-of-mass momentum components, no selector and selected by Q2 bin.
   tasks.push_back({"pcmx_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.px; }, 50, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.px; }, 30, -0.75, 0.75, {}});
   tasks.push_back({"pcmy_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.py; }, 50, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.py; }, 30, -0.75, 0.75, {}});
   tasks.push_back({"pcmz_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pz; }, 50, -0.75, 0.75, {}});
+                    [](const EventKinematics& ek) { return ek.pz; }, 30, -0.3, 0.9, {}});
 
   tasks.push_back({"pcmx_epp_SRC_Q2", Selection::EPP, passEPP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
@@ -526,11 +526,14 @@ int main(int argc, char** argv) {
     ekNom.passepp = passepp_nom;
     nominalStore.fill(tasks, ekNom, wep, wepp);
 
+    auto mcParts = isMC ? c12->mcparts() : decltype(c12->mcparts()){};
+
+   // #pragma omp parallel for schedule(static)
     for (int i = 0; i < nToys; i++) {
       double wep_sys = wep, wepp_sys = wepp;
       if (isMC) {
-        wep_sys = original_weight * toyWeighters[i].get_weight_ep(c12->mcparts());
-        wepp_sys = original_weight * toyWeighters[i].get_weight_epp(c12->mcparts());
+        wep_sys = original_weight * toyWeighters[i].get_weight_ep(mcParts);
+        wepp_sys = original_weight * toyWeighters[i].get_weight_epp(mcParts);
       }
       bool passep_i, passepp_i;
       if (legacyCompatMode) {

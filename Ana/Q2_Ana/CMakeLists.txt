@@ -4,5 +4,10 @@ foreach(fnameSrc KMiss.cpp Analysis_Note_Q2.cpp Analysis_Note_Q2_comp.cpp Analys
   message(STATUS ${fnameSRC})
   string (REPLACE ".cpp" "" fnameExe ${fnameSrc})
   add_executable(${fnameExe} ${fnameSrc})
-  target_link_libraries(${fnameExe} ${ROOT_LIBRARIES} PkgConfig::hipo4 -lEG -lClas12Banks -lClas12Root -L${CLAS12ROOT}/lib -L${CLAS12ROOT}/ccdb/lib Clas12Ana Clas12Debug reweighter many_plots)
+  target_link_libraries(${fnameExe} PRIVATE ${ROOT_LIBRARIES} PkgConfig::hipo4 -lEG -lClas12Banks -lClas12Root -L${CLAS12ROOT}/lib -L${CLAS12ROOT}/ccdb/lib Clas12Ana Clas12Debug reweighter many_plots)
+
+  if(${fnameExe} STREQUAL "Main_Figs_Binned")
+    target_compile_options(${fnameExe} PRIVATE -fopenmp)
+    target_link_options(${fnameExe} PRIVATE -fopenmp)
+  endif()
 endforeach()
