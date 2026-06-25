@@ -160,38 +160,38 @@ pto.plotSig(pdf, Q2bins, f_Data_He, f_Sim_He_N2LO10, 'pcmy', -0.6, 0.6,
             r'$\sigma_{y,C.M.} [GeV]$',
             r'$\vec{p}_{C.M.} \cdot \hat{v}_{y}  [GeV]$', N0epp_array)
 
-ph.plot_q2_single(pdf, he_data, gcf, 'g_sigma_pcmx', r'$\sigma_{x,C.M.} [GeV]$')
-ph.plot_q2_single(pdf, he_data, gcf, 'g_sigma_pcmy', r'$\sigma_{y,C.M.} [GeV]$')
+ph.plot_q2_single(pdf, he_data, [gcf], 'g_sigma_pcmx', r'$\sigma_{x,C.M.} [GeV]$')
+ph.plot_q2_single(pdf, he_data, [gcf], 'g_sigma_pcmy', r'$\sigma_{y,C.M.} [GeV]$')
 
 # epp/ep vs Q^2 in pmiss bins
-ph.plot_q2_2x2(pdf, he_data, gcf, 'h_Q2_epp_SRC_pmiss', r'$epp/ep$',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'h_Q2_epp_SRC_pmiss', r'$epp/ep$',
                PMISS_LABELS, ylim=(0, 0.25), label_xy=(2.3, 0.2), ylabel_size=15)
 
 # Std dev of E_miss vs Q^2 in pmiss bins
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_sigma_E1miss_ep_pmiss',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_sigma_E1miss_ep_pmiss',
                r'Std DeV $E_{1,miss} [GeV]$', PMISS_LABELS,
                ylim=(0, 0.15), label_xy=(2.3, 0.01), ylabel_size=10,
                big_label=r'$(e,e^{\prime}p)$')
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_sigma_E1miss_epp_pmiss',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_sigma_E1miss_epp_pmiss',
                r'Std DeV $E_{1,miss} [GeV]$', PMISS_LABELS,
                ylim=(0, 0.15), label_xy=(2.3, 0.01), ylabel_size=10,
                big_label=r'$(e,e^{\prime}pp)$')
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_sigma_E2miss_epp_pmiss',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_sigma_E2miss_epp_pmiss',
                r'Std DeV $E_{2,miss} [GeV]$', PMISS_LABELS,
                ylim=(0, 0.15), label_xy=(2.3, 0.01), ylabel_size=10,
                big_label=r'$(e,e^{\prime}pp)$')
 
 
 # Mean of E_miss vs Q^2 in pmiss bins
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_mean_E1miss_ep_pmiss',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_mean_E1miss_ep_pmiss',
                r'Mean $E_{1,miss} [GeV]$', PMISS_LABELS,
                ylim=(-.02, .3), label_xy=(2.3, 0.04), ylabel_size=10,
                big_label=r'$(e,e^{\prime}p)$')
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_mean_E1miss_epp_pmiss', 
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_mean_E1miss_epp_pmiss', 
                 r'Mean $E_{1,miss} [GeV]$', PMISS_LABELS,
                 ylim=(-.02, .3), label_xy=(2.3, 0.04), ylabel_size=10,
                 big_label=r'$(e,e^{\prime}pp)$')
-ph.plot_q2_2x2(pdf, he_data, gcf, 'g_mean_E2miss_epp_pmiss',
+ph.plot_q2_2x2(pdf, he_data, [gcf], 'g_mean_E2miss_epp_pmiss',
                r'Mean $E_{2,miss} [GeV]$', PMISS_LABELS,
                ylim=(-.02, .3), label_xy=(2.3, 0.04), ylabel_size=10,
                big_label=r'$(e,e^{\prime}pp)$')

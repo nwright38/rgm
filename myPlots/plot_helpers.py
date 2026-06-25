@@ -183,6 +183,17 @@ def annotate(ax, items):
                 bbox=it.get('bbox'))
 
 
+def _save(pdf, fig, save_as=None):
+    """Always saves fig as the next page of the combined book `pdf`. If
+    `save_as` is given (a path), also writes fig out as its own single-figure
+    PDF -- the per-call opt-in for "save this one plot individually" without
+    restructuring the driver script."""
+    pdf.savefig(fig)
+    if save_as:
+        fig.savefig(save_as)
+    return fig
+
+
 def _draw_ratio_panel(ax_ratio, ref_xy, series_list, task_name, selection,
                       axis_bin, offset_scale, integrated, pattern,
                       unit_scale=False):
@@ -215,7 +226,8 @@ def _draw_ratio_panel(ax_ratio, ref_xy, series_list, task_name, selection,
 def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
                  selection='epp', axis_bin=(), annotations=None,
                  offset_scale=1.0, with_ratio=True, ratio_ylim=(0.5, 1.5),
-                 xlabel_size=15, ylabel_size=15, unit_scale=False):
+                 xlabel_size=15, ylabel_size=15, unit_scale=False,
+                 save_as=None):
     """Single-axis figure with any number of overlaid Series, plus an
     optional ratio subpanel (data/sim) underneath.
 
@@ -262,14 +274,13 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
         ax.set_xlabel(xlabel, fontsize=xlabel_size)
 
     fig.tight_layout()
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
 def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
                    ylim_ep, ylim_epp, labely_ep, labely_epp, pmiss_labels,
                    xlim=(-0.15, 0.4), offset_scale=1.0,
-                   label_positions=None):
+                   label_positions=None, save_as=None):
     """4-row x 2-col E_miss panel: (e,e'p) on the left, (e,e'pp) on the
     right, one pMiss bin per row. task_ep/task_epp are the FillTask names
     (e.g. 'E1miss_ep_SRC_pmiss' / 'E1miss_epp_SRC_pmiss'); pMiss bin index
@@ -297,16 +308,18 @@ def plot_emiss_4x2(pdf, series, var_label, task_ep, task_epp,
         for s in series:
             draw(ax[r, 0], s, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
             draw(ax[r, 1], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
+def plot_emiss_4x2_ratio_only(pdf, ref, sims, var_label, task_ep, task_epp,
                               pmiss_labels, xlim=(-0.15, 0.4),
                               ylim=(0.5, 1.5), labely=1.35,
-                              offset_scale=1.0, label_positions=None):
+                              offset_scale=1.0, label_positions=None,
+                              save_as=None):
     """4-row x 2-col data/sim-only panel for E_miss plots.
 
+    `sims` is a list of 'sim'-kind Series (0 or more); each gets its own
+    overlaid data/sim trace per panel, colored by that Series' color.
     Errors are propagated bin-by-bin assuming independent data and
     simulation uncertainties.
     """
@@ -335,42 +348,43 @@ def plot_emiss_4x2_ratio_only(pdf, ref, sim, var_label, task_ep, task_epp,
     for r in range(4):
         ref_x_ep, ref_y_ep, ref_err_ep = get_xy_err(
             ref, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
-        sim_x_ep, sim_y_ep, sim_err_ep = get_xy_err(
-            sim, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
-        if sim_x_ep != ref_x_ep:
-            raise ValueError(
-                "Cannot build data/sim panel for task '%s' bin %d: "
-                "data and sim have different x binning (%d vs %d points)."
-                % (task_ep, r, len(ref_x_ep), len(sim_x_ep)))
-        ratio_ep, ratio_err_ep = ratio.ratio_series_with_error(
-            ref_y_ep, ref_err_ep, sim_y_ep, sim_err_ep)
-        ax[r, 0].errorbar(ref_x_ep, ratio_ep, ratio_err_ep,
-                          color=sim.color, linestyle='', marker='o',
-                          markersize=3)
+        for sim in sims:
+            sim_x_ep, sim_y_ep, sim_err_ep = get_xy_err(
+                sim, task_ep, 'ep', axis_bin=[r], offset_scale=offset_scale)
+            if sim_x_ep != ref_x_ep:
+                raise ValueError(
+                    "Cannot build data/sim panel for task '%s' bin %d: "
+                    "data and sim have different x binning (%d vs %d points)."
+                    % (task_ep, r, len(ref_x_ep), len(sim_x_ep)))
+            ratio_ep, ratio_err_ep = ratio.ratio_series_with_error(
+                ref_y_ep, ref_err_ep, sim_y_ep, sim_err_ep)
+            ax[r, 0].errorbar(ref_x_ep, ratio_ep, ratio_err_ep,
+                              color=sim.color, linestyle='', marker='o',
+                              markersize=3)
 
         ref_x_epp, ref_y_epp, ref_err_epp = get_xy_err(
             ref, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-        sim_x_epp, sim_y_epp, sim_err_epp = get_xy_err(
-            sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-        if sim_x_epp != ref_x_epp:
-            raise ValueError(
-                "Cannot build data/sim panel for task '%s' bin %d: "
-                "data and sim have different x binning (%d vs %d points)."
-                % (task_epp, r, len(ref_x_epp), len(sim_x_epp)))
-        ratio_epp, ratio_err_epp = ratio.ratio_series_with_error(
-            ref_y_epp, ref_err_epp, sim_y_epp, sim_err_epp)
-        ax[r, 1].errorbar(ref_x_epp, ratio_epp, ratio_err_epp,
-                          color=sim.color, linestyle='', marker='o',
-                          markersize=3)
+        for sim in sims:
+            sim_x_epp, sim_y_epp, sim_err_epp = get_xy_err(
+                sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+            if sim_x_epp != ref_x_epp:
+                raise ValueError(
+                    "Cannot build data/sim panel for task '%s' bin %d: "
+                    "data and sim have different x binning (%d vs %d points)."
+                    % (task_epp, r, len(ref_x_epp), len(sim_x_epp)))
+            ratio_epp, ratio_err_epp = ratio.ratio_series_with_error(
+                ref_y_epp, ref_err_epp, sim_y_epp, sim_err_epp)
+            ax[r, 1].errorbar(ref_x_epp, ratio_epp, ratio_err_epp,
+                              color=sim.color, linestyle='', marker='o',
+                              markersize=3)
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
 def plot_emiss_4x1(pdf, series, var_label, task_epp,
                    ylim, labely, pmiss_labels,
                    xlim=(-0.2, 0.4), offset_scale=1.0,
-                   label_positions=None):
+                   label_positions=None, save_as=None):
     """4-row x 1-col (e,e'pp) E_miss panel, one pMiss bin per row."""
     fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=False)
@@ -386,18 +400,19 @@ def plot_emiss_4x1(pdf, series, var_label, task_epp,
     for r in range(4):
         for s in series:
             draw(ax[r], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
+def plot_emiss_4x1_ratio_only(pdf, ref, sims, var_label, task_epp,
                               pmiss_labels, xlim=(-0.2, 0.4),
                               ylim=(0.5, 1.5), labely=1.35,
-                              offset_scale=1.0, label_positions=None):
+                              offset_scale=1.0, label_positions=None,
+                              save_as=None):
     """4-row x 1-col data/sim-only panel for E_miss(e,e'pp) plots.
 
-    Errors are propagated bin-by-bin assuming independent data and
-    simulation uncertainties.
+    `sims` is a list of 'sim'-kind Series (0 or more), each overlaid as its
+    own data/sim trace per panel. Errors are propagated bin-by-bin assuming
+    independent data and simulation uncertainties.
     """
     fig, ax = plt.subplots(4, 1, gridspec_kw={'hspace': 0, 'wspace': 0.3},
                            sharex=True, sharey=True)
@@ -415,32 +430,33 @@ def plot_emiss_4x1_ratio_only(pdf, ref, sim, var_label, task_epp,
     for r in range(4):
         ref_x, ref_y, ref_err = get_xy_err(
             ref, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-        sim_x, sim_y, sim_err = get_xy_err(
-            sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
-        if sim_x != ref_x:
-            raise ValueError(
-                "Cannot build data/sim panel for task '%s' bin %d: "
-                "data and sim have different x binning (%d vs %d points)."
-                % (task_epp, r, len(ref_x), len(sim_x)))
-        ratio_y, ratio_err = ratio.ratio_series_with_error(
-            ref_y, ref_err, sim_y, sim_err)
-        ax[r].errorbar(ref_x, ratio_y, ratio_err,
-                       color=sim.color, linestyle='', marker='o',
-                       markersize=3)
+        for sim in sims:
+            sim_x, sim_y, sim_err = get_xy_err(
+                sim, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+            if sim_x != ref_x:
+                raise ValueError(
+                    "Cannot build data/sim panel for task '%s' bin %d: "
+                    "data and sim have different x binning (%d vs %d points)."
+                    % (task_epp, r, len(ref_x), len(sim_x)))
+            ratio_y, ratio_err = ratio.ratio_series_with_error(
+                ref_y, ref_err, sim_y, sim_err)
+            ax[r].errorbar(ref_x, ratio_y, ratio_err,
+                           color=sim.color, linestyle='', marker='o',
+                           markersize=3)
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
+def plot_q2_2x2_ratio(pdf, ref, sims, numerator_task, denominator_task, ylabel,
                      pmiss_labels, xlim=(1.5, 5.0), ylim=(0.0, 0.25),
                      label_xy=(2.3, 0.2), ylabel_size=15,
-                     big_label=None, big_label_xy=(1.7, 0.12), draw_sim=True,
-                     label_positions=None):
+                     big_label=None, big_label_xy=(1.7, 0.12),
+                     label_positions=None, save_as=None):
     """2x2 panel of a ratio quantity (e.g. epp/ep) vs Q^2, one pMiss bin per
     panel in row-major order (bins 0..3 -> [0,0], [0,1], [1,0], [1,1]).
 
-    numerator_task/denominator_task must be a pair registered in
+    `sims` is a list of 'sim'-kind Series (0 or more) overlaid on top of
+    `ref`. numerator_task/denominator_task must be a pair registered in
     Main_Figs_Binned.cpp's ratioSpecs (e.g. 'Q2_epp_SRC_pmiss' /
     'Q2_ep_SRC_pmiss'), sharing a single selector axis (pMiss) -- axis_bin
     picks the panel, and Q2 (the value axis of that task) is what ends up
@@ -461,28 +477,28 @@ def plot_q2_2x2_ratio(pdf, ref, sim, numerator_task, denominator_task, ylabel,
     positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
         draw(ax[r, c], ref, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
-        if draw_sim and sim is not None:
+        for sim in sims:
             draw(ax[r, c], sim, ratio_task, 'ratio', axis_bin=[bin_idx], q2_panel=True)
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
+def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sims,
                                          numerator_task, denominator_task,
                                          pmiss_labels,
                                          xlim=(1.5, 5.0), ylim=(0.5, 1.5),
                                          label_xy=(2.3, 1.35), ylabel_size=13,
                                          big_label=None,
                                          big_label_xy=(1.7, 1.12),
-                                         label_positions=None):
+                                         label_positions=None, save_as=None):
     """2x2 panel of (data/sim) for a ratio quantity vs Q^2.
 
-    Each panel uses one pMiss bin. Errors are propagated with the
-    independent-uncertainty formula using the precomputed ratio graph errors
-    from data and simulation.
+    `sims` is a list of 'sim'-kind Series (0 or more); each gets its own
+    overlaid trace per panel. Each panel uses one pMiss bin. Errors are
+    propagated with the independent-uncertainty formula using the
+    precomputed ratio graph errors from data and simulation.
     """
     ratio_task = numerator_task + '_over_' + denominator_task
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
@@ -500,35 +516,36 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sim,
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
         ref_x, ref_y, ref_err = get_xy_err(
             ref, ratio_task, 'ratio', axis_bin=[bin_idx])
-        sim_x, sim_y, sim_err = get_xy_err(
-            sim, ratio_task, 'ratio', axis_bin=[bin_idx])
-        if sim_x != ref_x:
-            raise ValueError(
-                "Cannot build data/sim panel for task '%s' bin %d: "
-                "data and sim have different x binning (%d vs %d points)."
-                % (ratio_task, bin_idx, len(ref_x), len(sim_x)))
-        ratio_y, ratio_err = ratio.ratio_series_with_error(
-            ref_y, ref_err, sim_y, sim_err)
-        ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
-                          color=sim.color, linestyle='', marker='o',
-                          markersize=3)
+        for sim in sims:
+            sim_x, sim_y, sim_err = get_xy_err(
+                sim, ratio_task, 'ratio', axis_bin=[bin_idx])
+            if sim_x != ref_x:
+                raise ValueError(
+                    "Cannot build data/sim panel for task '%s' bin %d: "
+                    "data and sim have different x binning (%d vs %d points)."
+                    % (ratio_task, bin_idx, len(ref_x), len(sim_x)))
+            ratio_y, ratio_err = ratio.ratio_series_with_error(
+                ref_y, ref_err, sim_y, sim_err)
+            ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
+                              color=sim.color, linestyle='', marker='o',
+                              markersize=3)
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_q2_single(pdf, ref, sim, task_name, ylabel,
+def plot_q2_single(pdf, ref, sims, task_name, ylabel,
                    selection='epp', axis_bin=(),
                    xlim=(1.5, 5.0), ylim=None,
                    with_ratio=False, ratio_ylim=(0.5, 1.5),
                    xlabel=r'$Q^{2}$', ylabel_size=15, unit_scale=False,
-                   suptitle=None):
+                   suptitle=None, save_as=None):
     """Single-panel vs-Q^2 overlay for one task.
 
+    `sims` is a list of 'sim'-kind Series (0 or more) overlaid on `ref`.
     Intended for fit-derived quantities such as sigma_pcmx/sigma_pcmy.
     """
     if with_ratio:
@@ -546,11 +563,12 @@ def plot_q2_single(pdf, ref, sim, task_name, ylabel,
 
     ref_xy = draw(ax, ref, task_name, selection, axis_bin=axis_bin,
                   q2_panel=True, unit_scale=unit_scale)
-    draw(ax, sim, task_name, selection, axis_bin=axis_bin,
-         q2_panel=True, unit_scale=unit_scale)
+    for sim in sims:
+        draw(ax, sim, task_name, selection, axis_bin=axis_bin,
+             q2_panel=True, unit_scale=unit_scale)
 
     if with_ratio:
-        _draw_ratio_panel(ax_ratio, ref_xy, [sim], task_name, selection,
+        _draw_ratio_panel(ax_ratio, ref_xy, sims, task_name, selection,
                           axis_bin, offset_scale=1.0,
                           integrated=False, pattern=None,
                           unit_scale=unit_scale)
@@ -568,18 +586,20 @@ def plot_q2_single(pdf, ref, sim, task_name, ylabel,
         fig.tight_layout(rect=[0, 0, 1, 0.96])
     else:
         fig.tight_layout()
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_q2_2x2(pdf, ref, sim, task_name, ylabel,
+def plot_q2_2x2(pdf, ref, sims, task_name, ylabel,
                 pmiss_labels, selection='epp',
                 xlim=(1.5, 5.0), ylim=(0.0, 0.25),
                 label_xy=(2.3, 0.2), ylabel_size=15,
                 big_label=None, big_label_xy=(1.7, 0.12),
                 unit_scale=False, suptitle=None,
-                label_positions=None):
-    """2x2 panel of one vs-Q^2 quantity in pMiss bins 0..3."""
+                label_positions=None, save_as=None):
+    """2x2 panel of one vs-Q^2 quantity in pMiss bins 0..3.
+
+    `sims` is a list of 'sim'-kind Series (0 or more) overlaid on `ref`.
+    """
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
     ax[0, 0].set_ylabel(ylabel, fontsize=ylabel_size)
@@ -595,8 +615,9 @@ def plot_q2_2x2(pdf, ref, sim, task_name, ylabel,
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
         draw(ax[r, c], ref, task_name, selection, axis_bin=[bin_idx],
              q2_panel=True, unit_scale=unit_scale)
-        draw(ax[r, c], sim, task_name, selection, axis_bin=[bin_idx],
-               q2_panel=True, unit_scale=unit_scale)
+        for sim in sims:
+            draw(ax[r, c], sim, task_name, selection, axis_bin=[bin_idx],
+                   q2_panel=True, unit_scale=unit_scale)
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
@@ -605,18 +626,21 @@ def plot_q2_2x2(pdf, ref, sim, task_name, ylabel,
         fig.suptitle(suptitle, fontsize=14)
         fig.tight_layout(rect=[0, 0, 1, 0.96])
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_q2_2x2_data_over_sim(pdf, ref, sim, task_name,
+def plot_q2_2x2_data_over_sim(pdf, ref, sims, task_name,
                               pmiss_labels, selection='epp',
                               xlim=(1.5, 5.0), ylim=(0.5, 1.5),
                               label_xy=(2.3, 1.35), ylabel_size=13,
                               big_label=None, big_label_xy=(1.7, 1.12),
                               unit_scale=False, suptitle=None,
-                              label_positions=None):
-    """2x2 panel of Data/Sim for one vs-Q^2 quantity in pMiss bins 0..3."""
+                              label_positions=None, save_as=None):
+    """2x2 panel of Data/Sim for one vs-Q^2 quantity in pMiss bins 0..3.
+
+    `sims` is a list of 'sim'-kind Series (0 or more); each gets its own
+    overlaid trace per panel.
+    """
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
                            sharex=True, sharey=True)
     ax[0, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
@@ -632,18 +656,19 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sim, task_name,
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
         ref_x, ref_y, ref_err = get_xy_err(
             ref, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
-        sim_x, sim_y, sim_err = get_xy_err(
-            sim, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
-        if len(sim_x) != len(ref_x):
-            raise ValueError(
-                "Cannot build data/sim panel for task '%s' bin %d: "
-                "data and sim have different point counts (%d vs %d)."
-                % (task_name, bin_idx, len(ref_x), len(sim_x)))
+        for sim in sims:
+            sim_x, sim_y, sim_err = get_xy_err(
+                sim, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
+            if len(sim_x) != len(ref_x):
+                raise ValueError(
+                    "Cannot build data/sim panel for task '%s' bin %d: "
+                    "data and sim have different point counts (%d vs %d)."
+                    % (task_name, bin_idx, len(ref_x), len(sim_x)))
 
-        ratio_y, ratio_err = ratio.ratio_series_with_error(ref_y, ref_err, sim_y, sim_err)
-        ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
-                          color=sim.color, linestyle='', marker='o',
-                          markersize=3)
+            ratio_y, ratio_err = ratio.ratio_series_with_error(ref_y, ref_err, sim_y, sim_err)
+            ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
+                              color=sim.color, linestyle='', marker='o',
+                              markersize=3)
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
         manual = None if label_positions is None else label_positions.get(bin_idx)
@@ -653,17 +678,17 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sim, task_name,
         fig.suptitle(suptitle, fontsize=14)
         fig.tight_layout(rect=[0, 0, 1, 0.96])
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_sig_waterfall(pdf, q2_bins, ref, sim, axis='x',
-                       xlim=(-0.6, 0.6), ylim=(0.0, 120.0)):
+def plot_sig_waterfall(pdf, q2_bins, ref, sims, axis='x',
+                       xlim=(-0.6, 0.6), ylim=(0.0, 120.0), save_as=None):
     """Legacy-style pseudo-3D waterfall panel used in old plotTOOL.plotSig.
 
-    Draws one C.M. histogram-vs-Q2 panel per Q2 bin on slanted coordinates.
-    Uses per-Q2 data/sim normalization (sum over y bins in each panel) to
-    match the original visual comparison behavior.
+    `sims` is a list of 'sim'-kind Series (0 or more); each is normalized
+    and drawn independently. Draws one C.M. histogram-vs-Q2 panel per Q2 bin
+    on slanted coordinates. Uses per-Q2 data/sim normalization (sum over y
+    bins in each panel) to match the original visual comparison behavior.
     """
     if len(q2_bins) < 2:
         raise ValueError('q2_bins must contain at least two edges')
@@ -697,26 +722,25 @@ def plot_sig_waterfall(pdf, q2_bins, ref, sim, axis='x',
 
         ax = fig.add_axes([panel_x, panel_y, 0.7, 0.5])
 
-        # Use panel-by-panel scaling exactly like the old plotSig's factor[i].
         dx, dy, de = get_xy_err(ref, task_name, 'epp', axis_bin=[i], unit_scale=True)
-        _, sy, se = get_xy_err(sim, task_name, 'epp', axis_bin=[i], unit_scale=True)
-        sim_scale = 1.0
-        sum_sim = sum(sy)
-        if sum_sim != 0:
-            sim_scale = float(sum(dy)) / float(sum_sim)
-
         draw(ax, ref, task_name, 'epp', axis_bin=[i], q2_panel=True, unit_scale=True)
 
-        # Redraw sim with per-panel scale by plotting from raw arrays.
-        sx, sy, se = get_xy_err(sim, task_name, 'epp', axis_bin=[i], unit_scale=True)
-        sy = [v * sim_scale for v in sy]
-        se = [v * sim_scale for v in se]
-        pp.line_with_band_q2(ax, sx, sy, se, sim.color)
+        # Use panel-by-panel scaling exactly like the old plotSig's factor[i],
+        # computed independently for each sim.
+        panel_top = max([y + e for y, e in zip(dy, de)] or [0.0])
+        for sim in sims:
+            sx, sy, se = get_xy_err(sim, task_name, 'epp', axis_bin=[i], unit_scale=True)
+            sim_scale = 1.0
+            sum_sim = sum(sy)
+            if sum_sim != 0:
+                sim_scale = float(sum(dy)) / float(sum_sim)
+            sy = [v * sim_scale for v in sy]
+            se = [v * sim_scale for v in se]
+            pp.line_with_band_q2(ax, sx, sy, se, sim.color)
+            sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
+            panel_top = max(panel_top, sim_top)
 
         # Avoid clipping when a panel's peak exceeds the nominal y-limit.
-        ref_top = max([y + e for y, e in zip(dy, de)] or [0.0])
-        sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
-        panel_top = max(ref_top, sim_top)
         y_low = ylim[0]
         y_high = max(ylim[1], panel_top * 1.08 if panel_top > 0.0 else ylim[1])
 
@@ -735,20 +759,21 @@ def plot_sig_waterfall(pdf, q2_bins, ref, sim, axis='x',
         if i == (len(q2_bins) - 2):
             ax.set_xlabel(xlabel, fontsize=15)
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
-def plot_emiss_waterfall(pdf, pmiss_bins, ref, sim, task_name,
+def plot_emiss_waterfall(pdf, pmiss_bins, ref, sims, task_name,
                          selection='epp', xlim=(-0.2, 0.4),
                          ylim=(0.0, 120.0), xlabel=r'$E_{miss} [GeV]$',
-                         panel_label=None):
+                         panel_label=None, save_as=None):
     """Legacy-style pseudo-3D waterfall for E_miss vs pMiss.
 
-    Draws one E_miss panel per pMiss bin on slanted coordinates, with pMiss
-    shown on the far-left axis and Counts as the in-panel y axis. Simulation
-    is normalized to data separately in each pMiss panel for visual shape
-    comparison, matching the old waterfall behavior used for Q2 slices.
+    `sims` is a list of 'sim'-kind Series (0 or more), each normalized and
+    drawn independently. Draws one E_miss panel per pMiss bin on slanted
+    coordinates, with pMiss shown on the far-left axis and Counts as the
+    in-panel y axis. Each simulation is normalized to data separately in
+    each pMiss panel for visual shape comparison, matching the old
+    waterfall behavior used for Q2 slices.
     """
     if len(pmiss_bins) < 2:
         raise ValueError('pmiss_bins must contain at least two edges')
@@ -782,27 +807,27 @@ def plot_emiss_waterfall(pdf, pmiss_bins, ref, sim, task_name,
 
         ax = fig.add_axes([panel_x, panel_y, 0.7, 0.5])
 
-        # Per-panel data/sim normalization for visual shape comparison.
         _, dy, de = get_xy_err(ref, task_name, selection, axis_bin=[i], unit_scale=True)
-        _, sy, se = get_xy_err(sim, task_name, selection, axis_bin=[i], unit_scale=True)
-        sim_scale = 1.0
-        sum_sim = sum(sy)
-        if sum_sim != 0:
-            sim_scale = float(sum(dy)) / float(sum_sim)
-
         draw(ax, ref, task_name, selection, axis_bin=[i],
              q2_panel=True, unit_scale=True)
 
-        sx, sy, se = get_xy_err(sim, task_name, selection, axis_bin=[i],
-                    unit_scale=True)
-        sy = [v * sim_scale for v in sy]
-        se = [v * sim_scale for v in se]
-        pp.line_with_band_q2(ax, sx, sy, se, sim.color)
+        # Per-panel data/sim normalization for visual shape comparison,
+        # computed independently for each sim.
+        panel_top = max([y + e for y, e in zip(dy, de)] or [0.0])
+        for sim in sims:
+            sx, sy, se = get_xy_err(sim, task_name, selection, axis_bin=[i],
+                        unit_scale=True)
+            sim_scale = 1.0
+            sum_sim = sum(sy)
+            if sum_sim != 0:
+                sim_scale = float(sum(dy)) / float(sum_sim)
+            sy = [v * sim_scale for v in sy]
+            se = [v * sim_scale for v in se]
+            pp.line_with_band_q2(ax, sx, sy, se, sim.color)
+            sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
+            panel_top = max(panel_top, sim_top)
 
         # Avoid clipping when a panel's peak exceeds the nominal y-limit.
-        ref_top = max([y + e for y, e in zip(dy, de)] or [0.0])
-        sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
-        panel_top = max(ref_top, sim_top)
         y_low = ylim[0]
         y_high = max(ylim[1], panel_top * 1.08 if panel_top > 0.0 else ylim[1])
 
@@ -821,8 +846,7 @@ def plot_emiss_waterfall(pdf, pmiss_bins, ref, sim, task_name,
         if i == (len(pmiss_bins) - 2):
             ax.set_xlabel(xlabel, fontsize=15)
 
-    pdf.savefig(fig)
-    return fig
+    return _save(pdf, fig, save_as)
 
 
 # NOTE: the old g_sigma_pcmx / g_sigma_E1miss_*_pmiss / g_mean_E1miss_*_pmiss

@@ -148,7 +148,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.E0 = E0miss;
   ek.E1 = E1miss;
   ek.qMag = q.P();
-  ek.thPMissQ = miss.Vect().Angle(q.Vect()) * 180 / M_PI;
+  ek.thPMissQ = miss_neg.Angle(q.Vect()) * 180 / M_PI;
   ek.thPLeadQ = lead_ptr.Vect().Angle(q.Vect()) * 180 / M_PI;
 
   if (!rec) return ek;
