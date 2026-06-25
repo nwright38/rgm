@@ -1273,7 +1273,8 @@ TGraphErrors * getGraphWithError(TFile *f, TCanvas * myCanvas, char fileName[100
     }
     getMeanStddev(list,mean,stddev);
     double stat_err = nominal->GetBinError(j);
-    g_mu->SetPoint(g_mu->GetN(),x,mean);
+    g_mu->SetPoint(g_mu->GetN(),x,nominal->GetBinContent(j+1));
+   // g_mu->SetPoint(g_mu->GetN(),x,mean);
     g_mu->SetPointError(g_mu->GetN()-1,0,sqrt(stddev*stddev + stat_err*stat_err));
   }
 
