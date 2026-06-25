@@ -263,6 +263,19 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   tasks.push_back({"kMiss_epp", Selection::EPP, passEPP, {}, {},
                     [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long});
 
+  // pMiss/kMiss with uniform binning, kept separate from pMiss_ep/epp and
+  // kMiss_ep/epp above so changing this binning doesn't also rebin the
+  // pMiss_epp_over_pMiss_ep / kMiss_epp_over_kMiss_ep ratio tasks, which
+  // depend on the variable-width bE_pmiss_long/bE_kmiss_long edges.
+  tasks.push_back({"pMiss_ep_note", Selection::EP, passEP, {}, {},
+                    [](const EventKinematics& ek) { return ek.pM; }, 50, 0.4, 1.2, {}});
+  tasks.push_back({"pMiss_epp_note", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.pM; }, 50, 0.4, 1.2, {}});
+  tasks.push_back({"kMiss_ep_note", Selection::EP, passEP, {}, {},
+                    [](const EventKinematics& ek) { return ek.kM; }, 50, 0.3, 1.1, {}});
+  tasks.push_back({"kMiss_epp_note", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.kM; }, 50, 0.3, 1.1, {}});
+
   // q (virtual photon 3-momentum magnitude), no selector binning.
   tasks.push_back({"q_ep", Selection::EP, passEP, {}, {},
                     [](const EventKinematics& ek) { return ek.qMag; }, 50, 0, 4, {}});

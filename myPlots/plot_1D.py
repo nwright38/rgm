@@ -26,10 +26,10 @@ import plot_helpers as ph
 
 # (output key, task_name, selection, xlabel, xlim)
 VARIABLES = [
-    ('pMiss_ep', 'pMiss_ep', 'ep', r'$p_{miss} [GeV]$', (0.4, 1.2)),
-    ('pMiss_epp', 'pMiss_epp', 'epp', r'$p_{miss} [GeV]$', (0.4, 1.2)),
-    ('kMiss_ep', 'kMiss_ep', 'ep', r'$k_{miss} [GeV]$', (0.3, 1.1)),
-    ('kMiss_epp', 'kMiss_epp', 'epp', r'$k_{miss} [GeV]$', (0.3, 1.1)),
+    ('pMiss_ep', 'pMiss_ep_note', 'ep', r'$p_{miss} [GeV]$', (0.4, 1.2)),
+    ('pMiss_epp', 'pMiss_epp_note', 'epp', r'$p_{miss} [GeV]$', (0.4, 1.2)),
+    ('kMiss_ep', 'kMiss_ep_note', 'ep', r'$k_{miss} [GeV]$', (0.3, 1.1)),
+    ('kMiss_epp', 'kMiss_epp_note', 'epp', r'$k_{miss} [GeV]$', (0.3, 1.1)),
     ('pRel_epp', 'pRel_epp', 'epp', r'$p_{rel} [GeV]$', (0.15, 1.0)),
     ('pcmz_epp', 'pcmz_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{z} [GeV]$', (-0.75, 0.75)),
     ('pcmx_epp', 'pcmx_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{x} [GeV]$', (-0.75, 0.75)),
