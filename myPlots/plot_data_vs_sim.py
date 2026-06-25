@@ -61,6 +61,10 @@ def parse_args():
     p.add_argument('--data-color', default='black')
     p.add_argument('--sim-color', default='red')
     p.add_argument('--out', default='plots/data_vs_sim.pdf')
+    p.add_argument('--normalization-mode',
+                   choices=['legacy-last-q2', 'integrated'],
+                   default='legacy-last-q2',
+                   help='Scale mode for sim-to-data overlay normalization.')
     return p.parse_args()
 
 
@@ -73,8 +77,10 @@ def main():
 
     data = Series(args.data_label, f_data, args.data_color, 'data')
 
-    scale_ep, _ = normalization.scale_factor(f_sim, f_data, 'ep')
-    scale_epp, _ = normalization.scale_factor(f_sim, f_data, 'epp')
+    scale_ep, _ = normalization.scale_factor(
+        f_sim, f_data, 'ep', mode=args.normalization_mode)
+    scale_epp, _ = normalization.scale_factor(
+        f_sim, f_data, 'epp', mode=args.normalization_mode)
     sim = Series(args.sim_label, f_sim, args.sim_color, 'sim', scale_ep, scale_epp)
 
     missing_notes = []
@@ -98,7 +104,7 @@ def main():
     ph.plot_overlay(
         pdf, 'pMiss_epp_over_pMiss_ep', [data, sim], selection='ratio',
         xlabel=r'$p_{miss} [GeV]$', ylabel=r'$epp/ep$',
-        xlim=(0.4, 1.0), ylim=(0, 0.2), with_ratio=True,
+        xlim=(0.4, 1.0), ylim=(0, 0.25), with_ratio=True,
         xlabel_size=25, ylabel_size=25)
 
     # ---------------------------------------------------------------------
@@ -187,12 +193,12 @@ def main():
     if ok:
         ph.plot_q2_single(
             pdf, data, sim, 'sigma_pcmx', r'$\sigma_{x,C.M.} [GeV]$',
-            selection='epp', xlim=(1.5, 5.0), with_ratio=True,
+            selection='epp', xlim=(1.5, 5.0),ylim=(0,.35), with_ratio=True,
             unit_scale=True,
             suptitle=r'$\sigma_{x,C.M.} [GeV]$')
         ph.plot_q2_single(
             pdf, data, sim, 'sigma_pcmy', r'$\sigma_{y,C.M.} [GeV]$',
-            selection='epp', xlim=(1.5, 5.0), with_ratio=True,
+            selection='epp', xlim=(1.5, 5.0),ylim=(0,.35), with_ratio=True,
             unit_scale=True,
             suptitle=r'$\sigma_{y,C.M.} [GeV]$')
     else:

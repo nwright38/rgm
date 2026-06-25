@@ -17,6 +17,7 @@
 #include <utility>
 #include <typeinfo>
 #include <sstream>
+#include <string>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -207,6 +208,13 @@ struct CutVariation {
     return v;
   }
 
+  // Mirrors legacy CutRandom(..., randomize=true): thresholds are re-sampled
+  // for each call rather than fixed per toy across the full event sample.
+  static CutVariation RandomizedLikeLegacy() {
+    TRandom3 rng(0);
+    return Randomized(rng);
+  }
+
   void apply(const EventKinematics& ek, bool& passep, bool& passepp) const {
     passep = ek.passep;
     passepp = ek.passepp;
@@ -230,7 +238,7 @@ struct CutVariation {
 // split by Q2"), not one per individual histogram -- the cartesian product
 // over each task's selector axes is what used to be a hand-written
 // HistGroup struct field plus a [4] or [4][7] loop block.
-vector<FillTask<EventKinematics>> buildFillTasks() {
+vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   vector<FillTask<EventKinematics>> tasks;
 
   auto passEP = [](const EventKinematics& ek) { return ek.passep; };
@@ -252,7 +260,7 @@ vector<FillTask<EventKinematics>> buildFillTasks() {
 
   // Q2 yield, selected (rebinned) by its own Q2 bin -- matches the original
   // h_Q2_ep_SRC_Q2 / h_Q2_epp_SRC_Q2 (used to get each Q2 bin's mean Q2).
-  tasks.push_back({"Q2_ep_SRC_Q2", Selection::EP, passEP, {&Q2Axis},
+  tasks.push_back({"Q2_ep_SRC_Q2", legacyCompatMode ? Selection::EPP : Selection::EP, passEP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.qSq; }, 100, 1.5, 5.0, {}});
   tasks.push_back({"Q2_epp_SRC_Q2", Selection::EPP, passEPP, {&Q2Axis},
@@ -302,19 +310,7 @@ vector<FillTask<EventKinematics>> buildFillTasks() {
                     [](const EventKinematics& ek) { return ek.E2; }, 15, -0.25, 0.5, {}});
 
   // E_miss shapes, selected by pMiss bin AND Q2 bin together.
-  //
-  // NOTE on a discrepancy found vs. the original file: in
-  // Main_Figs_Sys_Err.cpp's fillUpHistGroup(), the "_ep_"-named histograms
-  // h_Q2_ep_SRC_Q2, h_E1miss_ep_SRC_pmiss_Q2 and h_E1miss_ep_SRC_kmiss_Q2 are
-  // filled with the `wepp` weight, not `wep` -- every sibling "_ep_"
-  // histogram elsewhere in that function uses `wep`. That looks like an
-  // unintentional copy/paste slip (it's not flagged or commented as
-  // intentional anywhere) rather than a deliberate choice, so this new file
-  // uses `wep` (passed automatically here via Selection::EP) for these
-  // tasks instead of reproducing it. Flagging this explicitly: if there was
-  // a reason for the original wepp weighting, tell me and I'll switch these
-  // back to match.
-  tasks.push_back({"E1miss_ep_SRC_pmiss_Q2", Selection::EP, passEP, {&pMissAxis, &Q2Axis},
+  tasks.push_back({"E1miss_ep_SRC_pmiss_Q2", legacyCompatMode ? Selection::EPP : Selection::EP, passEP, {&pMissAxis, &Q2Axis},
                     {[](const EventKinematics& ek) { return ek.pM; },
                      [](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.E1; }, 15, -0.25, 0.55, {}});
@@ -327,7 +323,7 @@ vector<FillTask<EventKinematics>> buildFillTasks() {
                      [](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.E2; }, 15, -0.25, 0.5, {}});
 
-  tasks.push_back({"E1miss_ep_SRC_kmiss_Q2", Selection::EP, passEP, {&kMissAxis, &Q2Axis},
+  tasks.push_back({"E1miss_ep_SRC_kmiss_Q2", legacyCompatMode ? Selection::EPP : Selection::EP, passEP, {&kMissAxis, &Q2Axis},
                     {[](const EventKinematics& ek) { return ek.kM; },
                      [](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.E1; }, 15, -0.25, 0.55, {}});
@@ -365,13 +361,39 @@ vector<FillTask<EventKinematics>> buildFillTasks() {
 }
 
 void Usage() {
-  std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root inputfiles.hipo \n\n\n";
+  std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root [--mode legacy|modern] inputfiles.hipo \n\n\n";
 }
 
 int main(int argc, char** argv) {
   if (argc < 4) {
     Usage();
     return -1;
+  }
+
+  bool legacyCompatMode = false;  // false = modern behavior, true = legacy-compatible
+  int inputStartArg = 4;
+  if (argc > 4) {
+    string opt = argv[4];
+    if (opt.rfind("--mode", 0) == 0) {
+      string mode;
+      if (opt == "--mode" && argc > 5) {
+        mode = argv[5];
+        inputStartArg = 6;
+      } else if (opt.rfind("--mode=", 0) == 0) {
+        mode = opt.substr(7);
+        inputStartArg = 5;
+      } else {
+        Usage();
+        return -1;
+      }
+
+      if (mode == "legacy") legacyCompatMode = true;
+      else if (mode == "modern") legacyCompatMode = false;
+      else {
+        std::cerr << "Unknown mode '" << mode << "'. Use 'legacy' or 'modern'.\n";
+        return -1;
+      }
+    }
   }
 
   // Detach every histogram we create from ROOT's directory bookkeeping, so
@@ -400,7 +422,7 @@ int main(int argc, char** argv) {
   clasAna.printParams();
 
   clas12root::HipoChain chain;
-  for (int k = 4; k < argc; k++) {
+  for (int k = inputStartArg; k < argc; k++) {
     cout << "Input file " << argv[k] << endl;
     chain.Add(argv[k]);
   }
@@ -418,7 +440,7 @@ int main(int argc, char** argv) {
   reweighter newWeight(beam_E, Z, N, kelly, uType, .15);
 
   const int nToys = 100;
-  TRandom3 toyRng(1234);  // fixed seed: deterministic, reproducible across runs
+  TRandom3 toyRng(1234);
   CutVariation nominalCut = CutVariation::Nominal();
   vector<CutVariation> toyCuts(nToys);
   vector<reweighter> toyWeighters;
@@ -430,7 +452,7 @@ int main(int argc, char** argv) {
     toyWeighters.push_back(w);
   }
 
-  vector<FillTask<EventKinematics>> tasks = buildFillTasks();
+  vector<FillTask<EventKinematics>> tasks = buildFillTasks(legacyCompatMode);
 
   HistStore<EventKinematics> nominalStore("nominal");
   nominalStore.book(tasks);
@@ -471,7 +493,11 @@ int main(int argc, char** argv) {
         wepp_sys = original_weight * toyWeighters[i].get_weight_epp(c12->mcparts());
       }
       bool passep_i, passepp_i;
-      toyCuts[i].apply(ek, passep_i, passepp_i);
+      if (legacyCompatMode) {
+        CutVariation::RandomizedLikeLegacy().apply(ek, passep_i, passepp_i);
+      } else {
+        toyCuts[i].apply(ek, passep_i, passepp_i);
+      }
       EventKinematics ekToy = ek;
       ekToy.passep = passep_i;
       ekToy.passepp = passepp_i;
@@ -514,7 +540,8 @@ int main(int argc, char** argv) {
   intTree->Branch("sys_error", &i_sysErr, "sys_error/D");
 
   for (size_t t = 0; t < tasks.size(); t++) {
-    auto diffRows = buildDiffRows(tasks[t], (int)t, nominalStore, toyStores);
+    CentralValueMode centralMode = legacyCompatMode ? CentralValueMode::TOY_MEAN : CentralValueMode::NOMINAL;
+    auto diffRows = buildDiffRows(tasks[t], (int)t, nominalStore, toyStores, centralMode);
     for (auto& r : diffRows) {
       d_task = r.task_name;
       d_sel = r.selection;
@@ -584,7 +611,8 @@ int main(int argc, char** argv) {
     int denIdx = findTaskIdx(spec.second);
     if (numIdx < 0 || denIdx < 0) continue;
     string ratioName = spec.first + "_over_" + spec.second;
-    auto rows = buildRatioDiffRows(tasks[numIdx], numIdx, denIdx, ratioName, nominalStore, toyStores);
+    CentralValueMode centralMode = legacyCompatMode ? CentralValueMode::TOY_MEAN : CentralValueMode::NOMINAL;
+    auto rows = buildRatioDiffRows(tasks[numIdx], numIdx, denIdx, ratioName, nominalStore, toyStores, centralMode);
     for (auto& r : rows) {
       d_task = r.task_name;
       d_sel = r.selection;

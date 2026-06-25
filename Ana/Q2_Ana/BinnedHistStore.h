@@ -40,6 +40,8 @@ struct Axis {
 
 enum class Selection { EP, EPP };
 
+enum class CentralValueMode { NOMINAL, TOY_MEAN };
+
 inline const char* selectionName(Selection s) {
   return (s == Selection::EP) ? "ep" : "epp";
 }
@@ -212,7 +214,8 @@ struct DiffRow {
 template <typename EventT>
 std::vector<DiffRow> buildDiffRows(const FillTask<EventT>& task, int taskIdx,
                                     const HistStore<EventT>& nominal,
-                                    const std::vector<HistStore<EventT>>& toys) {
+                                    const std::vector<HistStore<EventT>>& toys,
+                                    CentralValueMode centralMode = CentralValueMode::NOMINAL) {
   std::vector<DiffRow> rows;
   for (auto& kv : nominal.raw()) {
     const std::vector<int>& key = kv.first;
@@ -243,6 +246,7 @@ std::vector<DiffRow> buildDiffRows(const FillTask<EventT>& task, int taskIdx,
       }
       double m, s;
       meanStddev(toyVals, m, s);
+      if (centralMode == CentralValueMode::TOY_MEAN) row.count = m;
       row.sys_error = s;
 
       rows.push_back(std::move(row));
@@ -357,7 +361,8 @@ template <typename EventT>
 std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int numIdx,
                                          int denIdx, const std::string& ratioName,
                                          const HistStore<EventT>& nominal,
-                                         const std::vector<HistStore<EventT>>& toys) {
+                                         const std::vector<HistStore<EventT>>& toys,
+                                         CentralValueMode centralMode = CentralValueMode::NOMINAL) {
   std::vector<DiffRow> rows;
   for (auto& kv : nominal.raw()) {
     const std::vector<int>& key = kv.first;
@@ -401,6 +406,7 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
       }
       double m, s;
       meanStddev(toyVals, m, s);
+      if (centralMode == CentralValueMode::TOY_MEAN) row.count = m;
       row.sys_error = s;
 
       rows.push_back(std::move(row));

@@ -29,10 +29,28 @@ def _integrated_yield(root_file, task_name, selection):
     return y[0], yerr[0]
 
 
-def scale_factor(target_file, reference_file, selection):
+def _legacy_last_q2_slice_yield(root_file, task_name, selection):
+    """Emulates plotTOOL.getFactor_ep/getFactor_epp legacy behavior.
+
+    The old helpers effectively used only the LAST Q2 selector slice (bin 6)
+    when computing normalization factors.
+    """
+    name = graph_names.diff_graph_name(task_name, selection, [6])
+    _x, y, yerr = graph_io.read_graph(root_file, name)
+    if not y:
+        raise ValueError("No differential yield found for %s/%s in %s" %
+                         (task_name, selection, root_file.file_path))
+    return sum(y), (sum(e * e for e in yerr)) ** 0.5
+
+
+def scale_factor(target_file, reference_file, selection, mode='integrated'):
     """Returns (factor, error) such that target * factor displays on the
     same scale as reference, for the given selection ('ep' or 'epp')."""
     task_name = 'Q2_%s_SRC_Q2' % selection
-    target_y, target_err = _integrated_yield(target_file, task_name, selection)
-    ref_y, ref_err = _integrated_yield(reference_file, task_name, selection)
+    if mode == 'legacy-last-q2':
+        target_y, target_err = _legacy_last_q2_slice_yield(target_file, task_name, selection)
+        ref_y, ref_err = _legacy_last_q2_slice_yield(reference_file, task_name, selection)
+    else:
+        target_y, target_err = _integrated_yield(target_file, task_name, selection)
+        ref_y, ref_err = _integrated_yield(reference_file, task_name, selection)
     return ratio.ratio_with_error(ref_y, ref_err, target_y, target_err)
