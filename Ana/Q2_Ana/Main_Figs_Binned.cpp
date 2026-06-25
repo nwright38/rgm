@@ -71,6 +71,7 @@ struct EventKinematics {
   double px = 0, py = 0, pz = 0;
   double mM = 0, pM = 0, kM = 0;
   double E0 = 0, E1 = 0, E2 = 0;
+  double qMag = 0, thPMissQ = 0, thPLeadQ = 0, pRel = 0;
   bool passep = false, passepp = false;
 };
 
@@ -146,6 +147,9 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.kM = kmiss;
   ek.E0 = E0miss;
   ek.E1 = E1miss;
+  ek.qMag = q.P();
+  ek.thPMissQ = miss.Vect().Angle(q.Vect()) * 180 / M_PI;
+  ek.thPLeadQ = lead_ptr.Vect().Angle(q.Vect()) * 180 / M_PI;
 
   if (!rec) return ek;
   GetLorentzVector_Corrected(recoil_ptr, recoil[0], isMC);
@@ -167,6 +171,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.py = v_cm.Dot(vy);
   ek.pz = v_cm.Dot(vz);
   ek.E2 = E2miss;
+  ek.pRel = (miss_neg - v_rec).Mag() * 0.5;
 
   return ek;
 }
@@ -257,6 +262,28 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
                     [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long});
   tasks.push_back({"kMiss_epp", Selection::EPP, passEPP, {}, {},
                     [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long});
+
+  // q (virtual photon 3-momentum magnitude), no selector binning.
+  tasks.push_back({"q_ep", Selection::EP, passEP, {}, {},
+                    [](const EventKinematics& ek) { return ek.qMag; }, 50, 0, 4, {}});
+  tasks.push_back({"q_epp", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.qMag; }, 50, 0, 4, {}});
+
+  // theta_pmiss (angle between p_miss and q), no selector binning.
+  tasks.push_back({"theta_pmiss_ep", Selection::EP, passEP, {}, {},
+                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 50, 100, 180, {}});
+  tasks.push_back({"theta_pmiss_epp", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 50, 100, 180, {}});
+
+  // theta_pLead,q (angle between leading nucleon and q), no selector binning.
+  tasks.push_back({"theta_pLeadq_ep", Selection::EP, passEP, {}, {},
+                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 50, 0, 40, {}});
+  tasks.push_back({"theta_pLeadq_epp", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 50, 0, 40, {}});
+
+  // pRel (relative momentum of the lead/recoil pair), e'pp only.
+  tasks.push_back({"pRel_epp", Selection::EPP, passEPP, {}, {},
+                    [](const EventKinematics& ek) { return ek.pRel; }, 50, 0.15, 1.0, {}});
 
   // Q2 yield, selected (rebinned) by its own Q2 bin -- matches the original
   // h_Q2_ep_SRC_Q2 / h_Q2_epp_SRC_Q2 (used to get each Q2 bin's mean Q2).

@@ -35,12 +35,28 @@ def _legacy_last_q2_slice_yield(root_file, task_name, selection):
     The old helpers effectively used only the LAST Q2 selector slice (bin 6)
     when computing normalization factors.
     """
-    name = graph_names.diff_graph_name(task_name, selection, [6])
-    _x, y, yerr = graph_io.read_graph(root_file, name)
-    if not y:
-        raise ValueError("No differential yield found for %s/%s in %s" %
-                         (task_name, selection, root_file.file_path))
-    return sum(y), (sum(e * e for e in yerr)) ** 0.5
+    # Legacy compatibility: depending on producer mode, the EP-gated
+    # Q2_ep_SRC_Q2 task can be stored under either selection='ep'
+    # (modern-consistent) or selection='epp' (legacy-mirroring quirk).
+    # Try requested selection first, then fallback to the alternate key.
+    candidates = [selection]
+    if selection == 'ep':
+        candidates.append('epp')
+    elif selection == 'epp':
+        candidates.append('ep')
+
+    last_exc = None
+    for sel in candidates:
+        name = graph_names.diff_graph_name(task_name, sel, [6])
+        try:
+            _x, y, yerr = graph_io.read_graph(root_file, name)
+            if y:
+                return sum(y), (sum(e * e for e in yerr)) ** 0.5
+        except Exception as exc:
+            last_exc = exc
+
+    raise KeyError("Legacy normalization graph not found for %s/%s in %s (tried selections: %s). Last error: %s" %
+                   (task_name, selection, root_file.file_path, candidates, last_exc))
 
 
 def scale_factor(target_file, reference_file, selection, mode='integrated'):
