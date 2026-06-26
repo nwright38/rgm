@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <algorithm>
 #include <functional>
 #include <cmath>
 #include <numeric>
@@ -194,6 +195,21 @@ inline void meanStddev(const std::vector<double>& v, double& mean, double& stdde
   stddev = std::sqrt(s2 / v.size());
 }
 
+// Percentile helper with linear interpolation between adjacent ordered values.
+// p in [0,1], e.g. 0.16 / 0.50 / 0.84.
+inline double percentile(std::vector<double> v, double p) {
+  if (v.empty()) return 0.0;
+  if (p <= 0.0) p = 0.0;
+  if (p >= 1.0) p = 1.0;
+  std::sort(v.begin(), v.end());
+  double x = p * (double)(v.size() - 1);
+  size_t i0 = (size_t)std::floor(x);
+  size_t i1 = (size_t)std::ceil(x);
+  if (i0 == i1) return v[i0];
+  double t = x - (double)i0;
+  return (1.0 - t) * v[i0] + t * v[i1];
+}
+
 // One row of the flat differential output table: which task, which selector
 // bin, which value-histogram bin, and its nominal count / stat error / sys error.
 struct DiffRow {
@@ -355,17 +371,13 @@ std::vector<IntegratedRow> buildIntegratedRows(
 // mutates the originals, unlike calling Divide() in place), for the nominal
 // store and every toy store, then read out exactly like buildDiffRows.
 //
-// Systematic spread for ratios is evaluated in LOG SPACE (for positive toy
-// ratios only):
-//   z_i = log(r_i),  m_z = mean(z_i),  s_z = stddev(z_i)
-// This is the standard treatment for multiplicative systematics, where the
-// ratio distribution is often closer to symmetric in log space than in linear
-// space. The stored additive sys_error is then mapped back as
-//   sigma_add = r_ref * (exp(s_z) - 1)
-// with r_ref = current row.count if positive, otherwise exp(m_z).
+// Systematic spread for ratios is evaluated from toy percentiles:
+//   p16 = percentile(toyVals, 0.16), p50 = percentile(toyVals, 0.50),
+//   p84 = percentile(toyVals, 0.84)
+// and stored as a symmetric additive uncertainty
+//   sigma_add = 0.5 * (p84 - p16)
 //
-// If centralMode == TOY_MEAN, the central value is set to exp(m_z)
-// (geometric-mean central value from toys).
+// If centralMode == TOY_MEAN, row.count uses p50 (toy median central value).
 template <typename EventT>
 std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int numIdx,
                                          int denIdx, const std::string& ratioName,
@@ -399,8 +411,8 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
       row.count = ratioNom->GetBinContent(vb);
       row.stat_error = ratioNom->GetBinError(vb);
 
-      std::vector<double> toyLogs;
-      toyLogs.reserve(toys.size());
+      std::vector<double> toyVals;
+      toyVals.reserve(toys.size());
       for (auto& toy : toys) {
         TH1D* hN = toy.get(numIdx, binIdx);
         TH1D* hD = toy.get(denIdx, binIdx);
@@ -408,20 +420,17 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
           TH1D* r = (TH1D*)hN->Clone("ratio_toy_tmp");
           r->Divide(hD);
           double v = r->GetBinContent(vb);
-          if (v > 0.0 && std::isfinite(v)) toyLogs.push_back(std::log(v));
+          if (std::isfinite(v)) toyVals.push_back(v);
           delete r;
         }
       }
-      double mLog = 0.0, sLog = 0.0;
-      meanStddev(toyLogs, mLog, sLog);
-
-      if (centralMode == CentralValueMode::TOY_MEAN && !toyLogs.empty()) {
-        row.count = std::exp(mLog);
-      }
-
-      if (!toyLogs.empty()) {
-        double ref = (row.count > 0.0 && std::isfinite(row.count)) ? row.count : std::exp(mLog);
-        row.sys_error = ref * (std::exp(sLog) - 1.0);
+      if (!toyVals.empty()) {
+        double p16 = percentile(toyVals, 0.16);
+        double p50 = percentile(toyVals, 0.50);
+        double p84 = percentile(toyVals, 0.84);
+        if (centralMode == CentralValueMode::TOY_MEAN) row.count = p50;
+        row.sys_error = 0.5 * (p84 - p16);
+        if (row.sys_error < 0.0) row.sys_error = 0.0;
       } else {
         row.sys_error = 0.0;
       }
