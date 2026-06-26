@@ -38,6 +38,7 @@
 #include <string>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 #include <TFile.h>
 #include <TDirectory.h>
@@ -74,9 +75,9 @@ double G(double x, double N, double mu, double sigma) {
 // Same as the original getSigma(): Gaussian-fits h over [min,max] and
 // returns the fit sigma, falling back to the histogram's own GetStdDev()
 // if there are too few entries to fit reliably.
-double fitSigma(TH1D* h, double min, double max) {
-  if (!h || h->GetEntries() == 0) return 0.0;
-  if (h->GetEntries() < 20) return h->GetStdDev();
+std::pair<double, double> fitSigmaAndStatError(TH1D* h, double min, double max) {
+  if (!h || h->GetEntries() == 0) return {0.0, 0.0};
+  if (h->GetEntries() < 20) return {h->GetStdDev(), h->GetStdDevError()};
 
   TF1* gFit = new TF1("GausFit",
                        [](double* x, double* p) { return G(x[0], p[0], p[1], p[2]); },
@@ -88,9 +89,19 @@ double fitSigma(TH1D* h, double min, double max) {
   gFit->SetParLimits(2, 0.0, max - min);
 
   TFitResultPtr fr = h->Fit(gFit, "SrBeqn", "", min, max);
-  double sigma = (fr.Get() != nullptr) ? fr->Parameter(2) : h->GetStdDev();
+  double sigma = h->GetStdDev();
+  double sigmaErr = h->GetStdDevError();
+  if (fr.Get() != nullptr) {
+    sigma = fr->Parameter(2);
+    sigmaErr = fr->ParError(2);
+  }
   delete gFit;
-  return sigma;
+  if (!std::isfinite(sigmaErr) || sigmaErr < 0.0) sigmaErr = 0.0;
+  return {sigma, sigmaErr};
+}
+
+double fitSigma(TH1D* h, double min, double max) {
+  return fitSigmaAndStatError(h, min, max).first;
 }
 
 double plainStdDev(TH1D* h) {
@@ -203,6 +214,19 @@ double extract(const FitSpec& spec, TH1D* h) {
   return fitSigma(h, spec.fitMin, spec.fitMax);
 }
 
+double extractNominalStatError(const FitSpec& spec, TH1D* h) {
+  if (!h || h->GetEntries() == 0) return 0.0;
+  if (spec.method == STDDEV) {
+    double e = h->GetStdDevError();
+    return (std::isfinite(e) && e > 0.0) ? e : 0.0;
+  }
+  if (spec.method == MEAN) {
+    double e = h->GetMeanError();
+    return (std::isfinite(e) && e > 0.0) ? e : 0.0;
+  }
+  return fitSigmaAndStatError(h, spec.fitMin, spec.fitMax).second;
+}
+
 void ExtractFitQuantities(const char* filename) {
   try {
     int kNQ2Bins = nQ2Bins();
@@ -273,17 +297,25 @@ void ExtractFitQuantities(const char* filename) {
                  << ". Example missing path: hists/" << firstMissing << "\n";
           }
 
-          // Preserve the original methodology: central value is the mean over
-          // toy-derived quantities and error is the toy spread. If no toy hists
-          // were found for this point, skip it rather than silently writing zero.
+          // Preserve the original toy-central methodology: central value is
+          // the mean over toy-derived quantities. Error is now combined in
+          // quadrature from toy spread (systematic proxy) and nominal-stat.
+          // If no toy hists were found for this point, skip it rather than
+          // silently writing zero.
           if (toyVals.empty()) {
             continue;
           }
+
+          string hnameNom = histName("nominal", spec.sourceTask, spec.axisName, axisBin, j);
+          TH1D* hNom = getHist(histsDir, "nominal", hnameNom);
+          double statErrNom = extractNominalStatError(spec, hNom);
+
           double mean, stddev;
           meanStddev(toyVals, mean, stddev);
+          const double totalErr = std::sqrt(stddev * stddev + statErrNom * statErrNom);
           int n = g->GetN();
           g->SetPoint(n, q2x[j], mean);
-          g->SetPointError(n, 0.0, stddev);
+          g->SetPointError(n, 0.0, totalErr);
         }
 
         if (g->GetN() == 0) {

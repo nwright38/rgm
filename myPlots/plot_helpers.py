@@ -148,30 +148,52 @@ def get_xy_err(series, task_name, selection, axis_bin=(), offset_scale=1.0,
     return x, y, yerr
 
 
+def get_xy_err_asymm(series, task_name, selection, axis_bin=(), offset_scale=1.0,
+                     integrated=False, pattern=None, unit_scale=False):
+    """Reads, scales, and x-shifts one Series' graph. Returns
+    (x, y, yerr_low, yerr_high)."""
+    if integrated:
+        name = graph_names.integrated_graph_name(task_name, selection, pattern)
+    else:
+        name = graph_names.diff_graph_name(task_name, selection, list(axis_bin))
+
+    x, y, yerr_low, yerr_high = graph_io.read_graph_asymm(series.file, name)
+    scale = 1.0 if unit_scale else _scale_for(series, selection)
+    shift = series.offset * offset_scale
+
+    x = [xi + shift for xi in x]
+    y = [yi * scale for yi in y]
+    yerr_low = [ei * scale for ei in yerr_low]
+    yerr_high = [ei * scale for ei in yerr_high]
+    return x, y, yerr_low, yerr_high
+
+
 def draw(ax, series, task_name, selection, axis_bin=(), offset_scale=1.0,
          integrated=False, pattern=None, q2_panel=False, unit_scale=False):
     """Draws one Series onto an axis for the given (task_name, selection,
     axis_bin) graph. q2_panel=True uses the wide-step/band padding used by
     the vs-Q^2 panels (matches the old plotTGEStepQ2/plotTGELineQ2 look)."""
-    x, y, yerr = get_xy_err(series, task_name, selection, axis_bin,
-                            offset_scale, integrated, pattern, unit_scale)
+    x, y, yerr_low, yerr_high = get_xy_err_asymm(
+        series, task_name, selection, axis_bin, offset_scale,
+        integrated, pattern, unit_scale)
 
     if series.kind == 'data':
         if q2_panel:
-            pp.step_with_error_q2(ax, x, y, yerr, series.color)
+            pp.step_with_error_q2(ax, x, y, yerr_low, yerr_high, series.color)
         else:
-            pp.step_with_error(ax, x, y, yerr, series.color)
+            pp.step_with_error(ax, x, y, yerr_low, yerr_high, series.color)
     elif series.kind == 'sim':
         if q2_panel:
-            pp.line_with_band_q2(ax, x, y, yerr, series.color)
+            pp.line_with_band_q2(ax, x, y, yerr_low, yerr_high, series.color)
         else:
-            pp.line_with_band(ax, x, y, yerr, series.color)
+            pp.line_with_band(ax, x, y, yerr_low, yerr_high, series.color)
     elif series.kind == 'data_ex':
-        pp.errorbar_marker(ax, x, y, yerr, series.color, series.marker)
+        pp.errorbar_marker(ax, x, y, yerr_low, yerr_high,
+                           series.color, series.marker)
     else:
         raise ValueError("Unknown Series kind: %r" % series.kind)
 
-    return x, y, yerr
+    return x, y, [max(lo, hi) for lo, hi in zip(yerr_low, yerr_high)]
 
 
 def annotate(ax, items):
@@ -853,15 +875,17 @@ def plot_sig_waterfall(pdf, q2_bins, ref, sims, axis='x',
         # computed independently for each sim.
         panel_top = max([y + e for y, e in zip(dy, de)] or [0.0])
         for sim in sims:
-            sx, sy, se = get_xy_err(sim, task_name, 'epp', axis_bin=[i], unit_scale=True)
+            sx, sy, se_low, se_high = get_xy_err_asymm(
+                sim, task_name, 'epp', axis_bin=[i], unit_scale=True)
             sim_scale = 1.0
             sum_sim = sum(sy)
             if sum_sim != 0:
                 sim_scale = float(sum(dy)) / float(sum_sim)
             sy = [v * sim_scale for v in sy]
-            se = [v * sim_scale for v in se]
-            pp.line_with_band_q2(ax, sx, sy, se, sim.color)
-            sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
+            se_low = [v * sim_scale for v in se_low]
+            se_high = [v * sim_scale for v in se_high]
+            pp.line_with_band_q2(ax, sx, sy, se_low, se_high, sim.color)
+            sim_top = max([y + e for y, e in zip(sy, se_high)] or [0.0])
             panel_top = max(panel_top, sim_top)
 
         # Avoid clipping when a panel's peak exceeds the nominal y-limit.
@@ -939,16 +963,17 @@ def plot_emiss_waterfall(pdf, pmiss_bins, ref, sims, task_name,
         # computed independently for each sim.
         panel_top = max([y + e for y, e in zip(dy, de)] or [0.0])
         for sim in sims:
-            sx, sy, se = get_xy_err(sim, task_name, selection, axis_bin=[i],
-                        unit_scale=True)
+            sx, sy, se_low, se_high = get_xy_err_asymm(
+                sim, task_name, selection, axis_bin=[i], unit_scale=True)
             sim_scale = 1.0
             sum_sim = sum(sy)
             if sum_sim != 0:
                 sim_scale = float(sum(dy)) / float(sum_sim)
             sy = [v * sim_scale for v in sy]
-            se = [v * sim_scale for v in se]
-            pp.line_with_band_q2(ax, sx, sy, se, sim.color)
-            sim_top = max([y + e for y, e in zip(sy, se)] or [0.0])
+            se_low = [v * sim_scale for v in se_low]
+            se_high = [v * sim_scale for v in se_high]
+            pp.line_with_band_q2(ax, sx, sy, se_low, se_high, sim.color)
+            sim_top = max([y + e for y, e in zip(sy, se_high)] or [0.0])
             panel_top = max(panel_top, sim_top)
 
         # Avoid clipping when a panel's peak exceeds the nominal y-limit.

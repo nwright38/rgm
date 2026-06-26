@@ -557,7 +557,7 @@ int main(int argc, char** argv) {
   vector<int> d_axisBin;
   vector<double> d_axisCenter;
   int d_valueBin;
-  double d_valueCenter, d_count, d_statErr, d_sysErr;
+  double d_valueCenter, d_count, d_statErr, d_sysErr, d_sysErrUp, d_sysErrDown;
   diffTree->Branch("task_name", &d_task);
   diffTree->Branch("selection", &d_sel);
   diffTree->Branch("axis_bin", &d_axisBin);
@@ -567,12 +567,14 @@ int main(int argc, char** argv) {
   diffTree->Branch("count", &d_count, "count/D");
   diffTree->Branch("stat_error", &d_statErr, "stat_error/D");
   diffTree->Branch("sys_error", &d_sysErr, "sys_error/D");
+  diffTree->Branch("sys_error_up", &d_sysErrUp, "sys_error_up/D");
+  diffTree->Branch("sys_error_down", &d_sysErrDown, "sys_error_down/D");
 
   TTree* intTree = new TTree("integratedTable", "Integrated (collapsed-axis) table");
   string i_task, i_sel, i_pattern;
   vector<int> i_axisBin;
   vector<double> i_axisCenter;
-  double i_count, i_statErr, i_sysErr;
+  double i_count, i_statErr, i_sysErr, i_sysErrUp, i_sysErrDown;
   intTree->Branch("task_name", &i_task);
   intTree->Branch("selection", &i_sel);
   intTree->Branch("pattern", &i_pattern);
@@ -581,6 +583,8 @@ int main(int argc, char** argv) {
   intTree->Branch("count", &i_count, "count/D");
   intTree->Branch("stat_error", &i_statErr, "stat_error/D");
   intTree->Branch("sys_error", &i_sysErr, "sys_error/D");
+  intTree->Branch("sys_error_up", &i_sysErrUp, "sys_error_up/D");
+  intTree->Branch("sys_error_down", &i_sysErrDown, "sys_error_down/D");
 
   for (size_t t = 0; t < tasks.size(); t++) {
     CentralValueMode centralMode = legacyCompatMode ? CentralValueMode::TOY_MEAN : CentralValueMode::NOMINAL;
@@ -595,6 +599,8 @@ int main(int argc, char** argv) {
       d_count = r.count;
       d_statErr = r.stat_error;
       d_sysErr = r.sys_error;
+      d_sysErrUp = r.sys_error_up;
+      d_sysErrDown = r.sys_error_down;
       diffTree->Fill();
     }
 
@@ -630,6 +636,8 @@ int main(int argc, char** argv) {
         i_count = r.count;
         i_statErr = r.stat_error;
         i_sysErr = r.sys_error;
+        i_sysErrUp = r.sys_error_up;
+        i_sysErrDown = r.sys_error_down;
         intTree->Fill();
       }
     }
@@ -666,6 +674,8 @@ int main(int argc, char** argv) {
       d_count = r.count;
       d_statErr = r.stat_error;
       d_sysErr = r.sys_error;
+      d_sysErrUp = r.sys_error_up;
+      d_sysErrDown = r.sys_error_down;
       diffTree->Fill();
     }
   }

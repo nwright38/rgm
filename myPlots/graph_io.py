@@ -6,7 +6,7 @@ module works with plain python lists, never with a TGraph/TFile object
 directly. This is what replaces the ~15 near-duplicate "open file, loop
 over TGraph::GetX()/GetY()/GetErrorY(), then plot" functions in the old
 plotTOOL.py: the ROOT-unpacking happens once, here, and everything
-downstream just gets (x, y, yerr) lists.
+downstream just gets plain python arrays.
 
 Uses uproot, not PyROOT -- PyROOT isn't installed in this environment
 (confirmed: `import ROOT` fails, but `import uproot` works, matching the
@@ -28,13 +28,11 @@ def open_file(path):
         raise IOError("Could not open ROOT file: %s (%s)" % (path, exc))
 
 
-def read_graph(root_file, name):
-    """Reads a TGraphErrors written by BuildGraphs.cpp, from the "graphs"
-    TDirectory it created.
+def read_graph_asymm(root_file, name):
+    """Reads a TGraphErrors/TGraphAsymmErrors written by BuildGraphs.cpp.
 
-    Returns (x, y, yerr) as plain python lists. yerr is whatever error was
-    stored on the graph (BuildGraphs.cpp combines stat+sys in quadrature
-    before writing, so this is already the combined error).
+    Returns (x, y, yerr_low, yerr_high). Symmetric graphs are promoted to
+    asymmetric form with yerr_low == yerr_high.
 
     Raises KeyError if the named graph isn't in the file -- callers should
     let this surface rather than silently plotting nothing, since a missing
@@ -51,11 +49,26 @@ def read_graph(root_file, name):
     except Exception:
         raise KeyError("Graph '%s' not found in %s" % (name, root_file.file_path))
 
-    # TGraphErrors' uproot model doesn't mix in TGraph's values() helper
-    # (confirmed: Model_TGraphErrors_v3 only inherits the empty TGraphErrors
-    # behavior class, not TGraph's), so read the members directly. member()
-    # searches the embedded TGraph base for fX/fY by default.
+    # uproot's graph models don't all share the same convenience helpers, so
+    # read the stored members directly.
     x = graph.member("fX")
     y = graph.member("fY")
-    yerr = graph.member("fEY")
-    return list(x), list(y), list(yerr)
+    try:
+        yerr_low = graph.member("fEYlow")
+        yerr_high = graph.member("fEYhigh")
+    except Exception:
+        yerr = graph.member("fEY")
+        yerr_low = yerr
+        yerr_high = yerr
+    return list(x), list(y), list(yerr_low), list(yerr_high)
+
+
+def read_graph(root_file, name):
+    """Returns (x, y, yerr) for callers that still need one symmetric error.
+
+    For asymmetric graphs, yerr is max(yerr_low, yerr_high) per point so the
+    fallback never understates the plotted uncertainty.
+    """
+    x, y, yerr_low, yerr_high = read_graph_asymm(root_file, name)
+    yerr = [max(lo, hi) for lo, hi in zip(yerr_low, yerr_high)]
+    return x, y, yerr

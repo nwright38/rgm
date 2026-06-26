@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <TCanvas.h>
+#include <TBox.h>
 #include <TDirectory.h>
 #include <TFile.h>
 #include <TH1D.h>
@@ -33,6 +34,14 @@ using std::vector;
 namespace {
 
 const vector<double> kQ2Edges = {1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0};
+
+struct ToySummary {
+  double mean = 0.0;
+  double stddev = 0.0;
+  double p16 = 0.0;
+  double p50 = 0.0;
+  double p84 = 0.0;
+};
 
 void meanStddev(const vector<double>& v, double& mean, double& stddev) {
   mean = 0.0;
@@ -56,6 +65,15 @@ double percentile(vector<double> vals, double p) {
   if (i0 == i1) return vals[i0];
   const double t = x - i0;
   return (1.0 - t) * vals[i0] + t * vals[i1];
+}
+
+ToySummary summarizeToyValues(const vector<double>& vals) {
+  ToySummary s;
+  meanStddev(vals, s.mean, s.stddev);
+  s.p16 = percentile(vals, 0.16);
+  s.p50 = percentile(vals, 0.50);
+  s.p84 = percentile(vals, 0.84);
+  return s;
 }
 
 vector<string> toyLabels(TDirectory* histsDir) {
@@ -88,6 +106,54 @@ TH1D* getHist(TDirectory* histsDir,
   if (!d) return nullptr;
   const string hname = label + "_" + task + suffix;
   return dynamic_cast<TH1D*>(d->Get(hname.c_str()));
+}
+
+void drawToySummary(TLegend* leg,
+                    TH1D* hToy,
+                    const ToySummary& s,
+                    bool drawNominal,
+                    double nominalValue) {
+  const double ymax = hToy->GetMaximum();
+
+  TBox* percentileBand = new TBox(s.p16, 0.0, s.p84, ymax);
+  percentileBand->SetFillColorAlpha(kAzure + 1, 0.16);
+  percentileBand->SetLineColorAlpha(kAzure + 1, 0.0);
+  percentileBand->Draw("SAME");
+
+  TBox* stddevBand = new TBox(s.mean - s.stddev, 0.0, s.mean + s.stddev, ymax);
+  stddevBand->SetFillColorAlpha(kOrange + 1, 0.20);
+  stddevBand->SetLineColorAlpha(kOrange + 1, 0.0);
+  stddevBand->Draw("SAME");
+
+  hToy->Draw("HIST SAME");
+
+  TLine* lMean = new TLine(s.mean, 0.0, s.mean, ymax);
+  lMean->SetLineColor(kOrange + 8);
+  lMean->SetLineStyle(1);
+  lMean->SetLineWidth(3);
+  lMean->Draw("SAME");
+
+  TLine* lMedian = new TLine(s.p50, 0.0, s.p50, ymax);
+  lMedian->SetLineColor(kBlue + 2);
+  lMedian->SetLineStyle(2);
+  lMedian->SetLineWidth(3);
+  lMedian->Draw("SAME");
+
+  TLine* lNom = nullptr;
+  if (drawNominal) {
+    lNom = new TLine(nominalValue, 0.0, nominalValue, ymax);
+    lNom->SetLineColor(kRed + 1);
+    lNom->SetLineStyle(1);
+    lNom->SetLineWidth(3);
+    lNom->Draw("SAME");
+  }
+
+  leg->AddEntry(hToy, "Toy distribution", "lf");
+  leg->AddEntry(lMean, Form("Mean %.5g", s.mean), "l");
+  leg->AddEntry(stddevBand, Form("Mean #pm std dev %.5g", s.stddev), "f");
+  leg->AddEntry(lMedian, Form("Median %.5g", s.p50), "l");
+  leg->AddEntry(percentileBand, Form("p16-p84 %.5g-%.5g", s.p16, s.p84), "f");
+  if (lNom) leg->AddEntry(lNom, Form("Nominal %.5g", nominalValue), "l");
 }
 
 void drawRatioToyDistributionPage(TCanvas* c,
@@ -166,58 +232,21 @@ void drawRatioToyDistributionPage(TCanvas* c,
   hToy->SetLineColor(kAzure + 2);
   hToy->SetFillColorAlpha(kAzure + 1, 0.30);
   hToy->SetLineWidth(2);
-  hToy->GetXaxis()->SetTitle("Toy value of (e,e^{#prime}pp)/(e,e^{#prime}p)");
-  hToy->GetYaxis()->SetTitle("Number of toys");
+  hToy->GetXaxis()->SetTitle("Value of (e,e'pp)/(e,e'p)");
+  hToy->GetYaxis()->SetTitle("Counts");
   hToy->GetXaxis()->SetTitleSize(0.045);
   hToy->GetYaxis()->SetTitleSize(0.045);
   hToy->GetXaxis()->SetLabelSize(0.040);
   hToy->GetYaxis()->SetLabelSize(0.040);
   hToy->Draw("HIST");
 
-  const double toyMean = hToy->GetMean();
-  const double toyRms = hToy->GetStdDev();
+  const ToySummary s = summarizeToyValues(toyVals);
 
-  const double p16 = percentile(toyVals, 0.16);
-  const double p50 = percentile(toyVals, 0.50);
-  const double p84 = percentile(toyVals, 0.84);
-  const double toySys = 0.5 * (p84 - p16);
-  const double toyFracSigma = (nomValid && nomRatio != 0.0) ? (toySys / nomRatio) : 0.0;
-
-  TLine* lToyMean = new TLine(p50, 0.0, p50, hToy->GetMaximum() * 1.05);
-  lToyMean->SetLineColor(kBlue + 2);
-  lToyMean->SetLineStyle(2);
-  lToyMean->SetLineWidth(3);
-  lToyMean->Draw("SAME");
-
-  TLine* lToyLow = new TLine(p16, 0.0, p16, hToy->GetMaximum() * 1.05);
-  lToyLow->SetLineColor(kBlue + 1);
-  lToyLow->SetLineStyle(3);
-  lToyLow->SetLineWidth(2);
-  lToyLow->Draw("SAME");
-
-  TLine* lToyHigh = new TLine(p84, 0.0, p84, hToy->GetMaximum() * 1.05);
-  lToyHigh->SetLineColor(kBlue + 1);
-  lToyHigh->SetLineStyle(3);
-  lToyHigh->SetLineWidth(2);
-  lToyHigh->Draw("SAME");
-
-  TLine* lNom = nullptr;
-  if (nomValid) {
-    lNom = new TLine(nomRatio, 0.0, nomRatio, hToy->GetMaximum() * 1.05);
-    lNom->SetLineColor(kRed + 1);
-    lNom->SetLineStyle(2);
-    lNom->SetLineWidth(3);
-    lNom->Draw("SAME");
-  }
-
-  TLegend* leg = new TLegend(0.58, 0.70, 0.92, 0.89);
+  TLegend* leg = new TLegend(0.56, 0.66, 0.92, 0.89);
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
-  leg->SetTextSize(0.030);
-  leg->AddEntry(hToy, "Toy distribution", "lf");
-  leg->AddEntry(lToyMean, "Toy p50", "l");
-  leg->AddEntry(lToyLow, "Toy p16/p84", "l");
-  if (lNom) leg->AddEntry(lNom, "Nominal central value", "l");
+  leg->SetTextSize(0.027);
+  drawToySummary(leg, hToy, s, nomValid, nomRatio);
   leg->Draw();
 
   TLatex txt;
@@ -228,18 +257,6 @@ void drawRatioToyDistributionPage(TCanvas* c,
   if (q2ValueBin >= 0 && q2ValueBin < (int)kQ2Edges.size() - 1) {
     txt.DrawLatex(0.12, 0.87,
                   Form("Q2 range: %.2f < Q^{2} < %.2f", kQ2Edges[q2ValueBin], kQ2Edges[q2ValueBin + 1]));
-  }
-
-  txt.DrawLatex(0.12, 0.81, Form("N toys used: %d", (int)toyVals.size()));
-  txt.DrawLatex(0.12, 0.76, Form("Toy p16 / p50 / p84: %.5f / %.5f / %.5f", p16, p50, p84));
-  txt.DrawLatex(0.12, 0.71, Form("Toy sys = 0.5*(p84-p16) = %.5f", toySys));
-  txt.DrawLatex(0.12, 0.66, Form("Toy mean/RMS (linear ref): %.5f / %.5f", toyMean, toyRms));
-  if (nomValid) {
-    const double pull = (toySys > 0.0) ? ((nomRatio - p50) / toySys) : 0.0;
-    txt.DrawLatex(0.12, 0.61, Form("Nominal: %.5f", nomRatio));
-    txt.DrawLatex(0.12, 0.56, Form("(Nominal - p50)/sys: %.3f   (frac @ nominal: %.3f%%)", pull, 100.0 * toyFracSigma));
-  } else {
-    txt.DrawLatex(0.12, 0.61, "Nominal ratio undefined (denominator <= 0)");
   }
 
   c->Print(outPdf.c_str(), "pdf");
@@ -306,53 +323,21 @@ void drawYieldToyDistributionPage(TCanvas* c,
   hToyDist->SetLineColor(kGreen + 3);
   hToyDist->SetFillColorAlpha(kGreen + 2, 0.30);
   hToyDist->SetLineWidth(2);
-  hToyDist->GetXaxis()->SetTitle(Form("Toy value of %s yield", pageLabel.c_str()));
-  hToyDist->GetYaxis()->SetTitle("Number of toys");
+  hToyDist->GetXaxis()->SetTitle(Form("Value of %s yield", pageLabel.c_str()));
+  hToyDist->GetYaxis()->SetTitle("Counts");
   hToyDist->GetXaxis()->SetTitleSize(0.045);
   hToyDist->GetYaxis()->SetTitleSize(0.045);
   hToyDist->GetXaxis()->SetLabelSize(0.040);
   hToyDist->GetYaxis()->SetLabelSize(0.040);
   hToyDist->Draw("HIST");
 
-  const double toyMean = hToyDist->GetMean();
-  const double toyRms = hToyDist->GetStdDev();
-  const double p16 = percentile(toyVals, 0.16);
-  const double p50 = percentile(toyVals, 0.50);
-  const double p84 = percentile(toyVals, 0.84);
-  const double toySys = 0.5 * (p84 - p16);
+  const ToySummary s = summarizeToyValues(toyVals);
 
-  TLine* lToyMean = new TLine(p50, 0.0, p50, hToyDist->GetMaximum() * 1.05);
-  lToyMean->SetLineColor(kBlue + 2);
-  lToyMean->SetLineStyle(2);
-  lToyMean->SetLineWidth(3);
-  lToyMean->Draw("SAME");
-
-  TLine* lToyLow = new TLine(p16, 0.0, p16, hToyDist->GetMaximum() * 1.05);
-  lToyLow->SetLineColor(kBlue + 1);
-  lToyLow->SetLineStyle(3);
-  lToyLow->SetLineWidth(2);
-  lToyLow->Draw("SAME");
-
-  TLine* lToyHigh = new TLine(p84, 0.0, p84, hToyDist->GetMaximum() * 1.05);
-  lToyHigh->SetLineColor(kBlue + 1);
-  lToyHigh->SetLineStyle(3);
-  lToyHigh->SetLineWidth(2);
-  lToyHigh->Draw("SAME");
-
-  TLine* lNom = new TLine(nomVal, 0.0, nomVal, hToyDist->GetMaximum() * 1.05);
-  lNom->SetLineColor(kRed + 1);
-  lNom->SetLineStyle(2);
-  lNom->SetLineWidth(3);
-  lNom->Draw("SAME");
-
-  TLegend* leg = new TLegend(0.58, 0.70, 0.92, 0.89);
+  TLegend* leg = new TLegend(0.15, 0.6, 0.5, 0.8);
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
-  leg->SetTextSize(0.030);
-  leg->AddEntry(hToyDist, "Toy distribution", "lf");
-  leg->AddEntry(lToyMean, "Toy p50", "l");
-  leg->AddEntry(lToyLow, "Toy p16/p84", "l");
-  leg->AddEntry(lNom, "Nominal central value", "l");
+  leg->SetTextSize(0.03);
+  drawToySummary(leg, hToyDist, s, true, nomVal);
   leg->Draw();
 
   TLatex txt;
@@ -365,15 +350,6 @@ void drawYieldToyDistributionPage(TCanvas* c,
     txt.DrawLatex(0.12, 0.87,
                   Form("Q2 range: %.2f < Q^{2} < %.2f", kQ2Edges[q2ValueBin], kQ2Edges[q2ValueBin + 1]));
   }
-
-  const double pull = (toySys > 0.0) ? ((nomVal - p50) / toySys) : 0.0;
-  const double fracNom = (nomVal != 0.0) ? (100.0 * toySys / nomVal) : 0.0;
-  txt.DrawLatex(0.12, 0.81, Form("N toys used: %d", (int)toyVals.size()));
-  txt.DrawLatex(0.12, 0.76, Form("Toy p16 / p50 / p84: %.5f / %.5f / %.5f", p16, p50, p84));
-  txt.DrawLatex(0.12, 0.71, Form("Toy sys = 0.5*(p84-p16): %.5f", toySys));
-  txt.DrawLatex(0.12, 0.66, Form("Nominal: %.5f", nomVal));
-  txt.DrawLatex(0.12, 0.61, Form("(Nominal - p50)/sys: %.3f   (frac @ nominal: %.3f%%)", pull, fracNom));
-  txt.DrawLatex(0.12, 0.56, Form("Toy mean/RMS (linear ref): %.5f / %.5f", toyMean, toyRms));
 
   c->Print(outPdf.c_str(), "pdf");
 }
@@ -406,9 +382,9 @@ void plot_toy_diagnostics(const char* inFileName,
 
   c->Print((outPdf + "[").c_str());
   drawYieldToyDistributionPage(c, histsDir, outPdf,
-                               "Q2_ep_SRC_pmiss", "e,e^{#prime}p", pMissBin, q2ValueBin);
+                               "Q2_ep_SRC_pmiss", "e,e'p", pMissBin, q2ValueBin);
   drawYieldToyDistributionPage(c, histsDir, outPdf,
-                               "Q2_epp_SRC_pmiss", "e,e^{#prime}pp", pMissBin, q2ValueBin);
+                               "Q2_epp_SRC_pmiss", "e,e'pp", pMissBin, q2ValueBin);
   drawRatioToyDistributionPage(c, histsDir, outPdf, pMissBin, q2ValueBin);
   c->Print((outPdf + "]").c_str());
 

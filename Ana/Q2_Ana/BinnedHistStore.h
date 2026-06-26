@@ -222,6 +222,8 @@ struct DiffRow {
   double count = 0.0;
   double stat_error = 0.0;
   double sys_error = 0.0;
+  double sys_error_up = 0.0;
+  double sys_error_down = 0.0;
 };
 
 // Builds the differential table for one task: every (selector-bin, value-bin)
@@ -264,6 +266,8 @@ std::vector<DiffRow> buildDiffRows(const FillTask<EventT>& task, int taskIdx,
       meanStddev(toyVals, m, s);
       if (centralMode == CentralValueMode::TOY_MEAN) row.count = m;
       row.sys_error = s;
+      row.sys_error_up = s;
+      row.sys_error_down = s;
 
       rows.push_back(std::move(row));
     }
@@ -282,6 +286,8 @@ struct IntegratedRow {
   double count = 0.0;
   double stat_error = 0.0;
   double sys_error = 0.0;
+  double sys_error_up = 0.0;
+  double sys_error_down = 0.0;
 };
 
 // Sums every booked histogram's full integral (Integral() over all value
@@ -360,6 +366,8 @@ std::vector<IntegratedRow> buildIntegratedRows(
     double m, s;
     meanStddev(toySums, m, s);
     row.sys_error = s;
+    row.sys_error_up = s;
+    row.sys_error_down = s;
 
     rows.push_back(std::move(row));
   }
@@ -374,8 +382,11 @@ std::vector<IntegratedRow> buildIntegratedRows(
 // Systematic spread for ratios is evaluated from toy percentiles:
 //   p16 = percentile(toyVals, 0.16), p50 = percentile(toyVals, 0.50),
 //   p84 = percentile(toyVals, 0.84)
-// and stored as a symmetric additive uncertainty
+// and stored both as a legacy symmetric additive uncertainty
 //   sigma_add = 0.5 * (p84 - p16)
+// and as asymmetric distances from the chosen central value:
+//   sys_down = max(0, central - p16)
+//   sys_up   = max(0, p84 - central)
 //
 // If centralMode == TOY_MEAN, row.count uses p50 (toy median central value).
 template <typename EventT>
@@ -429,10 +440,14 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
         double p50 = percentile(toyVals, 0.50);
         double p84 = percentile(toyVals, 0.84);
         if (centralMode == CentralValueMode::TOY_MEAN) row.count = p50;
-        row.sys_error = 0.5 * (p84 - p16);
+        row.sys_error_down = std::max(0.0, row.count - p16);
+        row.sys_error_up = std::max(0.0, p84 - row.count);
+        row.sys_error = 0.5 * (row.sys_error_up + row.sys_error_down);
         if (row.sys_error < 0.0) row.sys_error = 0.0;
       } else {
         row.sys_error = 0.0;
+        row.sys_error_up = 0.0;
+        row.sys_error_down = 0.0;
       }
 
       rows.push_back(std::move(row));
