@@ -353,10 +353,19 @@ std::vector<IntegratedRow> buildIntegratedRows(
 // Ratio of two tasks that share the same selector-axis structure (e.g.
 // epp/ep yield ratio). Computed via TH1::Divide() on cloned histograms (never
 // mutates the originals, unlike calling Divide() in place), for the nominal
-// store and every toy store, then read out exactly like buildDiffRows -- the
-// toy-to-toy spread of the *ratio itself* is what becomes sys_error, so any
-// numerator/denominator correlation (e.g. epp events being a subset of ep
-// events) is captured empirically rather than assumed away by an error formula.
+// store and every toy store, then read out exactly like buildDiffRows.
+//
+// Systematic spread for ratios is evaluated in LOG SPACE (for positive toy
+// ratios only):
+//   z_i = log(r_i),  m_z = mean(z_i),  s_z = stddev(z_i)
+// This is the standard treatment for multiplicative systematics, where the
+// ratio distribution is often closer to symmetric in log space than in linear
+// space. The stored additive sys_error is then mapped back as
+//   sigma_add = r_ref * (exp(s_z) - 1)
+// with r_ref = current row.count if positive, otherwise exp(m_z).
+//
+// If centralMode == TOY_MEAN, the central value is set to exp(m_z)
+// (geometric-mean central value from toys).
 template <typename EventT>
 std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int numIdx,
                                          int denIdx, const std::string& ratioName,
@@ -390,24 +399,32 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
       row.count = ratioNom->GetBinContent(vb);
       row.stat_error = ratioNom->GetBinError(vb);
 
-      std::vector<double> toyVals;
-      toyVals.reserve(toys.size());
+      std::vector<double> toyLogs;
+      toyLogs.reserve(toys.size());
       for (auto& toy : toys) {
         TH1D* hN = toy.get(numIdx, binIdx);
         TH1D* hD = toy.get(denIdx, binIdx);
-        double v = 0.0;
         if (hN && hD) {
           TH1D* r = (TH1D*)hN->Clone("ratio_toy_tmp");
           r->Divide(hD);
-          v = r->GetBinContent(vb);
+          double v = r->GetBinContent(vb);
+          if (v > 0.0 && std::isfinite(v)) toyLogs.push_back(std::log(v));
           delete r;
         }
-        toyVals.push_back(v);
       }
-      double m, s;
-      meanStddev(toyVals, m, s);
-      if (centralMode == CentralValueMode::TOY_MEAN) row.count = m;
-      row.sys_error = s;
+      double mLog = 0.0, sLog = 0.0;
+      meanStddev(toyLogs, mLog, sLog);
+
+      if (centralMode == CentralValueMode::TOY_MEAN && !toyLogs.empty()) {
+        row.count = std::exp(mLog);
+      }
+
+      if (!toyLogs.empty()) {
+        double ref = (row.count > 0.0 && std::isfinite(row.count)) ? row.count : std::exp(mLog);
+        row.sys_error = ref * (std::exp(sLog) - 1.0);
+      } else {
+        row.sys_error = 0.0;
+      }
 
       rows.push_back(std::move(row));
     }

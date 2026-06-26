@@ -8,10 +8,12 @@ E2miss requires a detected recoil). Each row is one pMiss bin
 labels.PMISS_LABELS), with a single boxed pMiss-range label centered above
 the row and a thin vertical line at the quasi-free single-nucleon-knockout
 threshold E_miss = sqrt(pMiss^2 + mN^2) - mN, evaluated at the row's mean
-pMiss (computed separately for the e'p and e'pp populations from the
-finer-binned pMiss_ep_note/pMiss_epp_note histograms, not the bin-edge
-midpoint). Written out as individual single-figure PDFs under
-pdf/Emiss_pmiss/.
+pMiss (PMISS_CENTERS_EP/EPP below -- measured directly from per-event
+kinematics by Ana/Q2_Ana/AvgPMiss.cpp, run once on data; not derived from
+the pMiss_ep_note/pMiss_epp_note histograms here, since estimating the
+mean from those 50-bin histograms turned out to be distorted by bin-grid
+misalignment between the 50 uniform note-bins and these 4 wider edges).
+Written out as individual single-figure PDFs under pdf/Emiss_pmiss/.
 
 Usage:
     python plot_Emiss_pmiss.py Data_He.root
@@ -28,24 +30,17 @@ import plot_helpers as ph
 from labels import PMISS_LABELS
 
 MN = 0.938272  # matches SRC_Cuts.cpp's mN
-PMISS_EDGES = [0.4, 0.55, 0.7, 0.85, 1.0]
+
+# Per-event mean pMiss in each of Main_Figs_Binned.cpp's bE_pmiss bins
+# ([0.4, 0.55, 0.7, 0.85, 1.0]), measured directly from data by running
+# Ana/Q2_Ana/AvgPMiss.cpp (not derived here from histograms -- see the
+# module docstring for why). Re-run AvgPMiss.cpp and update these if the
+# data sample, cuts, or bE_pmiss change.
+PMISS_CENTERS_EP = [0.499816, 0.63018, 0.769554, 0.91613]
+PMISS_CENTERS_EPP = [0.508686, 0.634642, 0.772566, 0.915738]
+PMISS_BINS = [0.4, 0.55, 0.7, 0.85, 1.0]
 
 DEFAULT_SIM_COLORS = ['red', 'blue', 'green', 'darkorange']
-
-
-def _mean_pmiss_per_bin(data, note_task_name, selection, edges):
-    """Mean pMiss in each [edges[i], edges[i+1]) range, weighted by counts
-    in the finer-binned pMiss_ep_note/pMiss_epp_note histograms (50 uniform
-    bins over 0.4-1.2 GeV) -- used instead of the naive bin-edge midpoint
-    so the E_miss threshold line reflects where the data actually sits
-    within each wide (and, for the last bin, asymmetric) pMiss bin."""
-    x, y, _ = ph.get_xy_err(data, note_task_name, selection)
-    centers = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        num = sum(xi * yi for xi, yi in zip(x, y) if lo <= xi < hi)
-        den = sum(yi for xi, yi in zip(x, y) if lo <= xi < hi)
-        centers.append(num / den if den > 0 else 0.5 * (lo + hi))
-    return centers
 
 
 class _NoOpPdf(object):
@@ -95,26 +90,40 @@ def main():
     sims = _build_sims(args, f_data)
     series = [data] + sims
 
-    pmiss_centers_ep = _mean_pmiss_per_bin(data, 'pMiss_ep_note', 'ep', PMISS_EDGES)
-    pmiss_centers_epp = _mean_pmiss_per_bin(data, 'pMiss_epp_note', 'epp', PMISS_EDGES)
-
     pdf = _NoOpPdf()
 
     ph.plot_emiss_4x2_note(
         pdf, series, r'$E_{1,miss} [GeV]$',
         'E1miss_ep_SRC_pmiss', 'E1miss_epp_SRC_pmiss',
-        pmiss_centers_ep=pmiss_centers_ep, pmiss_centers_epp=pmiss_centers_epp,
-        box_labels=PMISS_LABELS, mN=MN,
+        pmiss_centers_ep=PMISS_CENTERS_EP, pmiss_centers_epp=PMISS_CENTERS_EPP,
+        box_labels=PMISS_LABELS, mN=MN, draw_threshold_lines=False,
         save_as=os.path.join(args.out_dir, 'E1miss_4x2.pdf'))
     print('Wrote %s' % os.path.join(args.out_dir, 'E1miss_4x2.pdf'))
 
     ph.plot_emiss_4x1_note(
+        pdf, series, r'$E_{0,miss} [GeV]$',
+        'E0miss_ep_SRC_pmiss',
+        pmiss_centers=PMISS_CENTERS_EP, box_labels=PMISS_LABELS, mN=MN,
+        xlim=(0.1, 0.5), selection='ep', panel_title=r'$(e,e^{\prime}p)$',
+        save_as=os.path.join(args.out_dir, 'E0miss_4x1_ep.pdf'))
+    print('Wrote %s' % os.path.join(args.out_dir, 'E0miss_4x1_ep.pdf'))
+
+    ph.plot_emiss_4x1_note(
         pdf, series, r'$E_{2,miss} [GeV]$',
         'E2miss_epp_SRC_pmiss',
-        pmiss_centers=pmiss_centers_epp, box_labels=PMISS_LABELS, mN=MN,
-        xlim=(-0.2, 0.4),
+        pmiss_centers=PMISS_CENTERS_EPP, box_labels=PMISS_LABELS, mN=MN,
+        xlim=(-0.2, 0.4), draw_threshold_lines=False,
         save_as=os.path.join(args.out_dir, 'E2miss_4x1.pdf'))
     print('Wrote %s' % os.path.join(args.out_dir, 'E2miss_4x1.pdf'))
+
+    ph.plot_emiss_waterfall(
+        pdf, PMISS_BINS, data, sims,
+        task_name='E0miss_ep_SRC_pmiss', selection='ep',
+        xlim=(0.1, 0.5), ylim=(0.0, 120.0),
+        xlabel=r'$E_{0,miss} [GeV]$',
+        panel_label=r'$(e,e^{\prime}p)$',
+        save_as=os.path.join(args.out_dir, 'E0miss_waterfall_ep.pdf'))
+    print('Wrote %s' % os.path.join(args.out_dir, 'E0miss_waterfall_ep.pdf'))
 
 
 if __name__ == '__main__':

@@ -166,7 +166,7 @@ struct FitSpec {
 vector<FitSpec> buildSpecs() {
   vector<FitSpec> specs;
 
-  specs.push_back({"sigma_pcmx", "epp", "pcmx_epp_SRC_Q2", "", 1, FIT_SIGMA, -0.2, 0.2});
+  specs.push_back({"sigma_pcmx", "epp", "pcmx_epp_SRC_Q2", "", 1, FIT_SIGMA, -0.2, 0.22});
   specs.push_back({"sigma_pcmy", "epp", "pcmy_epp_SRC_Q2", "", 1, FIT_SIGMA, -0.2, 0.2});
 
   struct EmissTask { string suffix; string selection; string task; };

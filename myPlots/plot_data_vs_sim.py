@@ -103,13 +103,15 @@ def _build_sims(args, f_data):
             DEFAULT_SIM_COLORS[i % len(DEFAULT_SIM_COLORS)]
         f_sim = graph_io.open_file(sim_file)
 
-        scale_ep, _ = normalization.scale_factor(f_sim, f_data, 'ep')
+        scale_ep, _ = normalization.scale_factor(
+            f_sim, f_data, 'ep', mode=args.normalization_mode)
 
         # epp events are normalized to the same e'p-event-count scale factor
         # as ep events, rather than their own independent epp-event count.
         # To go back to normalizing epp plots by their own epp yield, comment
         # the line below and uncomment the one above it.
-        # scale_epp, _ = normalization.scale_factor(f_sim, f_data, 'epp')
+        # scale_epp, _ = normalization.scale_factor(
+        #     f_sim, f_data, 'epp', mode=args.normalization_mode)
         scale_epp = scale_ep
 
         sims.append(Series(label, f_sim, color, 'sim', scale_ep, scale_epp))

@@ -470,7 +470,8 @@ def _row_box_label(fig, ax_left, ax_right, text, fontsize=11):
 
 def plot_emiss_4x2_note(pdf, series, var_label, task_ep, task_epp,
                         pmiss_centers_ep, pmiss_centers_epp, box_labels, mN,
-                        xlim=(-0.15, 0.4), offset_scale=1.0, save_as=None):
+                        xlim=(-0.15, 0.4), offset_scale=1.0,
+                        draw_threshold_lines=True, save_as=None):
     """Like plot_emiss_4x2, but styled for an analysis-note figure instead
     of the existing makePlots.py/plot_data_vs_sim.py/plot_A_dependence.py
     look (kept as a separate function so those callers' figures don't
@@ -521,19 +522,22 @@ def plot_emiss_4x2_note(pdf, series, var_label, task_ep, task_epp,
             _drop_extreme_ytick(ax[r, 0], 'max')
             _drop_extreme_ytick(ax[r, 1], 'max')
 
-        thresh_ep = math.sqrt(pmiss_centers_ep[r] ** 2 + mN ** 2) - mN
-        thresh_epp = math.sqrt(pmiss_centers_epp[r] ** 2 + mN ** 2) - mN
-        ax[r, 0].axvline(thresh_ep, color='black', linewidth=0.8)
-        ax[r, 1].axvline(thresh_epp, color='black', linewidth=0.8)
+        if draw_threshold_lines:
+            thresh_ep = math.sqrt(pmiss_centers_ep[r] ** 2 + mN ** 2) - mN
+            thresh_epp = math.sqrt(pmiss_centers_epp[r] ** 2 + mN ** 2) - mN
+            ax[r, 0].axvline(thresh_ep, color='black', linewidth=0.8)
+            ax[r, 1].axvline(thresh_epp, color='black', linewidth=0.8)
 
         _row_box_label(fig, ax[r, 0], ax[r, 1], box_labels[r])
 
     return _save(pdf, fig, save_as)
 
 
-def plot_emiss_4x1_note(pdf, series, var_label, task_epp,
+def plot_emiss_4x1_note(pdf, series, var_label, task_name,
                         pmiss_centers, box_labels, mN,
-                        xlim=(-0.2, 0.4), offset_scale=1.0, save_as=None):
+                        xlim=(-0.2, 0.4), offset_scale=1.0,
+                        selection='epp', panel_title=r'$(e,e^{\prime}pp)$',
+                        draw_threshold_lines=True, save_as=None):
     """Like plot_emiss_4x1, but styled to match plot_emiss_4x2_note above
     (see there for what changed and why) -- used for E2miss, which has no
     e'p counterpart since it requires a detected recoil."""
@@ -541,7 +545,7 @@ def plot_emiss_4x1_note(pdf, series, var_label, task_epp,
                            sharex=True, sharey=False)
     ax[3].set_xlabel(var_label, fontsize=15)
     ax[3].set_xlim(*xlim)
-    ax[0].set_title(r'$(e,e^{\prime}pp)$', fontsize=15)
+    ax[0].set_title(panel_title, fontsize=15)
 
     for r in range(4):
         ax[r].set_ylabel('Counts', fontsize=13)
@@ -549,17 +553,18 @@ def plot_emiss_4x1_note(pdf, series, var_label, task_epp,
 
         peak = 0.0
         for s in series:
-            _, y, e = get_xy_err(s, task_epp, 'epp', axis_bin=[r],
+            _, y, e = get_xy_err(s, task_name, selection, axis_bin=[r],
                                  offset_scale=offset_scale)
             peak = max([peak] + [v + ei for v, ei in zip(y, e)])
-            draw(ax[r], s, task_epp, 'epp', axis_bin=[r], offset_scale=offset_scale)
+            draw(ax[r], s, task_name, selection, axis_bin=[r], offset_scale=offset_scale)
 
         ax[r].set_ylim(0, peak * 1.2 if peak > 0.0 else 1.0)
         if r != 3:
             _drop_extreme_ytick(ax[r], 'max')
 
-        thresh = math.sqrt(pmiss_centers[r] ** 2 + mN ** 2) - mN
-        ax[r].axvline(thresh, color='black', linewidth=0.8)
+        if draw_threshold_lines:
+            thresh = math.sqrt(pmiss_centers[r] ** 2 + mN ** 2) - mN
+            ax[r].axvline(thresh, color='blue', linestyle=':', linewidth=1.5)
 
         _row_box_label(fig, ax[r], None, box_labels[r])
 

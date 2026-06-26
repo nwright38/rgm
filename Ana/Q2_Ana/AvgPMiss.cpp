@@ -92,6 +92,12 @@ int main(int argc, char** argv) {
   clas12ana clasAna;
   clasAna.printParams();
 
+  if (argc < 5) {
+    cerr << "No input .hipo files given (argc=" << argc << "). Usage:\n";
+    Usage();
+    return -1;
+  }
+
   clas12root::HipoChain chain;
   for (int k = 4; k < argc; k++) {
     cout << "Input file " << argv[k] << endl;
