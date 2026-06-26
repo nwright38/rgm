@@ -324,7 +324,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   // E_miss shapes, selected by pMiss bin.
   tasks.push_back({"E0miss_ep_SRC_pmiss", Selection::EP, passEP, {&pMissAxis},
                     {[](const EventKinematics& ek) { return ek.pM; }},
-                    [](const EventKinematics& ek) { return ek.E0; }, 30, -0.1, 0.85, {}});
+                    [](const EventKinematics& ek) { return ek.E0; }, 50, -0.1, 0.6, {}});
   tasks.push_back({"E1miss_ep_SRC_pmiss", Selection::EP, passEP, {&pMissAxis},
                     {[](const EventKinematics& ek) { return ek.pM; }},
                     [](const EventKinematics& ek) { return ek.E1; }, 15, -0.25, 0.55, {}});

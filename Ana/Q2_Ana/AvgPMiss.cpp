@@ -41,7 +41,7 @@ const double mD = 1.8756;
 const double me = 0.000511;
 const double mU = 0.9314941024;
 const double m_4He = 4.00260325415 * mU - 2 * me;
-const double mN = 0.938272;  // matches SRC_Cuts.cpp's mN
+// const double mN = 0.938272;  // matches SRC_Cuts.cpp's mN
 
 // ---- Same pMiss bin edges as Main_Figs_Binned.cpp's bE_pmiss ----
 vector<double> bE_pmiss = {0.4, 0.55, 0.7, 0.85, 1.0};
