@@ -287,7 +287,7 @@ def plot_overlay(pdf, task_name, series, xlabel, ylabel, xlim, ylim,
     annotate(ax, annotations)
     if corner_label is not None:
         ax.text(0.04, 0.92, corner_label, transform=ax.transAxes,
-                fontsize=15, ha='left', va='top')
+                fontsize=20, ha='left', va='top')
 
     if show_ratio:
         _draw_ratio_panel(ax_ratio, ref_xy, series, task_name, selection,

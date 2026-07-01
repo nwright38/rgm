@@ -382,11 +382,10 @@ std::vector<IntegratedRow> buildIntegratedRows(
 // Systematic spread for ratios is evaluated from toy percentiles:
 //   p16 = percentile(toyVals, 0.16), p50 = percentile(toyVals, 0.50),
 //   p84 = percentile(toyVals, 0.84)
-// and stored both as a legacy symmetric additive uncertainty
+// and stored as a symmetric additive uncertainty
 //   sigma_add = 0.5 * (p84 - p16)
-// and as asymmetric distances from the chosen central value:
-//   sys_down = max(0, central - p16)
-//   sys_up   = max(0, p84 - central)
+// with sys_up = sys_down = sigma_add when the downstream code asks for
+// separate up/down components.
 //
 // If centralMode == TOY_MEAN, row.count uses p50 (toy median central value).
 template <typename EventT>
@@ -440,10 +439,10 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
         double p50 = percentile(toyVals, 0.50);
         double p84 = percentile(toyVals, 0.84);
         if (centralMode == CentralValueMode::TOY_MEAN) row.count = p50;
-        row.sys_error_down = std::max(0.0, row.count - p16);
-        row.sys_error_up = std::max(0.0, p84 - row.count);
-        row.sys_error = 0.5 * (row.sys_error_up + row.sys_error_down);
+        row.sys_error = 0.5 * (p84 - p16);
         if (row.sys_error < 0.0) row.sys_error = 0.0;
+        row.sys_error_up = row.sys_error;
+        row.sys_error_down = row.sys_error;
       } else {
         row.sys_error = 0.0;
         row.sys_error_up = 0.0;
