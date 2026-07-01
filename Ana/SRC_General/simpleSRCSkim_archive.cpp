@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -21,7 +22,7 @@ const double mP = 0.938;
 const double mU = 0.9314941024;
 const double me = 0.000511;
 
-const int MAXP = 4;  // max number of proton candidates stored per event
+const int MAXP = 4;  // max number of proton candidates considered per event
 
 void Usage()
 {
@@ -54,33 +55,31 @@ int main(int argc, char **argv)
   // q vector (3-momentum transfer)
   Float_t b_qP, b_qTheta, b_qPhi;
 
-  // per-proton arrays (all detected protons, indexed 0..nProtons-1)
   Int_t   b_nProtons;
-  Float_t b_protonP[MAXP],      b_protonTheta[MAXP],     b_protonPhi[MAXP];
-  Float_t b_protonVz[MAXP];
-  Float_t b_pMiss[MAXP],        b_pMissTheta[MAXP],      b_pMissPhi[MAXP];
-  Float_t b_mMiss[MAXP];
-  Float_t b_kMiss[MAXP];
-  Float_t b_EMiss[MAXP];
-  Float_t b_theta_PmQ[MAXP];
-  Bool_t  b_goodLead[MAXP];     // per-proton: passes all SRC lead cuts
 
-  // pRel and pCM per proton (filled only when a recoil partner exists)
-  Float_t b_pRel[MAXP],         b_pRelTheta[MAXP],       b_pRelPhi[MAXP];
-  Float_t b_pCM[MAXP],          b_pCMx[MAXP],            b_pCMy[MAXP],     b_pCMz[MAXP];
+  // lead proton (first candidate passing all SRC lead cuts)
+  Float_t b_leadP, b_leadTheta, b_leadPhi;
+  Float_t b_leadVz;
+  Float_t b_pMiss, b_pMissTheta, b_pMissPhi;
+  Float_t b_mMiss;
+  Float_t b_kMiss;
+  Float_t b_EMiss;
+  Float_t b_theta_PmQ;    // angle between pMiss and q
+  Float_t b_theta_PleadQ; // angle between lead proton momentum and q
+  Bool_t  b_goodLead;     // lead passes all SRC lead cuts
+
+  // pRel and pCM (filled only when a recoil partner exists)
+  Float_t b_pRel, b_pRelTheta, b_pRelPhi;
+  Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
 
   // event-level summary
   Int_t  b_nGoodLeads;
   Bool_t b_singleGoodLead;      // exactly one proton passes all SRC lead cuts
 
-  // lead / recoil indices (-1 if not found)
-  // leadIdx: index into proton arrays of the chosen lead (first goodLead)
-  // recoilIdx: index of the recoil partner (p > 0.3, passes recoil angle cuts)
-  Int_t  b_leadIdx;
-  Int_t  b_recoilIdx;
-
-  // recoil kinematics (filled when recoilIdx >= 0)
+  // recoil kinematics (filled when a recoil is found)
   Float_t b_recP, b_recTheta, b_recPhi;
+  Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
+  Float_t b_theta_PrecQ;  // angle between recoil momentum and q
 
   srcTree->Branch("weight",      &b_weight,      "weight/F");
   srcTree->Branch("weight_ep",   &b_weight_ep,   "weight_ep/F");
@@ -99,37 +98,39 @@ int main(int argc, char **argv)
   srcTree->Branch("qPhi",        &b_qPhi,        "qPhi/F");
 
   srcTree->Branch("nProtons",    &b_nProtons,    "nProtons/I");
-  srcTree->Branch("protonP",     b_protonP,      Form("protonP[%d]/F", MAXP));
-  srcTree->Branch("protonTheta", b_protonTheta,  Form("protonTheta[%d]/F", MAXP));
-  srcTree->Branch("protonPhi",   b_protonPhi,    Form("protonPhi[%d]/F", MAXP));
-  srcTree->Branch("protonVz",    b_protonVz,     Form("protonVz[%d]/F", MAXP));
 
-  srcTree->Branch("pMiss",       b_pMiss,        Form("pMiss[%d]/F", MAXP));
-  srcTree->Branch("pMissTheta",  b_pMissTheta,   Form("pMissTheta[%d]/F", MAXP));
-  srcTree->Branch("pMissPhi",    b_pMissPhi,     Form("pMissPhi[%d]/F", MAXP));
+  srcTree->Branch("leadP",       &b_leadP,       "leadP/F");
+  srcTree->Branch("leadTheta",   &b_leadTheta,   "leadTheta/F");
+  srcTree->Branch("leadPhi",     &b_leadPhi,     "leadPhi/F");
+  srcTree->Branch("leadVz",      &b_leadVz,      "leadVz/F");
 
-  srcTree->Branch("mMiss",       b_mMiss,        Form("mMiss[%d]/F", MAXP));
-  srcTree->Branch("kMiss",       b_kMiss,        Form("kMiss[%d]/F", MAXP));
-  srcTree->Branch("EMiss",       b_EMiss,        Form("EMiss[%d]/F", MAXP));
-  srcTree->Branch("theta_PmQ",   b_theta_PmQ,    Form("theta_PmQ[%d]/F", MAXP));
-  srcTree->Branch("goodLead",    b_goodLead,     Form("goodLead[%d]/O", MAXP));
+  srcTree->Branch("pMiss",       &b_pMiss,       "pMiss/F");
+  srcTree->Branch("pMissTheta",  &b_pMissTheta,  "pMissTheta/F");
+  srcTree->Branch("pMissPhi",    &b_pMissPhi,    "pMissPhi/F");
 
-  srcTree->Branch("pRel",        b_pRel,         Form("pRel[%d]/F", MAXP));
-  srcTree->Branch("pRelTheta",   b_pRelTheta,    Form("pRelTheta[%d]/F", MAXP));
-  srcTree->Branch("pRelPhi",     b_pRelPhi,      Form("pRelPhi[%d]/F", MAXP));
-  srcTree->Branch("pCM",         b_pCM,          Form("pCM[%d]/F", MAXP));
-  srcTree->Branch("pCMx",        b_pCMx,         Form("pCMx[%d]/F", MAXP));
-  srcTree->Branch("pCMy",        b_pCMy,         Form("pCMy[%d]/F", MAXP));
-  srcTree->Branch("pCMz",        b_pCMz,         Form("pCMz[%d]/F", MAXP));
+  srcTree->Branch("mMiss",       &b_mMiss,       "mMiss/F");
+  srcTree->Branch("kMiss",       &b_kMiss,       "kMiss/F");
+  srcTree->Branch("EMiss",       &b_EMiss,       "EMiss/F");
+  srcTree->Branch("theta_PmQ",   &b_theta_PmQ,   "theta_PmQ/F");
+  srcTree->Branch("theta_PleadQ",&b_theta_PleadQ,"theta_PleadQ/F");
+  srcTree->Branch("goodLead",    &b_goodLead,    "goodLead/O");
+
+  srcTree->Branch("pRel",        &b_pRel,        "pRel/F");
+  srcTree->Branch("pRelTheta",   &b_pRelTheta,   "pRelTheta/F");
+  srcTree->Branch("pRelPhi",     &b_pRelPhi,     "pRelPhi/F");
+  srcTree->Branch("pCM",         &b_pCM,         "pCM/F");
+  srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
+  srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
+  srcTree->Branch("pCMz",        &b_pCMz,        "pCMz/F");
 
   srcTree->Branch("nGoodLeads",     &b_nGoodLeads,     "nGoodLeads/I");
   srcTree->Branch("singleGoodLead", &b_singleGoodLead, "singleGoodLead/O");
 
-  srcTree->Branch("leadIdx",     &b_leadIdx,     "leadIdx/I");
-  srcTree->Branch("recoilIdx",   &b_recoilIdx,   "recoilIdx/I");
   srcTree->Branch("recP",        &b_recP,        "recP/F");
   srcTree->Branch("recTheta",    &b_recTheta,    "recTheta/F");
   srcTree->Branch("recPhi",      &b_recPhi,      "recPhi/F");
+  srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
+  srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
@@ -158,7 +159,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam,2,2,kelly,"AV18",.15);
+  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
 
   int ctr = 0;
   while(chain.Next())
@@ -180,19 +181,18 @@ int main(int argc, char **argv)
     b_nProtons    = 0;
     b_nGoodLeads  = 0;
     b_singleGoodLead = false;
-    b_leadIdx    = -1;
-    b_recoilIdx  = -1;
     b_recP       = -9.f;  b_recTheta = -9.f;  b_recPhi = -9.f;
 
-    for(int i = 0; i < MAXP; i++){
-      b_protonP[i] = -9.f;  b_protonTheta[i] = -9.f;  b_protonPhi[i] = -9.f;  b_protonVz[i] = -99.f;
-      b_pMiss[i] = -9.f;    b_pMissTheta[i] = -9.f;   b_pMissPhi[i] = -9.f;
-      b_pRel[i] = -9.f;     b_pRelTheta[i] = -9.f;    b_pRelPhi[i] = -9.f;
-      b_pCM[i] = -9.f;      b_pCMx[i] = -9.f;         b_pCMy[i] = -9.f;    b_pCMz[i] = -9.f;
-      b_mMiss[i] = -9.f;    b_kMiss[i] = -9.f;        b_EMiss[i] = -9.f;
-      b_theta_PmQ[i] = -9.f;
-      b_goodLead[i] = false;
-    }
+    b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;  b_leadVz = -99.f;
+    b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
+    b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
+    b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
+    b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
+    b_theta_PmQ = -9.f;
+    b_theta_PleadQ = -9.f;
+    b_theta_PmPrec = -9.f;
+    b_theta_PrecQ  = -9.f;
+    b_goodLead = false;
 
     clasAna.Run(c12);
 
@@ -237,8 +237,13 @@ int main(int argc, char **argv)
 
     TLorentzVector q(qP3, omega);
 
-    // ---- pass 1: fill kinematics for every proton candidate ----
+    // ---- pass 1: compute kinematics for every proton candidate ----
     int nFilled = 0;
+    vector<TVector3> cand_p3;
+    vector<float>    cand_vz;
+    vector<TVector3> cand_pMissV;
+    vector<float>    cand_mMiss, cand_kMiss, cand_EMiss, cand_theta_PmQ;
+    vector<bool>     cand_goodLead;
 
     for(int pr = 0; pr < (int)protons.size(); pr++)
     {
@@ -263,19 +268,6 @@ int main(int argc, char **argv)
 
       double EMiss = sqrt(pLead3.Mag2() + mP*mP) - omega;
 
-      b_protonP[nFilled]     = pLead3.Mag();
-      b_protonTheta[nFilled] = pLead3.Theta();
-      b_protonPhi[nFilled]   = pLead3.Phi();
-      b_protonVz[nFilled]    = protons[pr]->par()->getVz();
-
-      b_pMiss[nFilled]       = pMissV.Mag();
-      b_pMissTheta[nFilled]  = pMissV.Theta();
-      b_pMissPhi[nFilled]    = pMissV.Phi();
-      b_mMiss[nFilled]       = missP4.M();
-      b_kMiss[nFilled]       = kMiss;
-      b_EMiss[nFilled]       = EMiss;
-      b_theta_PmQ[nFilled]   = pMissV.Angle(qP3);
-
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
@@ -283,7 +275,15 @@ int main(int argc, char **argv)
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
-      b_goodLead[nFilled] = passCuts;
+      cand_p3.push_back(pLead3);
+      cand_vz.push_back(protons[pr]->par()->getVz());
+      cand_pMissV.push_back(pMissV);
+      cand_mMiss.push_back(missP4.M());
+      cand_kMiss.push_back(kMiss);
+      cand_EMiss.push_back(EMiss);
+      cand_theta_PmQ.push_back(pMissV.Angle(qP3));
+      cand_goodLead.push_back(passCuts);
+
       if(passCuts) b_nGoodLeads++;
 
       nFilled++;
@@ -292,81 +292,79 @@ int main(int argc, char **argv)
     b_nProtons      = nFilled;
     b_singleGoodLead = (b_nGoodLeads == 1);
 
-    // ---- pass 2: identify lead + recoil and fill pRel / pCM ----
-    // Choose the first (lowest-index) proton that passes the lead cuts.
+    // ---- identify the lead: first candidate passing all SRC lead cuts ----
+    int leadIdx = -1;
     for(int i = 0; i < nFilled; i++){
-      if(b_goodLead[i]){ b_leadIdx = i; break; }
+      if(cand_goodLead[i]){ leadIdx = i; break; }
     }
 
-    if(b_leadIdx >= 0 && nFilled >= 2)
+    if(leadIdx >= 0)
     {
-      // The lead proton's pMiss is stored in b_pMiss[leadIdx]; use it as pn for rotation.
-      TVector3 pn(b_pMiss[b_leadIdx] * sin(b_pMissTheta[b_leadIdx]) * cos(b_pMissPhi[b_leadIdx]),
-                  b_pMiss[b_leadIdx] * sin(b_pMissTheta[b_leadIdx]) * sin(b_pMissPhi[b_leadIdx]),
-                  b_pMiss[b_leadIdx] * cos(b_pMissTheta[b_leadIdx]));
+      b_leadP       = cand_p3[leadIdx].Mag();
+      b_leadTheta   = cand_p3[leadIdx].Theta();
+      b_leadPhi     = cand_p3[leadIdx].Phi();
+      b_leadVz      = cand_vz[leadIdx];
+
+      b_pMiss       = cand_pMissV[leadIdx].Mag();
+      b_pMissTheta  = cand_pMissV[leadIdx].Theta();
+      b_pMissPhi    = cand_pMissV[leadIdx].Phi();
+      b_mMiss       = cand_mMiss[leadIdx];
+      b_kMiss       = cand_kMiss[leadIdx];
+      b_EMiss       = cand_EMiss[leadIdx];
+      b_theta_PmQ   = cand_theta_PmQ[leadIdx];
+      b_goodLead    = cand_goodLead[leadIdx];
+      b_theta_PleadQ = cand_p3[leadIdx].Angle(qP3);
+    }
+
+    // ---- pass 2: find recoil and fill pRel / pCM (using the lead identified above) ----
+    if(leadIdx >= 0 && nFilled >= 2)
+    {
+      // The lead proton's pMiss vector (miss_neg)
+      TVector3 miss_neg = cand_pMissV[leadIdx];
 
       // Search for a recoil: any other proton with p > 0.3
       // Recoil angular cuts: open (no FD theta < 37 restriction); require CD (or simply p > 0.3).
       for(int j = 0; j < nFilled; j++)
       {
-        if(j == b_leadIdx) continue;
-        if(b_protonP[j] < 0.3) continue;   // recoil momentum cut
+        if(j == leadIdx) continue;
+        if(cand_p3[j].Mag() < 0.3) continue;   // recoil momentum cut
 
         // Optional recoil angular cut — looser than lead, accept both FD and CD.
         // Add detector-based cuts here if needed via protons[j]->getStatus().
 
-        b_recoilIdx = j;  // take the first qualifying recoil
-
-        TVector3 recoil_p3(b_protonP[j] * sin(b_protonTheta[j]) * cos(b_protonPhi[j]),
-                           b_protonP[j] * sin(b_protonTheta[j]) * sin(b_protonPhi[j]),
-                           b_protonP[j] * cos(b_protonTheta[j]));
+        TVector3 recoil_p3 = cand_p3[j];
 
         // ---- pRel: relative momentum in the pair CM frame ----
         // pRel = (p_lead - p_recoil) / 2  in the pair rest frame; approximate as half the
         // difference of lab momenta (standard SRC convention).
-        TVector3 lead_p3(b_protonP[b_leadIdx] * sin(b_protonTheta[b_leadIdx]) * cos(b_protonPhi[b_leadIdx]),
-                         b_protonP[b_leadIdx] * sin(b_protonTheta[b_leadIdx]) * sin(b_protonPhi[b_leadIdx]),
-                         b_protonP[b_leadIdx] * cos(b_protonTheta[b_leadIdx]));
+        TVector3 lead_p3 = cand_p3[leadIdx];
 
         TVector3 pRelV = (lead_p3 - recoil_p3) * 0.5;
-        b_pRel[b_leadIdx]      = pRelV.Mag();
-        b_pRelTheta[b_leadIdx] = pRelV.Theta();
-        b_pRelPhi[b_leadIdx]   = pRelV.Phi();
+        b_pRel      = pRelV.Mag();
+        b_pRelTheta = pRelV.Theta();
+        b_pRelPhi   = pRelV.Phi();
 
-        // ---- pCM: pair CM momentum via coordinate rotation ----
-        // Rotate into the frame defined by pn (= pMiss of lead) and q.
-        TVector3 vq      = qP3;               // q 3-vector
-        TVector3 v1      = pn;                // miss momentum of lead (pn)
-        TVector3 vq_copy = vq;
+        // ---- pCM: pair CM momentum projected onto the (miss_neg, q) frame ----
+        TVector3 v_rec = recoil_p3;
+        TVector3 v_cm  = miss_neg + v_rec;
 
-        double Pmiss_phi   = v1.Phi();
-        double Pmiss_theta = v1.Theta();
+        TVector3 vz = miss_neg.Unit();
+        TVector3 vy = miss_neg.Cross(qP3).Unit();
+        TVector3 vx = vz.Cross(vy).Unit();
 
-        vq_copy.RotateZ(-Pmiss_phi);
-        vq_copy.RotateY(-Pmiss_theta);
-        double q_phi = vq_copy.Phi();
-        vq_copy.RotateZ(-q_phi);
-
-        TVector3 v2 = recoil_p3;
-        v2.RotateZ(-Pmiss_phi);
-        v2.RotateY(-Pmiss_theta);
-        v2.RotateZ(-q_phi);
-
-        v1.RotateZ(-Pmiss_phi);
-        v1.RotateY(-Pmiss_theta);
-        v1.RotateZ(-q_phi);
-
-        TVector3 pcom = v1 + v2;
-
-        b_pCM[b_leadIdx]  = pcom.Mag();
-        b_pCMx[b_leadIdx] = pcom.X();
-        b_pCMy[b_leadIdx] = pcom.Y();
-        b_pCMz[b_leadIdx] = pcom.Z();
+        b_pCM  = v_cm.Mag();
+        b_pCMx = v_cm.Dot(vx);
+        b_pCMy = v_cm.Dot(vy);
+        b_pCMz = v_cm.Dot(vz);
 
         // recoil summary kinematics
         b_recP     = recoil_p3.Mag();
         b_recTheta = recoil_p3.Theta();
         b_recPhi   = recoil_p3.Phi();
+
+        // additional angles
+        b_theta_PmPrec = miss_neg.Angle(recoil_p3);
+        b_theta_PrecQ  = recoil_p3.Angle(qP3);
 
         break;  // one recoil per event
       }
