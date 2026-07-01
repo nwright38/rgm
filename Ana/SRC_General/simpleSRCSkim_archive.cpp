@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
+  reweighter newWeight(Ebeam,2,2,kelly,"AV18",.15);
 
   int ctr = 0;
   while(chain.Next())
@@ -281,6 +281,7 @@ int main(int argc, char **argv)
       if(pLead3.Mag() < 1.)                        passCuts = false;
       if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
+ //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
       b_goodLead[nFilled] = passCuts;
       if(passCuts) b_nGoodLeads++;
