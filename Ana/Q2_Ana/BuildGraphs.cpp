@@ -60,7 +60,8 @@ struct IntegratedPoint {
 };
 
 void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
-  string task, sel;
+  string* task = nullptr;
+  string* sel = nullptr;
   vector<int>* axisBin = nullptr;
   int valueBin = 0;
   double valueCenter = 0.0, count = 0.0, statErr = 0.0, sysErr = 0.0;
@@ -86,7 +87,11 @@ void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
   const Long64_t nEntries = diffTree->GetEntries();
   for (Long64_t i = 0; i < nEntries; ++i) {
     diffTree->GetEntry(i);
-    string key = task + "|" + sel + "|" + joinBins(*axisBin);
+    if (!task || !sel || !axisBin) {
+      cerr << "Malformed diffTable entry " << i << ": missing object branch data.\n";
+      continue;
+    }
+    string key = *task + "|" + *sel + "|" + joinBins(*axisBin);
     DiffPoint p;
     p.value_bin = valueBin;
     p.value_center = valueCenter;
@@ -118,7 +123,9 @@ void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
 }
 
 void buildIntegratedGraphs(TTree* intTree, TDirectory* outDir) {
-  string task, sel, pattern;
+  string* task = nullptr;
+  string* sel = nullptr;
+  string* pattern = nullptr;
   vector<int>* axisBin = nullptr;
   vector<double>* axisCenter = nullptr;
   double count = 0.0, statErr = 0.0, sysErr = 0.0;
@@ -144,7 +151,11 @@ void buildIntegratedGraphs(TTree* intTree, TDirectory* outDir) {
   const Long64_t nEntries = intTree->GetEntries();
   for (Long64_t i = 0; i < nEntries; ++i) {
     intTree->GetEntry(i);
-    string key = task + "|" + sel + "|" + pattern;
+    if (!task || !sel || !pattern || !axisBin || !axisCenter) {
+      cerr << "Malformed integratedTable entry " << i << ": missing object branch data.\n";
+      continue;
+    }
+    string key = *task + "|" + *sel + "|" + *pattern;
     IntegratedPoint p;
     p.axis_bin = *axisBin;
     p.axis_center = *axisCenter;
