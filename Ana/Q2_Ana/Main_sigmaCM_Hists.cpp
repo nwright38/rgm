@@ -44,7 +44,7 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.050;
-const double max_sigma = 0.25;
+const double max_sigma = 0.3;
 //////////////////////////////////
 
 const double c = 29.9792458;
@@ -452,10 +452,10 @@ int main(int argc, char ** argv)
   TLatex text;
   text.SetTextSize(0.05);
   
-  char fileName[100];
-  sprintf(fileName,"%s[",pdfFile);
-  myText->SaveAs(fileName);
-  sprintf(fileName,"%s",pdfFile);
+  // char fileName[100];
+  // sprintf(fileName,"%s[",pdfFile);
+  // myText->SaveAs(fileName);
+  // sprintf(fileName,"%s",pdfFile);
 
   // helper lambda: write a named canvas snapshot to the ROOT file
   // (data hist already drawn on myCanvas; clone it into a dedicated TCanvas)
@@ -471,14 +471,14 @@ int main(int argc, char ** argv)
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_chi2_pcmx_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+  //myCanvas->Print(fileName,"pdf");
   writeCanvas("c_chi2_pcmx_epp","chi2 vs sigma - pcmX integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_scale_pcmx_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+ // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_scale_pcmx_epp","scale vs sigma - pcmX integrated");
   myCanvas->Clear();  
 
@@ -492,21 +492,21 @@ int main(int argc, char ** argv)
     h_pcmx_epp_simSCM[thisbin]->Scale(scale);
     h_pcmx_epp_simSCM[thisbin]->Draw("SAME");
   }
-  myCanvas->Print(fileName,"pdf");
+//  myCanvas->Print(fileName,"pdf");
   writeCanvas("c_overlay_pcmx_epp","data+sim overlay - pcmX integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_chi2_pcmy_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+// myCanvas->Print(fileName,"pdf");
   writeCanvas("c_chi2_pcmy_epp","chi2 vs sigma - pcmY integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_scale_pcmy_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+ // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_scale_pcmy_epp","scale vs sigma - pcmY integrated");
   myCanvas->Clear();  
 
@@ -520,21 +520,21 @@ int main(int argc, char ** argv)
     h_pcmy_epp_simSCM[thisbin]->Scale(scale);
     h_pcmy_epp_simSCM[thisbin]->Draw("SAME");
   }
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_overlay_pcmy_epp","data+sim overlay - pcmY integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_chi2_pcmz_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_chi2_pcmz_epp","chi2 vs sigma - pcmZ integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_scale_pcmz_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_scale_pcmz_epp","scale vs sigma - pcmZ integrated");
   myCanvas->Clear();  
 
@@ -548,21 +548,21 @@ int main(int argc, char ** argv)
     h_pcmz_epp_simSCM[thisbin]->Scale(scale);
     h_pcmz_epp_simSCM[thisbin]->Draw("SAME");
   }
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_overlay_pcmz_epp","data+sim overlay - pcmZ integrated");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_chi2_pcmT_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_chi2_pcmT_epp","chi2 vs sigma - pcmT integrated");
   myCanvas->Clear();  
   
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_scale_pcmT_epp->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_scale_pcmT_epp","scale vs sigma - pcmT integrated");
   myCanvas->Clear();  
   
@@ -576,7 +576,7 @@ int main(int argc, char ** argv)
     h_pcmT_epp_simSCM[thisbin]->Scale(scale);
     h_pcmT_epp_simSCM[thisbin]->Draw("SAME");
   }
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_overlay_pcmT_epp","data+sim overlay - pcmT integrated");
   myCanvas->Clear();  
 
@@ -585,28 +585,28 @@ int main(int argc, char ** argv)
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigmacmx_Q2->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_sigmacmx_Q2","sigma_cmx vs Q2");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigmacmy_Q2->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_sigmacmy_Q2","sigma_cmy vs Q2");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigmacmz_Q2->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_sigmacmz_Q2","sigma_cmz vs Q2");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigmacmT_Q2->Draw();
-  myCanvas->Print(fileName,"pdf");
+  // myCanvas->Print(fileName,"pdf");
   writeCanvas("c_sigmacmT_Q2","sigma_cmT vs Q2");
   myCanvas->Clear();  
 
@@ -615,14 +615,14 @@ int main(int argc, char ** argv)
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_chi2_pcmx_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_chi2_pcmx_Q2_%d",i),Form("chi2 pcmX Q2bin=%d",i));
     myCanvas->Clear();  
   
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_scale_pcmx_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_scale_pcmx_Q2_%d",i),Form("scale pcmX Q2bin=%d",i));
     myCanvas->Clear();  
     
@@ -636,21 +636,21 @@ int main(int argc, char ** argv)
       h_pcmx_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
       h_pcmx_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
     }
-    myCanvas->Print(fileName,"pdf");
+  //  myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_overlay_pcmx_Q2_%d",i),Form("data+sim pcmX Q2bin=%d",i));
     myCanvas->Clear();  
 
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_chi2_pcmy_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_chi2_pcmy_Q2_%d",i),Form("chi2 pcmY Q2bin=%d",i));
     myCanvas->Clear();  
   
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_scale_pcmy_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_scale_pcmy_Q2_%d",i),Form("scale pcmY Q2bin=%d",i));
     myCanvas->Clear();  
     
@@ -664,21 +664,21 @@ int main(int argc, char ** argv)
       h_pcmy_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
       h_pcmy_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
     }
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_overlay_pcmy_Q2_%d",i),Form("data+sim pcmY Q2bin=%d",i));
     myCanvas->Clear();  
 
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_chi2_pcmz_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_chi2_pcmz_Q2_%d",i),Form("chi2 pcmZ Q2bin=%d",i));
     myCanvas->Clear();  
   
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_scale_pcmz_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_scale_pcmz_Q2_%d",i),Form("scale pcmZ Q2bin=%d",i));
     myCanvas->Clear();  
     
@@ -692,21 +692,21 @@ int main(int argc, char ** argv)
       h_pcmz_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
       h_pcmz_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
     }
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_overlay_pcmz_Q2_%d",i),Form("data+sim pcmZ Q2bin=%d",i));
     myCanvas->Clear();  
 
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_chi2_pcmT_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_chi2_pcmT_Q2_%d",i),Form("chi2 pcmT Q2bin=%d",i));
     myCanvas->Clear();  
   
     myCanvas->Divide(1,1);
     myCanvas->cd(1);    
     g_scale_pcmT_epp_SRC_Q2[i]->Draw();
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_scale_pcmT_Q2_%d",i),Form("scale pcmT Q2bin=%d",i));
     myCanvas->Clear();  
     
@@ -720,13 +720,13 @@ int main(int argc, char ** argv)
       h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Scale(scale);
       h_pcmT_epp_SRC_simSCM_Q2[thisbin][i]->Draw("SAME");
     }
-    myCanvas->Print(fileName,"pdf");
+    // myCanvas->Print(fileName,"pdf");
     writeCanvas(Form("c_overlay_pcmT_Q2_%d",i),Form("data+sim pcmT Q2bin=%d",i));
     myCanvas->Clear();  
   }
   
-  sprintf(fileName,"%s]",pdfFile);
-  myCanvas->Print(fileName,"pdf");
+  //sprintf(fileName,"%s]",pdfFile);
+  // myCanvas->Print(fileName,"pdf");
 
   f->Close();
 
@@ -940,20 +940,20 @@ void getG(TFile *f, TCanvas * myCanvas, char fileName[100], string objectName, T
     myCanvas->cd(1);    
     h_myhist[j]->Draw();
     gFit->Draw("SAME");
-    myCanvas->Print(fileName,"pdf");
+  //  myCanvas->Print(fileName,"pdf");
     myCanvas->Clear();  
   }
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_mu->Draw();
-  myCanvas->Print(fileName,"pdf");
+  //myCanvas->Print(fileName,"pdf");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigma->Draw();
-  myCanvas->Print(fileName,"pdf");
+ // myCanvas->Print(fileName,"pdf");
   myCanvas->Clear();  
 
   g_mu->Write();
@@ -1010,13 +1010,13 @@ void getGraph(TFile *f, TCanvas * myCanvas, char fileName[100], string objectNam
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_mu->Draw();
-  myCanvas->Print(fileName,"pdf");
+  //(fileName,"pdf");
   myCanvas->Clear();  
 
   myCanvas->Divide(1,1);
   myCanvas->cd(1);    
   g_sigma->Draw();
-  myCanvas->Print(fileName,"pdf");
+ // myCanvas->Print(fileName,"pdf");
   myCanvas->Clear();  
 
   g_mu->Write();

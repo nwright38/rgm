@@ -43,7 +43,7 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.050;
-const double max_sigma = 0.25;
+const double max_sigma = 0.3;
 
 
 const double c = 29.9792458;
