@@ -34,7 +34,7 @@ import plot_primitives as pp
 
 
 Q2_BINS = [1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0]
-TASK_NAME = 'pcmz_epp_SRC_Q2'
+TASK_NAME = 'pcmx_epp_SRC_Q2'
 SELECTION = 'epp'
 DEFAULT_SIM_COLORS = ['red', 'blue', 'green', 'darkorange', 'purple', 'brown']
 Q2_COLORS = ['black', 'red', 'blue', 'green', 'darkorange', 'purple', 'brown']
@@ -62,7 +62,7 @@ def parse_args():
     p.add_argument('--sim-label', action='append', default=[])
     p.add_argument('--sim-color', action='append', default=[])
     p.add_argument('--out', default='myPlots/pdf/pcmz_q2_scratch.pdf')
-    p.add_argument('--xlim', nargs=2, type=float, default=(-0.5, 1.0))
+    p.add_argument('--xlim', nargs=2, type=float, default=(-0.5, .5))
     p.add_argument('--unit-area', action='store_true',
                    help='Normalize data and sim to unit area in each Q2 bin instead of scaling sim to data yield.')
     return p.parse_args()
@@ -160,9 +160,9 @@ def draw_all_data_overlay(data, args):
 
     ax.set_xlim(*args.xlim)
     ax.set_ylim(0.0, ymax * 1.18 if ymax > 0.0 else 1.0)
-    ax.set_xlabel(r'$\vec{p}_{C.M.}\cdot\hat{v}_{z}$ [GeV]', fontsize=13)
+    ax.set_xlabel(r'$\vec{p}_{C.M.}\cdot\hat{v}_{y}$ [GeV]', fontsize=13)
     ax.set_ylabel('Unit area', fontsize=13)
-    ax.set_title(r'%s: $p_{C.M.,z}$ data slices by $Q^{2}$' % args.data_label,
+    ax.set_title(r'%s: $p_{C.M.,y}$ data slices by $Q^{2}$' % args.data_label,
                  fontsize=14)
     ax.legend(handles=handles, loc='best', frameon=False, fontsize=9)
     fig.tight_layout()
@@ -186,7 +186,7 @@ def draw_data_sim_panels(data, sims, args):
         if i % n_cols == 0:
             ax.set_ylabel('Unit area' if args.unit_area else 'Counts', fontsize=11)
         if i >= n_panels - n_cols:
-            ax.set_xlabel(r'$\vec{p}_{C.M.}\cdot\hat{v}_{z}$ [GeV]', fontsize=11)
+            ax.set_xlabel(r'$\vec{p}_{C.M.}\cdot\hat{v}_{y}$ [GeV]', fontsize=11)
 
     handles = [
         plt.Line2D([0], [0], color=data.color, linewidth=2, label=data.label)
@@ -197,7 +197,7 @@ def draw_data_sim_panels(data, sims, args):
     ]
     fig.legend(handles=handles, loc='upper center', ncol=max(1, len(handles)),
                frameon=False, fontsize=11)
-    fig.suptitle(r'$p_{C.M.,z}$ in established $Q^{2}$ bins, $(e,e^\prime pp)$',
+    fig.suptitle(r'$p_{C.M.,y}$ in established $Q^{2}$ bins, $(e,e^\prime pp)$',
                  y=0.98, fontsize=14)
     fig.tight_layout(rect=[0.02, 0.02, 0.98, 0.92])
     return fig
