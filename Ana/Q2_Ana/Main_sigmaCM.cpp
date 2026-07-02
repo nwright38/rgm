@@ -139,12 +139,27 @@ int main(int argc, char ** argv)
   TH1D * h_pcmT_epp = new TH1D("pcmT_epp","pcmT_epp",25,0.0,0.75);
   TH1D * h_pcmyP_epp = new TH1D("pcmyP_epp","pcmyP_epp",25,-0.55,0.55);
 
+  // ---- truth-level CM projections (generator isotropy / labeling check) ----
+  TH1D * h_pcmx_truth      = new TH1D("pcmx_truth","pcmx truth;p_{cm,x} (GeV/c)",50,-0.55,0.55);
+  TH1D * h_pcmy_truth      = new TH1D("pcmy_truth","pcmy truth;p_{cm,y} (GeV/c)",50,-0.55,0.55);
+  TH1D * h_pcmz_truth      = new TH1D("pcmz_truth","pcmz truth;p_{cm,z} (GeV/c)",50,-0.5,1.0);
+  TH1D * h_pcmx_truth_pass = new TH1D("pcmx_truth_pass","pcmx truth (passing);p_{cm,x} (GeV/c)",50,-0.55,0.55);
+  TH1D * h_pcmy_truth_pass = new TH1D("pcmy_truth_pass","pcmy truth (passing);p_{cm,y} (GeV/c)",50,-0.55,0.55);
+  TH1D * h_pcmz_truth_pass = new TH1D("pcmz_truth_pass","pcmz truth (passing);p_{cm,z} (GeV/c)",50,-0.5,1.0);
+
 
   h_pcmx_epp->Sumw2();
   h_pcmy_epp->Sumw2();
   h_pcmz_epp->Sumw2();
   h_pcmT_epp->Sumw2();
   h_pcmyP_epp->Sumw2();
+
+  h_pcmx_truth->Sumw2();
+  h_pcmy_truth->Sumw2();
+  h_pcmz_truth->Sumw2();
+  h_pcmx_truth_pass->Sumw2();
+  h_pcmy_truth_pass->Sumw2();
+  h_pcmz_truth_pass->Sumw2();
 
   TH1D * h_pcmx_epp_SRC_Q2[bQ2];
   TH1D * h_pcmy_epp_SRC_Q2[bQ2];
@@ -275,13 +290,40 @@ int main(int argc, char ** argv)
     }
   ////////////////////////////////////////
   ctr = 0;
-  while(chain_Sim.Next() && ctr <1000000)
+  while(chain_Sim.Next() && ctr <500000)
     {
       double q,x,y,z,yP;
       bool pass = false;
       double original_weight = c12_Sim->mcevent()->getWeight();
       runEvent(c12_Sim,clasAna,true,q,x,y,z,pass,ctr); 
       double T = sqrt(x*x+y*y);
+
+      // ---- truth-level CM, projected into the SAME event frame as runEvent ----
+      auto mcInfo = c12_Sim->mcparts();
+      if(mcInfo && mcInfo->getRows() >= 3){         // drop guard if getRows() doesn't compile
+        TVector3 vbeam(0,0,beam_E);
+        TVector3 ve  (mcInfo->getPx(0),mcInfo->getPy(0),mcInfo->getPz(0));
+        TVector3 vlead(mcInfo->getPx(1),mcInfo->getPy(1),mcInfo->getPz(1));
+        TVector3 vrec (mcInfo->getPx(2),mcInfo->getPy(2),mcInfo->getPz(2));
+        TVector3 vq    = vbeam - ve;
+        TVector3 vmiss = vlead - vq;      // = +p_i, matches reco miss_neg
+        TVector3 vcm   = vmiss + vrec;    // true pair CM momentum
+        // frame built exactly like runEvent (vz along +p_i, vy = p_i x q):
+        TVector3 tz = vmiss.Unit();
+        TVector3 ty = vmiss.Cross(vq).Unit();
+        TVector3 tx = tz.Cross(ty).Unit();
+        double cmx_t = vcm.Dot(tx);
+        double cmy_t = vcm.Dot(ty);
+        double cmz_t = vcm.Dot(tz);
+        h_pcmx_truth->Fill(cmx_t);
+        h_pcmy_truth->Fill(cmy_t);
+        h_pcmz_truth->Fill(cmz_t);
+        if(pass){
+          h_pcmx_truth_pass->Fill(cmx_t);
+          h_pcmy_truth_pass->Fill(cmy_t);
+          h_pcmz_truth_pass->Fill(cmz_t);
+        }
+      }
       for(int i=0; i<linbin; i++){
 	double wepp = original_weight * myWeights[i].get_weight_epp(c12_Sim->mcparts());
 	if(pass){
@@ -332,6 +374,27 @@ int main(int argc, char ** argv)
       h_pcmyP_epp_SRC_simSCM_Q2[j][i]->Write();
     }
   }
+
+  h_pcmx_truth->Write();       h_pcmy_truth->Write();       h_pcmz_truth->Write();
+  h_pcmx_truth_pass->Write();  h_pcmy_truth_pass->Write();  h_pcmz_truth_pass->Write();
+
+  // quick isotropy readout (fit-independent RMS + a plain Gaussian sigma)
+  auto fitSig = [](TH1D* h)->double{
+    if(h->GetEntries()<20) return -1;
+    TF1 fg("fg","gaus",h->GetMean()-3*h->GetRMS(),h->GetMean()+3*h->GetRMS());
+    h->Fit(&fg,"Q0R");
+    return fg.GetParameter(2);
+  };
+  cout<<"\n=== TRUTH-LEVEL CM widths (event frame) ==="<<endl;
+  cout<<"  all generated  sigma: x="<<fitSig(h_pcmx_truth)
+      <<"  y="<<fitSig(h_pcmy_truth)<<"  z="<<fitSig(h_pcmz_truth)<<endl;
+  cout<<"  all generated  rms  : x="<<h_pcmx_truth->GetRMS()
+      <<"  y="<<h_pcmy_truth->GetRMS()<<"  z="<<h_pcmz_truth->GetRMS()<<endl;
+  cout<<"  passing only   sigma: x="<<fitSig(h_pcmx_truth_pass)
+      <<"  y="<<fitSig(h_pcmy_truth_pass)<<"  z="<<fitSig(h_pcmz_truth_pass)<<endl;
+  cout<<"  passing only   rms  : x="<<h_pcmx_truth_pass->GetRMS()
+      <<"  y="<<h_pcmy_truth_pass->GetRMS()<<"  z="<<h_pcmz_truth_pass->GetRMS()<<endl;
+
   f->Close();
 
   return 0;
@@ -355,7 +418,6 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
   TLorentzVector ntr(0,0,0,db->GetParticle(2112)->Mass());
   
   //Display completed  
-  ctr++;
   if((ctr%100000) == 0){
     cerr << "\n" <<ctr/100000 <<" hundred thousand completed";
   }    
@@ -428,6 +490,8 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
             
   bool rec = false;
   if(recoil.size()==1){rec = true;}
+  ctr++;
+
 
   if(xB<1.2){return;}
   if(Q2<1.5){return;}

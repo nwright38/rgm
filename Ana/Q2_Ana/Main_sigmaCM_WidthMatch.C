@@ -32,8 +32,8 @@
 using namespace std;
 
 const int linbin = 100;
-const double min_sigma = 0.1;
-const double max_sigma = 0.5;
+const double min_sigma = 0.08;
+const double max_sigma = 0.35;
 
 const vector<double> bE_Q2 = {1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0};
 const int bQ2 = (int)bE_Q2.size() - 1;
@@ -91,44 +91,84 @@ TH1D* getHist(TFile* f, const string& name, bool required = true) {
   return h;
 }
 
-FitWidth fitWidth(TH1D* h, const string& fitName, double min, double max, bool transverse) {
+// FitWidth fitWidth(TH1D* h, const string& fitName, double min, double max, bool transverse) {
+//   FitWidth out;
+//   if (!h || h->Integral() <= 0.0 || h->GetEntries() < 10) return out;
+
+//   if (!h || h->GetEntries() < 20 || h->Integral() <= 0) return out;
+
+//   // pcmT is a transverse magnitude and is not truly Gaussian. By default it
+//   // is still fit with G() as a consistent data/sim width proxy. If visual QA
+//   // shows those T fits are poor, flip this fallback on; it is applied
+//   // identically to data and simulation.
+//   const bool useTransverseFallback = true;
+
+//   TF1* f = nullptr;
+//   if (transverse && useTransverseFallback) {
+//     f = new TF1(fitName.c_str(), [](double* x, double* p) { return Rayleigh(x[0], p[0], p[1]); }, min, max, 2);
+//     f->SetParameter(0, h->Integral("width"));
+//     f->SetParameter(1, std::max(0.05, h->GetMean() / sqrt(M_PI / 2.0)));
+//     f->SetParLimits(1, 0.001, max - min);
+//   } else {
+
+    
+//     f = new TF1(fitName.c_str(), [](double* x, double* p) { return G(x[0], p[0], p[1], p[2]); }, min, max, 3);
+//     const double seedSigma = std::max(0.05, (max - min) / 4.0);
+//     f->SetParameter(0, h->GetMaximum() / G(0.0, 1.0, 0.0, 0.1));
+//     f->SetParameter(2, std::min(h->GetRMS(), (max-min)/2.0*0.9));
+//     f->SetParameter(1, h->GetMean());
+
+//     const double sigLo = 0.02;
+//     const double sigHi = (max - min) / 2.0;
+//     double sigSeed = h->GetRMS();
+//     if (!std::isfinite(sigSeed) || sigSeed <= sigLo) sigSeed = 0.5*(sigLo+sigHi);
+//     if (sigSeed >= sigHi) sigSeed = 0.9*sigHi;
+
+//     f->SetParameter(2, sigSeed);      // value first, guaranteed inside
+//     f->SetParLimits(2, sigLo, sigHi); // then limits
+
+//     double muSeed = h->GetMean();
+//     if (!std::isfinite(muSeed) || muSeed < min || muSeed > max) muSeed = 0.5*(min+max);
+//     f->SetParameter(1, muSeed);
+//     f->SetParLimits(1, min, max);
+
+
+//     // f->SetParameter(1, transverse ? h->GetMean() : 0.0);
+//     // f->SetParameter(2, (max - min) / 4);     
+
+//     // f->SetParLimits(1, min, max);
+//     // f->SetParLimits(2, 0.02, (max - min) / 2.0); 
+
+  
+    
+//   }
+
+//   TFitResultPtr fr = h->Fit(f, "SrBqn", "", min, max);
+//   if (fr.Get() != nullptr && int(fr) == 0) {
+//     const int sigmaPar = (transverse && useTransverseFallback) ? 1 : 2;
+//     out.ok = true;
+//     out.sigma = std::abs(fr->Parameter(sigmaPar));
+//     out.err = std::abs(fr->ParError(sigmaPar));
+//     const int ndf = fr->Ndf();
+//     if (ndf > 0) out.chi2ndf = fr->Chi2() / double(ndf);
+//   }
+//   delete f;
+//   return out;
+// }
+
+FitWidth fitWidth(TH1D* h, const string&, double min, double max, bool) {
   FitWidth out;
-  if (!h || h->Integral() <= 0.0 || h->GetEntries() < 10) return out;
-
-  // pcmT is a transverse magnitude and is not truly Gaussian. By default it
-  // is still fit with G() as a consistent data/sim width proxy. If visual QA
-  // shows those T fits are poor, flip this fallback on; it is applied
-  // identically to data and simulation.
-  const bool useTransverseFallback = false;
-
-  TF1* f = nullptr;
-  if (transverse && useTransverseFallback) {
-    f = new TF1(fitName.c_str(), [](double* x, double* p) { return Rayleigh(x[0], p[0], p[1]); }, min, max, 2);
-    f->SetParameter(0, h->Integral("width"));
-    f->SetParameter(1, std::max(0.05, h->GetMean() / sqrt(M_PI / 2.0)));
-    f->SetParLimits(1, 0.001, max - min);
-  } else {
-    f = new TF1(fitName.c_str(), [](double* x, double* p) { return G(x[0], p[0], p[1], p[2]); }, min, max, 3);
-    const double seedSigma = std::max(0.05, (max - min) / 4.0);
-    f->SetParameter(0, h->GetMaximum() / G(0.0, 1.0, 0.0, 0.1));
-    f->SetParameter(1, transverse ? h->GetMean() : 0.0);
-    f->SetParLimits(1, min, max);
-    f->SetParameter(2, seedSigma);
-    f->SetParLimits(2, 0.001, max - min);
-  }
-
-  TFitResultPtr fr = h->Fit(f, "SrBeqn", "", min, max);
-  if (fr.Get() != nullptr && int(fr) == 0) {
-    const int sigmaPar = (transverse && useTransverseFallback) ? 1 : 2;
-    out.ok = true;
-    out.sigma = std::abs(fr->Parameter(sigmaPar));
-    out.err = std::abs(fr->ParError(sigmaPar));
-    const int ndf = fr->Ndf();
-    if (ndf > 0) out.chi2ndf = fr->Chi2() / double(ndf);
-  }
-  delete f;
+  if (!h || h->GetEntries() < 20 || h->Integral() <= 0) return out;
+  TH1D* hc = (TH1D*)h->Clone("h_rms_tmp");
+  hc->SetDirectory(nullptr);
+  hc->GetXaxis()->SetRange(hc->FindBin(min), hc->FindBin(max));
+  out.sigma = hc->GetRMS();
+  out.err   = hc->GetRMSError();
+  out.ok    = (out.sigma > 0);
+  delete hc;
   return out;
 }
+
 
 bool isMonotone(const vector<double>& y) {
   int direction = 0;
@@ -238,10 +278,21 @@ MatchResult matchOne(TFile* outFile,
     return result;
   }
 
+  cout << "df sigma = " << dataFit.sigma  << endl;
+
+
+
   const double center = invertLinear(x, y, dataFit.sigma);
   const double lo = invertLinear(x, y, dataFit.sigma - dataFit.err);
   const double hi = invertLinear(x, y, dataFit.sigma + dataFit.err);
+
+  // cerr << comp.label << " " << tag << "  N=" << data->Integral()
+  //    << "  entries=" << data->GetEntries()
+  //    << "  chi2ndf=" << dataFit.chi2ndf << endl;
+
   if (!isfinite(center) || !isfinite(lo) || !isfinite(hi)) return result;
+
+
 
   result.ok = true;
   result.sigmaCM = center;
@@ -260,7 +311,8 @@ TH1D* matchedTemplateClone(const Component& comp,
   if (!sim) return nullptr;
   TH1D* clone = (TH1D*)sim->Clone(name.c_str());
   clone->SetDirectory(nullptr);
-  clone->Scale(fitScale(data, sim, comp.fitMin, comp.fitMax));
+  clone->Scale(data->Integral(data->FindBin(comp.fitMin), data->FindBin(comp.fitMax)) / sim->Integral(sim->FindBin(comp.fitMin), sim->FindBin(comp.fitMax)));
+  //clone->Scale(fitScale(data, sim, comp.fitMin, comp.fitMax));
   clone->SetLineColor(kRed + 1);
   clone->SetLineWidth(3);
   return clone;
@@ -338,6 +390,7 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
       hSimInt[j] = getHist(inFile, Form("%s_%d", comp.simIntegratedPrefix.c_str(), j));
     }
 
+    cout << "doing an int" << endl;
     MatchResult intResult = matchOne(outFile, comp, hDataInt, hSimInt, "int");
     auto* gInt = new TGraphAsymmErrors();
     gInt->SetName(comp.graphIntName.c_str());
