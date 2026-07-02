@@ -38,6 +38,7 @@
 #include "TRandom3.h"
 
 #include "BinnedHistStore.h"
+#include "Q2Reweight.h"
 
 using namespace std;
 using namespace clas12;
@@ -402,7 +403,8 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
 
 #ifndef MAIN_FIGS_BINNED_NO_MAIN
 void Usage() {
-  std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root [--mode legacy|modern] inputfiles.hipo \n\n\n";
+  std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root "
+            << "[--mode legacy|modern] [--q2-reweight weights.root] inputfiles.hipo \n\n\n";
 }
 
 int main(int argc, char** argv) {
@@ -412,17 +414,18 @@ int main(int argc, char** argv) {
   }
 
   bool legacyCompatMode = false;  // false = modern behavior, true = legacy-compatible
+  string q2ReweightFile;
   int inputStartArg = 4;
-  if (argc > 4) {
-    string opt = argv[4];
+  while (inputStartArg < argc) {
+    string opt = argv[inputStartArg];
     if (opt.rfind("--mode", 0) == 0) {
       string mode;
-      if (opt == "--mode" && argc > 5) {
-        mode = argv[5];
-        inputStartArg = 6;
+      if (opt == "--mode" && inputStartArg + 1 < argc) {
+        mode = argv[inputStartArg + 1];
+        inputStartArg += 2;
       } else if (opt.rfind("--mode=", 0) == 0) {
         mode = opt.substr(7);
-        inputStartArg = 5;
+        inputStartArg += 1;
       } else {
         Usage();
         return -1;
@@ -434,7 +437,23 @@ int main(int argc, char** argv) {
         std::cerr << "Unknown mode '" << mode << "'. Use 'legacy' or 'modern'.\n";
         return -1;
       }
+      continue;
     }
+    if (opt == "--q2-reweight") {
+      if (inputStartArg + 1 >= argc) {
+        Usage();
+        return -1;
+      }
+      q2ReweightFile = argv[inputStartArg + 1];
+      inputStartArg += 2;
+      continue;
+    }
+    if (opt.rfind("--q2-reweight=", 0) == 0) {
+      q2ReweightFile = opt.substr(14);
+      inputStartArg += 1;
+      continue;
+    }
+    break;
   }
 
   // Detach every histogram we create from ROOT's directory bookkeeping, so
@@ -479,6 +498,16 @@ int main(int argc, char** argv) {
     N = nucleus_A / 2;
   }
   reweighter newWeight(beam_E, Z, N, kelly, uType, .15);
+  Q2Reweight q2Reweight;
+  if (!q2ReweightFile.empty()) {
+    if (!isMC) {
+      cout << "Ignoring --q2-reweight for data input." << endl;
+    } else if (!q2Reweight.load(q2ReweightFile)) {
+      return -1;
+    } else {
+      cout << "Loaded Q2 reweight file " << q2ReweightFile << endl;
+    }
+  }
 
   const int nToys = 100;
   TRandom3 toyRng(1234);
@@ -519,6 +548,11 @@ int main(int argc, char** argv) {
     }
 
     EventKinematics ek = computeEventKinematics(c12, clasAna, false, ctr);
+    if (isMC && q2Reweight.enabled()) {
+      const double q2Weight = q2Reweight.weight(ek.qSq);
+      wep *= q2Weight;
+      wepp *= q2Weight;
+    }
 
     bool passep_nom, passepp_nom;
     nominalCut.apply(ek, passep_nom, passepp_nom);
@@ -533,8 +567,9 @@ int main(int argc, char** argv) {
     for (int i = 0; i < nToys; i++) {
       double wep_sys = wep, wepp_sys = wepp;
       if (isMC) {
-        wep_sys = original_weight * toyWeighters[i].get_weight_ep(mcParts);
-        wepp_sys = original_weight * toyWeighters[i].get_weight_epp(mcParts);
+        const double q2Weight = q2Reweight.enabled() ? q2Reweight.weight(ek.qSq) : 1.0;
+        wep_sys = original_weight * toyWeighters[i].get_weight_ep(mcParts) * q2Weight;
+        wepp_sys = original_weight * toyWeighters[i].get_weight_epp(mcParts) * q2Weight;
       }
       bool passep_i, passepp_i;
       if (legacyCompatMode) {

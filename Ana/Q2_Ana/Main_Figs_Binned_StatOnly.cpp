@@ -16,7 +16,7 @@
 
 void StatOnlyUsage() {
   std::cerr << "Usage: ./Main_Figs_Binned_StatOnly isMC A outputfile.root "
-            << "[--mode legacy|modern] inputfiles.hipo \n\n\n";
+            << "[--mode legacy|modern] [--q2-reweight weights.root] inputfiles.hipo \n\n\n";
 }
 
 int main(int argc, char** argv) {
@@ -26,17 +26,18 @@ int main(int argc, char** argv) {
   }
 
   bool legacyCompatMode = false;
+  string q2ReweightFile;
   int inputStartArg = 4;
-  if (argc > 4) {
-    string opt = argv[4];
+  while (inputStartArg < argc) {
+    string opt = argv[inputStartArg];
     if (opt.rfind("--mode", 0) == 0) {
       string mode;
-      if (opt == "--mode" && argc > 5) {
-        mode = argv[5];
-        inputStartArg = 6;
+      if (opt == "--mode" && inputStartArg + 1 < argc) {
+        mode = argv[inputStartArg + 1];
+        inputStartArg += 2;
       } else if (opt.rfind("--mode=", 0) == 0) {
         mode = opt.substr(7);
-        inputStartArg = 5;
+        inputStartArg += 1;
       } else {
         StatOnlyUsage();
         return -1;
@@ -48,7 +49,23 @@ int main(int argc, char** argv) {
         std::cerr << "Unknown mode '" << mode << "'. Use 'legacy' or 'modern'.\n";
         return -1;
       }
+      continue;
     }
+    if (opt == "--q2-reweight") {
+      if (inputStartArg + 1 >= argc) {
+        StatOnlyUsage();
+        return -1;
+      }
+      q2ReweightFile = argv[inputStartArg + 1];
+      inputStartArg += 2;
+      continue;
+    }
+    if (opt.rfind("--q2-reweight=", 0) == 0) {
+      q2ReweightFile = opt.substr(14);
+      inputStartArg += 1;
+      continue;
+    }
+    break;
   }
 
   TH1::AddDirectory(kFALSE);
@@ -88,6 +105,16 @@ int main(int argc, char** argv) {
     N = nucleus_A / 2;
   }
   reweighter newWeight(beam_E, Z, N, kelly, uType, .15);
+  Q2Reweight q2Reweight;
+  if (!q2ReweightFile.empty()) {
+    if (!isMC) {
+      cout << "Ignoring --q2-reweight for data input." << endl;
+    } else if (!q2Reweight.load(q2ReweightFile)) {
+      return -1;
+    } else {
+      cout << "Loaded Q2 reweight file " << q2ReweightFile << endl;
+    }
+  }
 
   vector<FillTask<EventKinematics>> tasks = buildFillTasks(legacyCompatMode);
 
@@ -113,6 +140,11 @@ int main(int argc, char** argv) {
     }
 
     EventKinematics ek = computeEventKinematics(c12, clasAna, false, ctr);
+    if (isMC && q2Reweight.enabled()) {
+      const double q2Weight = q2Reweight.weight(ek.qSq);
+      wep *= q2Weight;
+      wepp *= q2Weight;
+    }
 
     bool passep_nom, passepp_nom;
     nominalCut.apply(ek, passep_nom, passepp_nom);
