@@ -43,8 +43,9 @@ using namespace clas12;
 
 
 const int linbin = 100;
-const double min_sigma = 0.050;
-const double max_sigma = 0.3;
+const double min_sigma = 0.08;
+const double max_sigma = 0.25;
+// .05, .2 were orig
 //////////////////////////////////
 
 const double c = 29.9792458;
@@ -887,7 +888,7 @@ void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scal
       double ex = h_s_clone->GetBinContent(j);
       double ex_err = h_s_clone->GetBinError(j);
    //   double chi2_point = 0.5 * sq(ob - ex) / sq(ob_err + ex_err);   
-      double chi2_point = sq(ob - ex) / (sq(ob_err) + sq(ex_err));
+      double chi2_point = sq(ob - ex) / (sq(ob_err));// + sq(ex_err));
 
       chi2+=chi2_point;
     }
@@ -1036,7 +1037,7 @@ void getValue(TGraph * thisGraph,double min_sigma, double max_sigma, double & ch
 
   for(int k = 0; k < 200; k++){
     double x = ((double)k/(double)200)*(max_sigma-min_sigma) + min_sigma;
-    if(thisGraph->Eval(x)<center_int_y){
+    if((thisGraph->Eval(x) < (center_int_y - .1))){
       center_int_x = x;
       center_int_y = thisGraph->Eval(x);
     }
