@@ -293,7 +293,7 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
   if (!inFileName || !outFileName) {
     cerr << "Usage:\n"
          << "  root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C+(\"stage1.root\",\"sigmaCM_widthmatch.root\")'\n";
-    return 1;
+    return 0;
   }
 
   gROOT->SetBatch(kTRUE);

@@ -205,6 +205,7 @@ void buildIntegratedGraphs(TTree* intTree, TDirectory* outDir) {
        << " skipped: more than one remaining selector axis)." << endl;
 }
 
+#ifndef BUILD_GRAPHS_NO_MAIN
 int main(int argc, char** argv) {
   if (argc < 2) {
     cerr << "Usage: ./BuildGraphs <file.root>\n";
@@ -236,3 +237,4 @@ int main(int argc, char** argv) {
   f->Close();
   return 0;
 }
+#endif

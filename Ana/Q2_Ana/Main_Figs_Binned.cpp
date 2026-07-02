@@ -400,6 +400,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   return tasks;
 }
 
+#ifndef MAIN_FIGS_BINNED_NO_MAIN
 void Usage() {
   std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root [--mode legacy|modern] inputfiles.hipo \n\n\n";
 }
@@ -693,3 +694,4 @@ int main(int argc, char** argv) {
   f->Close();
   return 0;
 }
+#endif
