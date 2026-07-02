@@ -14,6 +14,187 @@
 #define BUILD_GRAPHS_NO_MAIN
 #include "BuildGraphs.cpp"
 
+#include <TF1.h>
+#include <TFitResultPtr.h>
+#include <TGraphErrors.h>
+
+namespace {
+
+const vector<double>& statOnlyQ2Edges() {
+  static const vector<double> e = {1.5, 1.80, 2.10, 2.40, 2.70, 3.00, 3.50, 5.0};
+  return e;
+}
+
+double statOnlyQ2Center(int j) {
+  const vector<double>& e = statOnlyQ2Edges();
+  return 0.5 * (e[j] + e[j + 1]);
+}
+
+double statOnlyG(double x, double N, double mu, double sigma) {
+  double z = (x - mu) / sigma;
+  return (N / (sigma * sqrt(2 * M_PI))) * exp(-0.5 * z * z);
+}
+
+std::pair<double, double> statOnlyFitSigmaAndError(TH1D* h, double min, double max) {
+  if (!h || h->GetEntries() == 0) return {0.0, 0.0};
+  if (h->GetEntries() < 20) return {h->GetStdDev(), h->GetStdDevError()};
+
+  TF1* gFit = new TF1("StatOnlyGausFit",
+                       [](double* x, double* p) { return statOnlyG(x[0], p[0], p[1], p[2]); },
+                       min, max, 3);
+  gFit->SetParameter(0, h->GetMaximum() / statOnlyG(0, 1, 0, 0.1));
+  gFit->SetParameter(1, (max + min) / 2);
+  gFit->SetParLimits(1, min, max);
+  gFit->SetParameter(2, (max - min) / 4);
+  gFit->SetParLimits(2, 0.0, max - min);
+
+  TFitResultPtr fr = h->Fit(gFit, "SrBeqn", "", min, max);
+  double sigma = h->GetStdDev();
+  double sigmaErr = h->GetStdDevError();
+  if (fr.Get() != nullptr) {
+    sigma = fr->Parameter(2);
+    sigmaErr = fr->ParError(2);
+  }
+  delete gFit;
+  if (!std::isfinite(sigmaErr) || sigmaErr < 0.0) sigmaErr = 0.0;
+  return {sigma, sigmaErr};
+}
+
+enum class StatOnlyMethod { STDDEV, MEAN, FIT_SIGMA };
+
+struct StatOnlyFitSpec {
+  string quantityName;
+  string selection;
+  string sourceTask;
+  string axisName;
+  int nAxisBins;
+  StatOnlyMethod method;
+  double fitMin;
+  double fitMax;
+};
+
+vector<StatOnlyFitSpec> statOnlyBuildFitSpecs() {
+  vector<StatOnlyFitSpec> specs;
+
+  specs.push_back({"sigma_pcmx", "epp", "pcmx_epp_SRC_Q2", "", 1,
+                   StatOnlyMethod::FIT_SIGMA, -0.2, 0.22});
+  specs.push_back({"sigma_pcmy", "epp", "pcmy_epp_SRC_Q2", "", 1,
+                   StatOnlyMethod::FIT_SIGMA, -0.2, 0.2});
+
+  struct EmissTask { string suffix; string selection; string task; };
+  vector<EmissTask> emissTasks = {
+      {"E1miss_ep_pmiss",   "ep",  "E1miss_ep_SRC_pmiss_Q2"},
+      {"E1miss_epp_pmiss",  "epp", "E1miss_epp_SRC_pmiss_Q2"},
+      {"E2miss_epp_pmiss",  "epp", "E2miss_epp_SRC_pmiss_Q2"},
+      {"E1miss_ep_kmiss",   "ep",  "E1miss_ep_SRC_kmiss_Q2"},
+      {"E1miss_epp_kmiss",  "epp", "E1miss_epp_SRC_kmiss_Q2"},
+      {"E2miss_epp_kmiss",  "epp", "E2miss_epp_SRC_kmiss_Q2"},
+  };
+  for (auto& t : emissTasks) {
+    string axisName = (t.suffix.find("pmiss") != string::npos) ? "pMiss" : "kMiss";
+    specs.push_back({"stddev_" + t.suffix, t.selection, t.task, axisName, 4,
+                     StatOnlyMethod::STDDEV, 0, 0});
+    specs.push_back({"mean_" + t.suffix, t.selection, t.task, axisName, 4,
+                     StatOnlyMethod::MEAN, 0, 0});
+  }
+
+  return specs;
+}
+
+string statOnlyHistName(const string& label, const string& sourceTask,
+                        const string& axisName, int axisBin, int q2Bin) {
+  string n = label + "_" + sourceTask;
+  if (!axisName.empty()) n += "_" + axisName + to_string(axisBin);
+  n += "_Q2" + to_string(q2Bin);
+  return n;
+}
+
+TH1D* statOnlyGetHist(TDirectory* histsDir, const string& label, const string& name) {
+  TDirectory* d = histsDir->GetDirectory(label.c_str());
+  if (!d) return nullptr;
+  return (TH1D*)d->Get(name.c_str());
+}
+
+double statOnlyQ2MeanFromNominal(TDirectory* histsDir, int q2Bin) {
+  string hname = statOnlyHistName("nominal", "Q2_epp_SRC_Q2", "", 0, q2Bin);
+  TH1D* h = statOnlyGetHist(histsDir, "nominal", hname);
+  if (!h || h->GetEntries() == 0) return statOnlyQ2Center(q2Bin);
+  return h->GetMean();
+}
+
+double statOnlyExtractValue(const StatOnlyFitSpec& spec, TH1D* h) {
+  if (!h || h->GetEntries() == 0) return 0.0;
+  if (spec.method == StatOnlyMethod::STDDEV) return h->GetStdDev();
+  if (spec.method == StatOnlyMethod::MEAN) return h->GetMean();
+  return statOnlyFitSigmaAndError(h, spec.fitMin, spec.fitMax).first;
+}
+
+double statOnlyExtractError(const StatOnlyFitSpec& spec, TH1D* h) {
+  if (!h || h->GetEntries() == 0) return 0.0;
+  if (spec.method == StatOnlyMethod::STDDEV) {
+    double e = h->GetStdDevError();
+    return (std::isfinite(e) && e > 0.0) ? e : 0.0;
+  }
+  if (spec.method == StatOnlyMethod::MEAN) {
+    double e = h->GetMeanError();
+    return (std::isfinite(e) && e > 0.0) ? e : 0.0;
+  }
+  return statOnlyFitSigmaAndError(h, spec.fitMin, spec.fitMax).second;
+}
+
+void writeStatOnlyDerivedGraphs(TFile* f) {
+  TDirectory* histsDir = f->GetDirectory("hists");
+  if (!histsDir) {
+    cerr << "[Main_Figs_Binned_StatOnly] No 'hists' directory; skipping derived graphs.\n";
+    return;
+  }
+
+  TDirectory* graphsDir = f->GetDirectory("graphs");
+  if (!graphsDir) graphsDir = f->mkdir("graphs");
+
+  const int nQ2 = (int)statOnlyQ2Edges().size() - 1;
+  vector<double> q2x;
+  q2x.reserve((size_t)nQ2);
+  for (int j = 0; j < nQ2; j++) q2x.push_back(statOnlyQ2MeanFromNominal(histsDir, j));
+
+  int nWritten = 0;
+  int nSkipped = 0;
+  vector<StatOnlyFitSpec> specs = statOnlyBuildFitSpecs();
+  for (auto& spec : specs) {
+    for (int axisBin = 0; axisBin < spec.nAxisBins; axisBin++) {
+      TGraphErrors* g = new TGraphErrors();
+      string suffix = spec.axisName.empty() ? "none" : to_string(axisBin);
+      string gname = spec.quantityName + "|" + spec.selection + "|" + suffix;
+      g->SetName(gname.c_str());
+
+      for (int j = 0; j < nQ2; j++) {
+        string hname = statOnlyHistName("nominal", spec.sourceTask, spec.axisName, axisBin, j);
+        TH1D* h = statOnlyGetHist(histsDir, "nominal", hname);
+        if (!h || h->GetEntries() == 0) continue;
+
+        int n = g->GetN();
+        g->SetPoint(n, q2x[j], statOnlyExtractValue(spec, h));
+        g->SetPointError(n, 0.0, statOnlyExtractError(spec, h));
+      }
+
+      if (g->GetN() == 0) {
+        nSkipped++;
+        delete g;
+        continue;
+      }
+
+      graphsDir->cd();
+      g->Write("", TObject::kOverwrite);
+      nWritten++;
+    }
+  }
+
+  cout << "Wrote " << nWritten << " stat-only fit-derived graphs ("
+       << nSkipped << " skipped with no valid points)." << endl;
+}
+
+}  // namespace
+
 void StatOnlyUsage() {
   std::cerr << "Usage: ./Main_Figs_Binned_StatOnly isMC A outputfile.root "
             << "[--mode legacy|modern] [--q2-reweight weights.root] inputfiles.hipo \n\n\n";
@@ -283,6 +464,7 @@ int main(int argc, char** argv) {
   TDirectory* graphsDir = f->mkdir("graphs");
   buildDiffGraphs(diffTree, graphsDir);
   buildIntegratedGraphs(intTree, graphsDir);
+  writeStatOnlyDerivedGraphs(f);
 
   f->cd();
   f->Write("", TObject::kOverwrite);
