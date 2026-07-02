@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
+  reweighter newWeight(Ebeam,2,2,kelly,"AV18",.15);
 
   int ctr = 0;
   while(chain.Next())
