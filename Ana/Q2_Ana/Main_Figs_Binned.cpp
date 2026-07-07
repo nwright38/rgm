@@ -38,6 +38,7 @@
 #include "TRandom3.h"
 
 #include "BinnedHistStore.h"
+#include "MainFigsBinnedHistLibrary.h"
 #include "Q2Reweight.h"
 
 using namespace std;
@@ -250,54 +251,47 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   auto passEP = [](const EventKinematics& ek) { return ek.passep; };
   auto passEPP = [](const EventKinematics& ek) { return ek.passepp; };
 
-  // Plain Q2/pMiss/kMiss yields, no selector binning.
-  tasks.push_back({"Q2_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}});
-  tasks.push_back({"Q2_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}});
-  tasks.push_back({"pMiss_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 0, 0, 0, bE_pmiss_long});
-  tasks.push_back({"pMiss_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 0, 0, 0, bE_pmiss_long});
-  tasks.push_back({"kMiss_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long});
-  tasks.push_back({"kMiss_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long});
+  vector<OneDHistDef<EventKinematics>> plain1D = {
+      // Plain Q2/pMiss/kMiss yields, no selector binning.
+      {"Q2_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}},
+      {"Q2_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qSq; }, 50, 1.5, 5.0, {}},
+      {"xB_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.x; }, 30, 1.0, 2.0, {}},
+      {"xB_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.x; }, 30, 1.0, 2.0, {}},
+      {"pMiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pM; }, 0, 0, 0, bE_pmiss_long},
+      {"pMiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pM; }, 0, 0, 0, bE_pmiss_long},
+      {"kMiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long},
+      {"kMiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.kM; }, 0, 0, 0, bE_kmiss_long},
+
+      // Uniform-bin note plots.
+      {"pMiss_ep_note", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}},
+      {"pMiss_epp_note", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}},
+      {"kMiss_ep_note", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}},
+      {"kMiss_epp_note", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}},
+
+      // Additional plain 1D kinematics.
+      {"q_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}},
+      {"q_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}},
+      {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}},
+      {"theta_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}},
+      {"theta_pLeadq_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}},
+      {"theta_pLeadq_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}},
+      {"pRel_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pRel; }, 30, 0.15, 1.0, {}},
+      {"pRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pR; }, 30, 0.3, 1.0, {}},
+      {"pcmx_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.px; }, 30, -0.75, 0.75, {}},
+      {"pcmy_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.py; }, 30, -0.75, 0.75, {}},
+      {"pcmz_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pz; }, 30, -0.3, 0.9, {}},
+      {"pcm_epp", Selection::EPP, passEPP,
+       [](const EventKinematics& ek) { return sqrt(ek.px * ek.px + ek.py * ek.py + ek.pz * ek.pz); },
+       30, 0.0, 1.0, {}},
+  };
+  appendOneDHistList(tasks, plain1D);
 
   // pMiss/kMiss with uniform binning, kept separate from pMiss_ep/epp and
   // kMiss_ep/epp above so changing this binning doesn't also rebin the
   // pMiss_epp_over_pMiss_ep / kMiss_epp_over_kMiss_ep ratio tasks, which
   // depend on the variable-width bE_pmiss_long/bE_kmiss_long edges.
-  tasks.push_back({"pMiss_ep_note", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}});
-  tasks.push_back({"pMiss_epp_note", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pM; }, 30, 0.4, 1., {}});
-  tasks.push_back({"kMiss_ep_note", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}});
-  tasks.push_back({"kMiss_epp_note", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.kM; }, 30, 0.3, 1., {}});
-
-  // q (virtual photon 3-momentum magnitude), no selector binning.
-  tasks.push_back({"q_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}});
-  tasks.push_back({"q_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.qMag; }, 30, 0, 4, {}});
-
-  // theta_pmiss (angle between p_miss and q), no selector binning.
-  tasks.push_back({"theta_pmiss_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}});
-  tasks.push_back({"theta_pmiss_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPMissQ; }, 30, 100, 180, {}});
-
-  // theta_pLead,q (angle between leading nucleon and q), no selector binning.
-  tasks.push_back({"theta_pLeadq_ep", Selection::EP, passEP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}});
-  tasks.push_back({"theta_pLeadq_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.thPLeadQ; }, 30, 0, 40, {}});
-
-  // pRel (relative momentum of the lead/recoil pair), e'pp only.
-  tasks.push_back({"pRel_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pRel; }, 30, 0.15, 1.0, {}});
+  // See plain1D above for the shared list of unselected 1D histograms used
+  // by both Main_Figs_Binned and Main_Figs_Binned_StatOnly.
 
   // Q2 yield, selected (rebinned) by its own Q2 bin -- matches the original
   // h_Q2_ep_SRC_Q2 / h_Q2_epp_SRC_Q2 (used to get each Q2 bin's mean Q2).
@@ -377,14 +371,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
                      [](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.E2; }, 15, -0.25, 0.5, {}});
 
-  // Center-of-mass momentum components, no selector and selected by Q2 bin.
-  tasks.push_back({"pcmx_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.px; }, 30, -0.75, 0.75, {}});
-  tasks.push_back({"pcmy_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.py; }, 30, -0.75, 0.75, {}});
-  tasks.push_back({"pcmz_epp", Selection::EPP, passEPP, {}, {},
-                    [](const EventKinematics& ek) { return ek.pz; }, 30, -0.3, 0.9, {}});
-
+  // Center-of-mass momentum components selected by Q2 bin.
   tasks.push_back({"pcmx_epp_SRC_Q2", Selection::EPP, passEPP, {&Q2Axis},
                     {[](const EventKinematics& ek) { return ek.qSq; }},
                     [](const EventKinematics& ek) { return ek.px; }, 15, -0.75, 0.75, {}});
