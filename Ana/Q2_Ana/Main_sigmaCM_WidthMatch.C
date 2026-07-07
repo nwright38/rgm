@@ -7,6 +7,7 @@
 //
 // Usage:
 //   root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C("stage1.root","sigmaCM_widthmatch.root")'
+//   root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C("stage1.root","sigmaCM_widthmatch.root","q2_weights.root")'
 
 #include <algorithm>
 #include <cmath>
@@ -26,8 +27,11 @@
 #include <TGraphErrors.h>
 #include <TH1D.h>
 #include <TLatex.h>
+#include <TNamed.h>
 #include <TROOT.h>
 #include <TStyle.h>
+
+#include "Q2Reweight.h"
 
 using namespace std;
 
@@ -89,6 +93,13 @@ TH1D* getHist(TFile* f, const string& name, bool required = true) {
     cerr << "ERROR: missing histogram " << name << endl;
   }
   return h;
+}
+
+TH1D* cloneHist(TH1D* h, const string& name) {
+  if (!h) return nullptr;
+  TH1D* out = dynamic_cast<TH1D*>(h->Clone(name.c_str()));
+  if (out) out->SetDirectory(nullptr);
+  return out;
 }
 
 // FitWidth fitWidth(TH1D* h, const string& fitName, double min, double max, bool transverse) {
@@ -341,10 +352,12 @@ void drawOverlay(TFile* outFile,
   delete cOut;
 }
 
-int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFileName = nullptr) {
+int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFileName = nullptr,
+                            const char* q2ReweightFileName = nullptr) {
   if (!inFileName || !outFileName) {
     cerr << "Usage:\n"
-         << "  root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C+(\"stage1.root\",\"sigmaCM_widthmatch.root\")'\n";
+         << "  root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C+(\"stage1.root\",\"sigmaCM_widthmatch.root\")'\n"
+         << "  root -l -b -q 'Ana/Q2_Ana/Main_sigmaCM_WidthMatch.C+(\"stage1.root\",\"sigmaCM_widthmatch.root\",\"q2_weights.root\")'\n";
     return 0;
   }
 
@@ -362,6 +375,30 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
     cerr << "ERROR: could not open output file " << outFileName << endl;
     return 1;
   }
+
+  TNamed* stage1Q2Meta = dynamic_cast<TNamed*>(inFile->Get("q2_reweight_file"));
+  if (stage1Q2Meta) {
+    cout << "Stage-1 Q2 reweight file: " << stage1Q2Meta->GetTitle() << endl;
+    if (q2ReweightFileName && string(q2ReweightFileName).size() > 0 &&
+        string(stage1Q2Meta->GetTitle()) != "none") {
+      cout << "WARNING: applying q2ReweightFileName in Main_sigmaCM_WidthMatch even though "
+           << "stage-1 metadata says a Q2 reweight was already used." << endl;
+    }
+  }
+
+  Q2Reweight q2Reweight;
+  const bool applyLateQ2 = q2ReweightFileName && string(q2ReweightFileName).size() > 0;
+  if (applyLateQ2) {
+    if (!q2Reweight.load(q2ReweightFileName)) return 1;
+    cout << "Loaded Q2 reweight file " << q2ReweightFileName << endl;
+  }
+
+  outFile->cd();
+  TNamed q2ReweightMeta("q2_reweight_file",
+                        applyLateQ2
+                            ? q2ReweightFileName
+                            : (stage1Q2Meta ? stage1Q2Meta->GetTitle() : "none"));
+  q2ReweightMeta.Write();
 
   vector<TH1D*> hQ2(bQ2, nullptr);
   for (int i = 0; i < bQ2; ++i) {
@@ -387,7 +424,16 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
     TH1D* hDataInt = getHist(inFile, comp.dataIntegrated);
     vector<TH1D*> hSimInt(linbin, nullptr);
     for (int j = 0; j < linbin; ++j) {
-      hSimInt[j] = getHist(inFile, Form("%s_%d", comp.simIntegratedPrefix.c_str(), j));
+      hSimInt[j] = cloneHist(getHist(inFile, Form("%s_%d", comp.simIntegratedPrefix.c_str(), j)),
+                             Form("%s_%d_lateq2", comp.simIntegratedPrefix.c_str(), j));
+      if (q2Reweight.enabled() && hSimInt[j]) {
+        hSimInt[j]->Reset("ICES");
+        for (int i = 0; i < bQ2; ++i) {
+          TH1D* hSimQ2Src = getHist(inFile, Form("%s_%d_%d", comp.simQ2Prefix.c_str(), j, i));
+          const double q2Center = 0.5 * (bE_Q2[i] + bE_Q2[i + 1]);
+          hSimInt[j]->Add(hSimQ2Src, q2Reweight.weight(q2Center));
+        }
+      }
     }
 
     cout << "doing an int" << endl;
@@ -420,7 +466,12 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
       TH1D* hDataQ2 = getHist(inFile, Form("%s_%d", comp.dataQ2Prefix.c_str(), i));
       vector<TH1D*> hSimQ2(linbin, nullptr);
       for (int j = 0; j < linbin; ++j) {
-        hSimQ2[j] = getHist(inFile, Form("%s_%d_%d", comp.simQ2Prefix.c_str(), j, i));
+        hSimQ2[j] = cloneHist(getHist(inFile, Form("%s_%d_%d", comp.simQ2Prefix.c_str(), j, i)),
+                              Form("%s_%d_%d_lateq2", comp.simQ2Prefix.c_str(), j, i));
+        if (q2Reweight.enabled() && hSimQ2[j]) {
+          const double q2Center = 0.5 * (bE_Q2[i] + bE_Q2[i + 1]);
+          hSimQ2[j]->Scale(q2Reweight.weight(q2Center));
+        }
       }
 
       q2Results[i] = matchOne(outFile, comp, hDataQ2, hSimQ2, Form("Q2_%d", i));

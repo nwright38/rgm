@@ -19,8 +19,10 @@
 #include "clas12ana.h"
 #include "many_plots.h"
 #include "reweighter.h"
+#include "Q2Reweight.h"
 #include "TGraphAsymmErrors.h"
 #include "Corrections.h"
+#include "TNamed.h"
 
 
 // For Fitting
@@ -95,13 +97,14 @@ int getMinBin(double sigma){
 
 void Usage()
 {
-  std::cerr << "Usage: ./code outputfile.root outputfile.pdf [CutRangeUpper] inputfile.root  \n\n\n";
+  std::cerr << "Usage: ./Main_sigmaCM_Hists outputfile.root outputfile.pdf [CutRangeUpper] "
+            << "[--q2-reweight weights.root] inputfile.root  \n\n\n";
 }
 
 int main(int argc, char ** argv)
 {
   
-  if(argc < 4)
+  if(argc < 5)
     {
       Usage();
       return -1;
@@ -113,7 +116,48 @@ int main(int argc, char ** argv)
   cout<<"Ouput PDF file "<< pdfFile <<endl;
   int intcutRange = atoi(argv[3]);
   double cutRange = (double)intcutRange/100.0; // 
-  TFile * inFile = new TFile(argv[4]);
+
+  string q2ReweightFile;
+  string inputFileName;
+  for(int i = 4; i < argc; i++){
+    string arg = argv[i];
+    if(arg == "--q2-reweight"){
+      if(i + 1 >= argc){
+        Usage();
+        return -1;
+      }
+      q2ReweightFile = argv[++i];
+      continue;
+    }
+    if(arg.rfind("--q2-reweight=",0) == 0){
+      q2ReweightFile = arg.substr(14);
+      continue;
+    }
+    inputFileName = arg;
+  }
+  if(inputFileName.empty()){
+    Usage();
+    return -1;
+  }
+
+  TFile * inFile = new TFile(inputFileName.c_str());
+
+  TNamed* stage1Q2Meta = dynamic_cast<TNamed*>(inFile->Get("q2_reweight_file"));
+  if(stage1Q2Meta){
+    cout<<"Stage-1 Q2 reweight file: "<<stage1Q2Meta->GetTitle()<<endl;
+    if(!q2ReweightFile.empty() && string(stage1Q2Meta->GetTitle()) != "none"){
+      cout<<"WARNING: applying --q2-reweight in Main_sigmaCM_Hists even though "
+          <<"stage-1 metadata says a Q2 reweight was already used."<<endl;
+    }
+  }
+
+  Q2Reweight q2Reweight;
+  if(!q2ReweightFile.empty()){
+    if(!q2Reweight.load(q2ReweightFile)){
+      return -1;
+    }
+    cout<<"Loaded Q2 reweight file "<<q2ReweightFile<<endl;
+  }
 
   
   char temp_name[100];
@@ -199,6 +243,28 @@ int main(int argc, char ** argv)
 
       sprintf(temp_name,"h_pcmT_epp_SRC_simSCM_Q2_%d_%d",j,i);
       h_pcmT_epp_SRC_simSCM_Q2[j][i] = (TH1D*)inFile->Get(temp_name);
+    }
+  }
+
+  if(q2Reweight.enabled()){
+    cout<<"Applying late Q2 reweighting to sigmaCM simulation templates."<<endl;
+    for(int j=0; j<linbin; j++){
+      h_pcmx_epp_simSCM[j]->Reset("ICES");
+      h_pcmy_epp_simSCM[j]->Reset("ICES");
+      h_pcmz_epp_simSCM[j]->Reset("ICES");
+      h_pcmT_epp_simSCM[j]->Reset("ICES");
+      for(int i=0; i<(bQ2); i++){
+        const double q2Center = 0.5 * (bE_Q2[i] + bE_Q2[i+1]);
+        const double q2Weight = q2Reweight.weight(q2Center);
+        h_pcmx_epp_SRC_simSCM_Q2[j][i]->Scale(q2Weight);
+        h_pcmy_epp_SRC_simSCM_Q2[j][i]->Scale(q2Weight);
+        h_pcmz_epp_SRC_simSCM_Q2[j][i]->Scale(q2Weight);
+        h_pcmT_epp_SRC_simSCM_Q2[j][i]->Scale(q2Weight);
+        h_pcmx_epp_simSCM[j]->Add(h_pcmx_epp_SRC_simSCM_Q2[j][i]);
+        h_pcmy_epp_simSCM[j]->Add(h_pcmy_epp_SRC_simSCM_Q2[j][i]);
+        h_pcmz_epp_simSCM[j]->Add(h_pcmz_epp_SRC_simSCM_Q2[j][i]);
+        h_pcmT_epp_simSCM[j]->Add(h_pcmT_epp_SRC_simSCM_Q2[j][i]);
+      }
     }
   }
 
@@ -413,6 +479,11 @@ int main(int argc, char ** argv)
   
   TFile *f = new TFile(outFile,"RECREATE");
   f->cd();
+  TNamed q2ReweightMeta("q2_reweight_file",
+                        q2ReweightFile.empty()
+                            ? (stage1Q2Meta ? stage1Q2Meta->GetTitle() : "none")
+                            : q2ReweightFile.c_str());
+  q2ReweightMeta.Write();
 
   h_pcmx_epp->Write();
   TH1D * h_x_clone = (TH1D*) h_pcmx_epp_simSCM[getMinBin(pcmx_cent_int)]->Clone();

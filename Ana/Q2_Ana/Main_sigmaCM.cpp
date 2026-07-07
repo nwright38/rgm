@@ -19,8 +19,10 @@
 #include "clas12ana.h"
 #include "many_plots.h"
 #include "reweighter.h"
+#include "Q2Reweight.h"
 #include "TGraphErrors.h"
 #include "Corrections.h"
+#include "TNamed.h"
 
 
 // For Fitting
@@ -75,7 +77,8 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
 void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scale, double & min_chi2);
 void Usage()
 {
-  std::cerr << "Usage: ./code A outputfile.root inputdatafile.hipo inputsimfiles.hipo \n\n\n";
+  std::cerr << "Usage: ./Main_sigmaCM A outputfile.root [--q2-reweight weights.root] "
+            << "inputdatafile.hipo inputsimfiles.hipo \n\n\n";
 }
 
 int main(int argc, char ** argv)
@@ -90,19 +93,42 @@ int main(int argc, char ** argv)
   int nucleus_A = atoi(argv[1]);
   TString outFile = argv[2];
   cout<<"Ouput file "<< outFile <<endl;
+
+  string q2ReweightFile;
+  vector<string> inputFiles;
+  for(int i = 3; i < argc; i++){
+    string arg = argv[i];
+    if(arg == "--q2-reweight"){
+      if(i + 1 >= argc){
+        Usage();
+        return -1;
+      }
+      q2ReweightFile = argv[++i];
+      continue;
+    }
+    if(arg.rfind("--q2-reweight=",0) == 0){
+      q2ReweightFile = arg.substr(14);
+      continue;
+    }
+    inputFiles.push_back(arg);
+  }
+  if(inputFiles.size() < 2){
+    Usage();
+    return -1;
+  }
     
   ////////////////////////////
   clas12root::HipoChain chain;
-  cout<<"Input file "<<argv[3]<<endl;
-  chain.Add(argv[3]);
+  cout<<"Input file "<<inputFiles[0]<<endl;
+  chain.Add(inputFiles[0]);
   chain.SetReaderTags({0});
   chain.db()->turnOffQADB();
   auto config_c12=chain.GetC12Reader(); 
   auto &c12=chain.C12ref();
   ////////////////////////////
   clas12root::HipoChain chain_Sim;
-  cout<<"Input file "<<argv[4]<<endl;
-  chain_Sim.Add(argv[4]);
+  cout<<"Input file "<<inputFiles[1]<<endl;
+  chain_Sim.Add(inputFiles[1]);
   chain_Sim.SetReaderTags({0});
   chain_Sim.db()->turnOffQADB();
   auto config_c12_Sim=chain_Sim.GetC12Reader();
@@ -120,6 +146,14 @@ int main(int argc, char ** argv)
   if(nucleus_A==120){
     Z=50;
     N=70;
+  }
+
+  Q2Reweight q2Reweight;
+  if(!q2ReweightFile.empty()){
+    if(!q2Reweight.load(q2ReweightFile)){
+      return -1;
+    }
+    cout<<"Loaded Q2 reweight file "<<q2ReweightFile<<endl;
   }
   
   char temp_name[100];
@@ -292,10 +326,11 @@ int main(int argc, char ** argv)
   ctr = 0;
   while(chain_Sim.Next() && ctr <500000)
     {
-      double q,x,y,z,yP;
+      double q = 0, x = 0, y = 0, z = 0, yP = 0;
       bool pass = false;
       double original_weight = c12_Sim->mcevent()->getWeight();
       runEvent(c12_Sim,clasAna,true,q,x,y,z,pass,ctr); 
+      const double q2Weight = q2Reweight.enabled() ? q2Reweight.weight(q) : 1.0;
       double T = sqrt(x*x+y*y);
 
       // ---- truth-level CM, projected into the SAME event frame as runEvent ----
@@ -325,7 +360,7 @@ int main(int argc, char ** argv)
         }
       }
       for(int i=0; i<linbin; i++){
-	double wepp = original_weight * myWeights[i].get_weight_epp(c12_Sim->mcparts());
+	double wepp = original_weight * myWeights[i].get_weight_epp(c12_Sim->mcparts()) * q2Weight;
 	if(pass){
 	  h_pcmx_epp_simSCM[i]->Fill(x,wepp);
 	  h_pcmy_epp_simSCM[i]->Fill(y,wepp);
@@ -345,6 +380,8 @@ int main(int argc, char ** argv)
 
   TFile *f = new TFile(outFile,"RECREATE");
   f->cd();
+  TNamed q2ReweightMeta("q2_reweight_file", q2ReweightFile.empty() ? "none" : q2ReweightFile.c_str());
+  q2ReweightMeta.Write();
   for(int i=0; i<(bQ2); i++){
     h_Q2[i]->Write();
   }
