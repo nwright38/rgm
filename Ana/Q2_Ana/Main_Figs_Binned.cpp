@@ -484,6 +484,16 @@ int main(int argc, char** argv) {
     Z = nucleus_A / 2;
     N = nucleus_A / 2;
   }
+
+  if(nucleus_A==48){
+    Z=20;
+    N=20;
+  }
+  if(nucleus_A==120){
+    Z=50;
+    N=70;
+  }
+
   reweighter newWeight(beam_E, Z, N, kelly, uType, .15);
   Q2Reweight q2Reweight;
   if (!q2ReweightFile.empty()) {

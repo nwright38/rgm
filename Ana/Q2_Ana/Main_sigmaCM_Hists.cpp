@@ -46,7 +46,8 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.08;
-const double max_sigma = 0.25;
+const double max_sigma = 0.3;
+
 // .05, .2 were orig
 //////////////////////////////////
 
@@ -379,17 +380,17 @@ int main(int argc, char ** argv)
     for(int i=0; i<(bQ2); i++){
       double chi2_x, chi2_y, chi2_z, chi2_T, scale_x, scale_y, scale_z, scale_T;
       
-      getChi2(h_pcmx_epp_SRC_Q2[i],h_pcmx_epp_SRC_simSCM_Q2[j][i],-0.2,0.2,scale_x,chi2_x);
+      getChi2(h_pcmx_epp_SRC_Q2[i],h_pcmx_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_x,chi2_x);
       h_pcmx_epp_SRC_simSCM_Q2_scale[j][i]=scale_x;
       g_chi2_pcmx_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmx_epp_SRC_Q2[i]->GetN(),sCM,chi2_x);
       g_scale_pcmx_epp_SRC_Q2[i]->SetPoint(g_scale_pcmx_epp_SRC_Q2[i]->GetN(),sCM,scale_x);
 
-      getChi2(h_pcmy_epp_SRC_Q2[i],h_pcmy_epp_SRC_simSCM_Q2[j][i],-0.2,0.2,scale_y,chi2_y);
+      getChi2(h_pcmy_epp_SRC_Q2[i],h_pcmy_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_y,chi2_y);
       h_pcmy_epp_SRC_simSCM_Q2_scale[j][i]=scale_y;
       g_chi2_pcmy_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmy_epp_SRC_Q2[i]->GetN(),sCM,chi2_y);
       g_scale_pcmy_epp_SRC_Q2[i]->SetPoint(g_scale_pcmy_epp_SRC_Q2[i]->GetN(),sCM,scale_y);
 
-      getChi2(h_pcmz_epp_SRC_Q2[i],h_pcmz_epp_SRC_simSCM_Q2[j][i],-0.2,0.2,scale_z,chi2_z);
+      getChi2(h_pcmz_epp_SRC_Q2[i],h_pcmz_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_z,chi2_z);
       h_pcmz_epp_SRC_simSCM_Q2_scale[j][i]=scale_z;
       g_chi2_pcmz_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmz_epp_SRC_Q2[i]->GetN(),sCM,chi2_z);
       g_scale_pcmz_epp_SRC_Q2[i]->SetPoint(g_scale_pcmz_epp_SRC_Q2[i]->GetN(),sCM,scale_z);
@@ -1108,7 +1109,8 @@ void getValue(TGraph * thisGraph,double min_sigma, double max_sigma, double & ch
 
   for(int k = 0; k < 200; k++){
     double x = ((double)k/(double)200)*(max_sigma-min_sigma) + min_sigma;
-    if((thisGraph->Eval(x) < (center_int_y - .1))){
+    if((thisGraph->Eval(x) < (center_int_y))){
+   // if((thisGraph->Eval(x) < (center_int_y - .1))){
       center_int_x = x;
       center_int_y = thisGraph->Eval(x);
     }
