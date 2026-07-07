@@ -31,6 +31,10 @@ import uproot
 from scipy.optimize import curve_fit
 
 
+LEGEND_FONTSIZE = 12
+STATS_FONTSIZE = 11
+
+
 PLOTS = [
     {
         "key": "pcmx",
@@ -62,7 +66,7 @@ def parse_args():
     p.add_argument("--fit-range-pcmy", nargs=2, type=float, default=None,
                    metavar=("MIN", "MAX"))
     p.add_argument("--overlay-pcmxy", action="store_true",
-                   help="Draw pcm_x and pcm_y with their fits on one figure.")
+                   help="Draw pcm_x and pcm_y on one figure.")
     return p.parse_args()
 
 
@@ -157,6 +161,22 @@ def range_stddev(centers, counts, fit_min, fit_max):
     return mean, stddev, stddev_err
 
 
+def stats_text(mean, mean_err, sigma, sigma_err):
+    return "\n".join([
+        r"$\mu = %.4f \pm %.4f$ GeV" % (mean, mean_err),
+        r"$\sigma = %.4f \pm %.4f$ GeV" % (sigma, sigma_err),
+    ])
+
+
+def stats_box_kwargs():
+    return {
+        "boxstyle": "round,pad=0.25",
+        "facecolor": "white",
+        "edgecolor": "none",
+        "alpha": 0.82,
+    }
+
+
 def draw_plot(counts, edges, errors, hist_name, spec, fit_range, args):
     centers = 0.5 * (edges[:-1] + edges[1:])
     widths = np.diff(edges)
@@ -166,42 +186,31 @@ def draw_plot(counts, edges, errors, hist_name, spec, fit_range, args):
     ax.errorbar(centers, counts, yerr=errors, xerr=0.5 * widths,
                 color="black", linestyle="", marker="o", markersize=4,
                 linewidth=1.0, label="Data")
-    ax.stairs(counts, edges, color="black", linewidth=1.2)
 
     ax.axvspan(fit_min, fit_max, color="firebrick", alpha=0.08, linewidth=0)
 
     peak = np.max(counts + errors)
     if args.method == "gaussian":
         popt, perr = fit_gaussian(centers, counts, errors, fit_min, fit_max)
-        xfit = np.linspace(fit_min, fit_max, 400)
-        yfit = gaussian(xfit, *popt)
-        ax.plot(xfit, yfit, color="firebrick", linewidth=2.0,
-                label="Gaussian fit")
-        peak = max(peak, np.max(yfit))
-        text = (r"$\mu = %.4f \pm %.4f$ GeV" "\n"
-                r"$\sigma = %.4f \pm %.4f$ GeV"
-                % (popt[1], perr[1], popt[2], perr[2]))
+        text = stats_text(popt[1], perr[1], popt[2], perr[2])
         result = (popt[1], perr[1], popt[2], perr[2])
     else:
         mean, stddev, stddev_err = range_stddev(centers, counts, fit_min, fit_max)
         ax.axvline(mean, color="firebrick", linewidth=1.6, linestyle="--",
                    label="Range mean")
-        text = (r"$\langle x\rangle_{range} = %.4f$ GeV" "\n"
-                r"$StdDev_{range} = %.4f \pm %.4f$ GeV"
-                % (mean, stddev, stddev_err))
+        text = stats_text(mean, 0.0, stddev, stddev_err)
         result = (mean, 0.0, stddev, stddev_err)
 
     ax.set_xlim(args.xlim)
     ax.set_ylim(0.0, 1.2 * peak if peak > 0.0 else 1.0)
     ax.set_xlabel(spec["xlabel"], fontsize=14)
     ax.set_ylabel("Counts", fontsize=14)
-    ax.text(0.04, 0.92, r"$(e,e^{\prime}pp)$", transform=ax.transAxes,
-            fontsize=18, ha="left", va="top")
     ax.text(
-        0.04, 0.80,
+        0.04, 0.92,
         text,
-        transform=ax.transAxes, fontsize=11, ha="left", va="top")
-    ax.legend(loc="upper right", frameon=False)
+        transform=ax.transAxes, fontsize=STATS_FONTSIZE, ha="left", va="top",
+        bbox=stats_box_kwargs())
+    ax.legend(loc="upper right", frameon=False, fontsize=LEGEND_FONTSIZE)
     ax.set_title(hist_name, fontsize=10)
     fig.tight_layout()
 
@@ -264,14 +273,8 @@ def draw_overlay_pcmxy(root_file, fit_range_overrides, args):
         ax.errorbar(centers, counts, yerr=errors, xerr=0.5 * widths,
                     color=color, linestyle="", marker=markers[spec["key"]],
                     markersize=4, linewidth=1.0, label=labels[spec["key"]])
-        ax.stairs(counts, edges, color=color, linewidth=1.2, alpha=0.85)
 
-        if args.method == "gaussian":
-            xfit = np.linspace(fit_min, fit_max, 400)
-            yfit = gaussian(xfit, *result["fit_params"])
-            ax.plot(xfit, yfit, color=color, linewidth=2.0, alpha=0.9)
-            peak = max(peak, np.max(yfit))
-        else:
+        if args.method != "gaussian":
             ax.axvline(result["mean"], color=color, linewidth=1.5,
                        linestyle="--", alpha=0.9)
 
@@ -281,18 +284,20 @@ def draw_overlay_pcmxy(root_file, fit_range_overrides, args):
     ax.set_ylim(0.0, 1.2 * peak if peak > 0.0 else 1.0)
     ax.set_xlabel(r"$p_{C.M.}$ component [GeV]", fontsize=14)
     ax.set_ylabel("Counts", fontsize=14)
-    ax.text(0.04, 0.92, r"$(e,e^{\prime}pp)$", transform=ax.transAxes,
-            fontsize=18, ha="left", va="top")
 
     text_lines = []
     for spec, _, result in results:
-        text_lines.append(
-            r"%s: $\mu = %.4f \pm %.4f$, $\sigma = %.4f \pm %.4f$ GeV"
-            % (labels[spec["key"]], result["mean"], result["mean_err"],
-               result["sigma"], result["sigma_err"]))
-    ax.text(0.04, 0.80, "\n".join(text_lines),
-            transform=ax.transAxes, fontsize=10, ha="left", va="top")
-    ax.legend(loc="upper right", frameon=False)
+        short_label = r"$p_x$" if spec["key"] == "pcmx" else r"$p_y$"
+        text_lines.append(r"%s $\mu = %.4f \pm %.4f$ GeV"
+                          % (short_label, result["mean"],
+                             result["mean_err"]))
+        text_lines.append(r"%s $\sigma = %.4f \pm %.4f$ GeV"
+                          % (short_label, result["sigma"],
+                             result["sigma_err"]))
+    ax.text(0.04, 0.92, "\n".join(text_lines),
+            transform=ax.transAxes, fontsize=STATS_FONTSIZE, ha="left", va="top",
+            bbox=stats_box_kwargs())
+    ax.legend(loc="upper right", frameon=False, fontsize=LEGEND_FONTSIZE)
 
     suffix = "gaussian_fit" if args.method == "gaussian" else "range_stddev"
     out_path = os.path.join(args.out_dir, "pcmxy_epp_overlay_%s.%s"
