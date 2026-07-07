@@ -69,7 +69,8 @@ Axis kMissAxis{"kMiss", bE_kmiss};
 
 // ---- Per-event physics quantities, computed once per event ----
 struct EventKinematics {
-  double qSq = 0, x = 0, pL = 0, tL = 0, pR = 0;
+  double qSq = 0, x = 0, pL = 0, tL = 0, phiL = 0, pR = 0, tR = 0, phiR = 0;
+  double pE = 0, tE = 0, phiE = 0;
   double px = 0, py = 0, pz = 0;
   double mM = 0, pM = 0, kM = 0;
   double E0 = 0, E1 = 0, E2 = 0;
@@ -142,8 +143,12 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.passep = true;
   ek.qSq = Q2;
   ek.x = xB;
+  ek.pE = el.P();
+  ek.tE = el.Theta() * 180 / M_PI;
+  ek.phiE = el.Phi() * 180 / M_PI;
   ek.pL = mom_lead;
   ek.tL = theta_lead;
+  ek.phiL = phi_lead;
   ek.mM = mmiss;
   ek.pM = pmiss;
   ek.kM = kmiss;
@@ -169,6 +174,8 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
 
   ek.passepp = true;
   ek.pR = v_rec.Mag();
+  ek.tR = recoil_ptr.Theta() * 180 / M_PI;
+  ek.phiR = recoil_ptr.Phi() * 180 / M_PI;
   ek.px = v_cm.Dot(vx);
   ek.py = v_cm.Dot(vy);
   ek.pz = v_cm.Dot(vz);
@@ -272,6 +279,28 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"kMiss_epp_note", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.kM; }, epp_bins, 0.3, 1., {}},
 
       // Additional plain 1D kinematics.
+      {"pElectron_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pE; }, ep_bins, 0, 6, {}},
+      {"pElectron_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pE; }, epp_bins, 0, 6, {}},
+      {"thetaElectron_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tE; }, ep_bins, 0, 40, {}},
+      {"thetaElectron_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tE; }, epp_bins, 0, 40, {}},
+      {"phiElectron_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.phiE; }, ep_bins, -180, 180, {}},
+      {"phiElectron_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiE; }, epp_bins, -180, 180, {}},
+      {"pLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pL; }, ep_bins, 1, 4, {}},
+      {"pLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pL; }, epp_bins, 1, 4, {}},
+      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 0, 40, {}},
+      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 0, 40, {}},
+      {"phiLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.phiL; }, ep_bins, -180, 180, {}},
+      {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
+      {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
+      {"phiRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiR; }, epp_bins, -180, 180, {}},
+      {"pLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pL; }, ep_bins, 1, 4, {}},
+      {"pLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pL; }, epp_bins, 1, 4, {}},
+      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 0, 40, {}},
+      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 0, 40, {}},
+      {"phiLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.phiL; }, ep_bins, -180, 180, {}},
+      {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
+      {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
+      {"phiRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiR; }, epp_bins, -180, 180, {}},
       {"q_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qMag; }, ep_bins, 1., 3.5, {}},
       {"q_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qMag; }, epp_bins, 1., 3.5, {}},
       {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, ep_bins, 100, 180, {}},

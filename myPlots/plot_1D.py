@@ -5,8 +5,9 @@ Single-variable 1D distributions, data vs 0-4 simulation models, each
 written out as its own single-figure PDF under pdf/1D/ (no combined book --
 these are meant to be dropped individually into different note sections).
 
-Variables: pMiss, kMiss, Q2, xB (e'p and e'pp), pRel, pRec,
-pcm_x/y/z and |pcm| (e'pp), theta_pmiss, q, and theta_pLead,q.
+Variables: pMiss, kMiss, Q2, xB, electron and lead-proton kinematics
+(e'p and e'pp), recoil-proton kinematics, pRel, pRec, pcm_x/y/z and |pcm|
+(e'pp), theta_pmiss, q, and theta_pLead,q.
 
 Usage:
     python plot_1D.py Data_He.root
@@ -34,6 +35,20 @@ VARIABLES = [
     ('Q2_epp', 'Q2_epp', 'epp', r'$Q^{2} [GeV^{2}]$', (1.5, 5.0)),
     ('xB_ep', 'xB_ep', 'ep', r'$x_{B}$', (1.0, 2.0)),
     ('xB_epp', 'xB_epp', 'epp', r'$x_{B}$', (1.0, 2.0)),
+    ('pElectron_ep', 'pElectron_ep', 'ep', r'$p_{e^{\prime}} [GeV]$', (0, 6)),
+    ('pElectron_epp', 'pElectron_epp', 'epp', r'$p_{e^{\prime}} [GeV]$', (0, 6)),
+    ('thetaElectron_ep', 'thetaElectron_ep', 'ep', r'$\theta_{e^{\prime}} [deg]$', (0, 40)),
+    ('thetaElectron_epp', 'thetaElectron_epp', 'epp', r'$\theta_{e^{\prime}} [deg]$', (0, 40)),
+    ('phiElectron_ep', 'phiElectron_ep', 'ep', r'$\phi_{e^{\prime}} [deg]$', (-180, 180)),
+    ('phiElectron_epp', 'phiElectron_epp', 'epp', r'$\phi_{e^{\prime}} [deg]$', (-180, 180)),
+    ('pLead_ep', 'pLead_ep', 'ep', r'$p_{lead} [GeV]$', (1, 4)),
+    ('pLead_epp', 'pLead_epp', 'epp', r'$p_{lead} [GeV]$', (1, 4)),
+    ('thetaLead_ep', 'thetaLead_ep', 'ep', r'$\theta_{lead} [deg]$', (0, 40)),
+    ('thetaLead_epp', 'thetaLead_epp', 'epp', r'$\theta_{lead} [deg]$', (0, 40)),
+    ('phiLead_ep', 'phiLead_ep', 'ep', r'$\phi_{lead} [deg]$', (-180, 180)),
+    ('phiLead_epp', 'phiLead_epp', 'epp', r'$\phi_{lead} [deg]$', (-180, 180)),
+    ('thetaRec_epp', 'thetaRec_epp', 'epp', r'$\theta_{rec} [deg]$', (0, 180)),
+    ('phiRec_epp', 'phiRec_epp', 'epp', r'$\phi_{rec} [deg]$', (-180, 180)),
     ('pRel_epp', 'pRel_epp', 'epp', r'$p_{rel} [GeV]$', (0.15, 1.0)),
     ('pRec_epp', 'pRec_epp', 'epp', r'$p_{rec} [GeV]$', (0.3, 1.0)),
     ('pcmz_epp', 'pcmz_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{z} [GeV]$', (-0.75, 0.75)),

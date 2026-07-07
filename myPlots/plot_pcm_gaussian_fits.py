@@ -12,6 +12,7 @@ Usage:
     python plot_pcm_gaussian_fits.py Data_He.root
     python plot_pcm_gaussian_fits.py Data_He.root --out-dir pdf/pcm_fits
     python plot_pcm_gaussian_fits.py Data_He.root --method stddev
+    python plot_pcm_gaussian_fits.py Data_He.root --overlay-pcmxy
 """
 
 from __future__ import division
@@ -60,6 +61,8 @@ def parse_args():
                    metavar=("MIN", "MAX"))
     p.add_argument("--fit-range-pcmy", nargs=2, type=float, default=None,
                    metavar=("MIN", "MAX"))
+    p.add_argument("--overlay-pcmxy", action="store_true",
+                   help="Draw pcm_x and pcm_y with their fits on one figure.")
     return p.parse_args()
 
 
@@ -212,6 +215,94 @@ def draw_plot(counts, edges, errors, hist_name, spec, fit_range, args):
     return out_path, result
 
 
+def fit_result(centers, counts, errors, fit_range, method):
+    fit_min, fit_max = fit_range
+    if method == "gaussian":
+        popt, perr = fit_gaussian(centers, counts, errors, fit_min, fit_max)
+        return {
+            "mean": popt[1],
+            "mean_err": perr[1],
+            "sigma": popt[2],
+            "sigma_err": perr[2],
+            "fit_params": popt,
+            "fit_errors": perr,
+        }
+
+    mean, stddev, stddev_err = range_stddev(centers, counts, fit_min, fit_max)
+    return {
+        "mean": mean,
+        "mean_err": 0.0,
+        "sigma": stddev,
+        "sigma_err": stddev_err,
+        "fit_params": None,
+        "fit_errors": None,
+    }
+
+
+def draw_overlay_pcmxy(root_file, fit_range_overrides, args):
+    colors = {"pcmx": "black", "pcmy": "royalblue"}
+    markers = {"pcmx": "o", "pcmy": "s"}
+    labels = {
+        "pcmx": r"$p_{C.M.,x}$",
+        "pcmy": r"$p_{C.M.,y}$",
+    }
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.8))
+    peak = 0.0
+    results = []
+
+    for spec in PLOTS:
+        counts, edges, errors, hist_name = read_hist(root_file, spec["task"])
+        centers = 0.5 * (edges[:-1] + edges[1:])
+        widths = np.diff(edges)
+        fit_range = fit_range_overrides[spec["key"]] or spec["fit_range"]
+        fit_min, fit_max = fit_range
+        result = fit_result(centers, counts, errors, fit_range, args.method)
+        results.append((spec, hist_name, result))
+
+        color = colors[spec["key"]]
+        ax.errorbar(centers, counts, yerr=errors, xerr=0.5 * widths,
+                    color=color, linestyle="", marker=markers[spec["key"]],
+                    markersize=4, linewidth=1.0, label=labels[spec["key"]])
+        ax.stairs(counts, edges, color=color, linewidth=1.2, alpha=0.85)
+
+        if args.method == "gaussian":
+            xfit = np.linspace(fit_min, fit_max, 400)
+            yfit = gaussian(xfit, *result["fit_params"])
+            ax.plot(xfit, yfit, color=color, linewidth=2.0, alpha=0.9)
+            peak = max(peak, np.max(yfit))
+        else:
+            ax.axvline(result["mean"], color=color, linewidth=1.5,
+                       linestyle="--", alpha=0.9)
+
+        peak = max(peak, np.max(counts + errors))
+
+    ax.set_xlim(args.xlim)
+    ax.set_ylim(0.0, 1.2 * peak if peak > 0.0 else 1.0)
+    ax.set_xlabel(r"$p_{C.M.}$ component [GeV]", fontsize=14)
+    ax.set_ylabel("Counts", fontsize=14)
+    ax.text(0.04, 0.92, r"$(e,e^{\prime}pp)$", transform=ax.transAxes,
+            fontsize=18, ha="left", va="top")
+
+    text_lines = []
+    for spec, _, result in results:
+        text_lines.append(
+            r"%s: $\mu = %.4f \pm %.4f$, $\sigma = %.4f \pm %.4f$ GeV"
+            % (labels[spec["key"]], result["mean"], result["mean_err"],
+               result["sigma"], result["sigma_err"]))
+    ax.text(0.04, 0.80, "\n".join(text_lines),
+            transform=ax.transAxes, fontsize=10, ha="left", va="top")
+    ax.legend(loc="upper right", frameon=False)
+
+    suffix = "gaussian_fit" if args.method == "gaussian" else "range_stddev"
+    out_path = os.path.join(args.out_dir, "pcmxy_epp_overlay_%s.%s"
+                            % (suffix, args.format))
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path, results
+
+
 def main():
     args = parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
@@ -222,6 +313,22 @@ def main():
     }
 
     root_file = uproot.open(args.data_file)
+    if args.overlay_pcmxy:
+        out_path, results = draw_overlay_pcmxy(root_file, fit_range_overrides, args)
+        print("Wrote %s" % out_path)
+        for spec, hist_name, result in results:
+            if args.method == "gaussian":
+                print(
+                    "%s (%s): mu=%.6g +/- %.3g, sigma=%.6g +/- %.3g"
+                    % (spec["key"], hist_name, result["mean"], result["mean_err"],
+                       result["sigma"], result["sigma_err"]))
+            else:
+                print(
+                    "%s (%s): range mean=%.6g, stddev=%.6g +/- %.3g"
+                    % (spec["key"], hist_name, result["mean"],
+                       result["sigma"], result["sigma_err"]))
+        return
+
     for spec in PLOTS:
         counts, edges, errors, hist_name = read_hist(root_file, spec["task"])
         fit_range = fit_range_overrides[spec["key"]] or spec["fit_range"]
