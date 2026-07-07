@@ -5,8 +5,8 @@ Single-variable 1D distributions, data vs 0-4 simulation models, each
 written out as its own single-figure PDF under pdf/1D/ (no combined book --
 these are meant to be dropped individually into different note sections).
 
-Variables: pMiss, kMiss (e'p and e'pp), pRel (e'pp), pcm_x/y/z (e'pp),
-theta_pmiss (e'p and e'pp), q (e'p and e'pp), theta_pLead,q (e'p and e'pp).
+Variables: pMiss, kMiss, Q2, xB (e'p and e'pp), pRel, pRec,
+pcm_x/y/z and |pcm| (e'pp), theta_pmiss, q, and theta_pLead,q.
 
 Usage:
     python plot_1D.py Data_He.root
@@ -30,10 +30,16 @@ VARIABLES = [
     ('pMiss_epp', 'pMiss_epp_note', 'epp', r'$p_{miss} [GeV]$', (0.4, 1.)),
     ('kMiss_ep', 'kMiss_ep_note', 'ep', r'$k_{miss} [GeV]$', (0.3, 1.)),
     ('kMiss_epp', 'kMiss_epp_note', 'epp', r'$k_{miss} [GeV]$', (0.3, 1.)),
+    ('Q2_ep', 'Q2_ep', 'ep', r'$Q^{2} [GeV^{2}]$', (1.5, 5.0)),
+    ('Q2_epp', 'Q2_epp', 'epp', r'$Q^{2} [GeV^{2}]$', (1.5, 5.0)),
+    ('xB_ep', 'xB_ep', 'ep', r'$x_{B}$', (1.0, 2.0)),
+    ('xB_epp', 'xB_epp', 'epp', r'$x_{B}$', (1.0, 2.0)),
     ('pRel_epp', 'pRel_epp', 'epp', r'$p_{rel} [GeV]$', (0.15, 1.0)),
+    ('pRec_epp', 'pRec_epp', 'epp', r'$p_{rec} [GeV]$', (0.3, 1.0)),
     ('pcmz_epp', 'pcmz_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{z} [GeV]$', (-0.75, 0.75)),
     ('pcmx_epp', 'pcmx_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{x} [GeV]$', (-0.75, 0.75)),
     ('pcmy_epp', 'pcmy_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{y} [GeV]$', (-0.75, 0.75)),
+    ('pcm_epp', 'pcm_epp', 'epp', r'$|\vec{p}_{C.M.}| [GeV]$', (0.0, 1.0)),
     ('theta_pmiss_ep', 'theta_pmiss_ep', 'ep', r'$\theta_{p_{miss},q} [deg]$', (100, 180)),
     ('theta_pmiss_epp', 'theta_pmiss_epp', 'epp', r'$\theta_{p_{miss},q} [deg]$', (100, 180)),
     ('q_ep', 'q_ep', 'ep', r'$|\vec{q}| [GeV]$', (0, 4)),
