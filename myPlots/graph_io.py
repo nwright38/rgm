@@ -49,10 +49,43 @@ def read_graph_asymm(root_file, name):
     except Exception:
         raise KeyError("Graph '%s' not found in %s" % (name, root_file.file_path))
 
+    x, y, _, _, yerr_low, yerr_high = read_graph_asymm_with_xerr(root_file, name)
+    return x, y, yerr_low, yerr_high
+
+
+def read_graph_asymm_with_xerr(root_file, name):
+    """Reads a TGraphErrors/TGraphAsymmErrors and returns
+    (x, y, xerr_low, xerr_high, yerr_low, yerr_high).
+
+    Older BuildGraphs outputs used zero x errors. Newer ones store the
+    original histogram bin half-widths in xerr_low/high.
+    """
+    try:
+        graphs_dir = root_file["graphs"]
+    except Exception:
+        raise KeyError("No 'graphs' directory in file %s -- did you run "
+                        "BuildGraphs on it?" % root_file.file_path)
+
+    try:
+        graph = graphs_dir[name]
+    except Exception:
+        raise KeyError("Graph '%s' not found in %s" % (name, root_file.file_path))
+
     # uproot's graph models don't all share the same convenience helpers, so
     # read the stored members directly.
     x = graph.member("fX")
     y = graph.member("fY")
+    try:
+        xerr_low = graph.member("fEXlow")
+        xerr_high = graph.member("fEXhigh")
+    except Exception:
+        try:
+            xerr = graph.member("fEX")
+            xerr_low = xerr
+            xerr_high = xerr
+        except Exception:
+            xerr_low = [0.0] * len(x)
+            xerr_high = [0.0] * len(x)
     try:
         yerr_low = graph.member("fEYlow")
         yerr_high = graph.member("fEYhigh")
@@ -60,7 +93,7 @@ def read_graph_asymm(root_file, name):
         yerr = graph.member("fEY")
         yerr_low = yerr
         yerr_high = yerr
-    return list(x), list(y), list(yerr_low), list(yerr_high)
+    return list(x), list(y), list(xerr_low), list(xerr_high), list(yerr_low), list(yerr_high)
 
 
 def read_graph(root_file, name):

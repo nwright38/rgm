@@ -49,7 +49,8 @@ string joinBins(const vector<int>& bins) {
 // One point collected from a diffTable row (already grouped by task/selection/axis_bin).
 struct DiffPoint {
   int value_bin;
-  double value_center, count, stat_error, sys_error_up, sys_error_down;
+  double value_center, value_error_low, value_error_high;
+  double count, stat_error, sys_error_up, sys_error_down;
 };
 
 // One point collected from an integratedTable row (already grouped by task/selection/pattern).
@@ -64,15 +65,21 @@ void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
   string* sel = nullptr;
   vector<int>* axisBin = nullptr;
   int valueBin = 0;
-  double valueCenter = 0.0, count = 0.0, statErr = 0.0, sysErr = 0.0;
+  double valueCenter = 0.0, valueErrLow = 0.0, valueErrHigh = 0.0;
+  double count = 0.0, statErr = 0.0, sysErr = 0.0;
   double sysErrUp = 0.0, sysErrDown = 0.0;
   const bool hasAsymm = diffTree->GetBranch("sys_error_up") && diffTree->GetBranch("sys_error_down");
+  const bool hasXErr = diffTree->GetBranch("value_error_low") && diffTree->GetBranch("value_error_high");
 
   diffTree->SetBranchAddress("task_name", &task);
   diffTree->SetBranchAddress("selection", &sel);
   diffTree->SetBranchAddress("axis_bin", &axisBin);
   diffTree->SetBranchAddress("value_bin", &valueBin);
   diffTree->SetBranchAddress("value_center", &valueCenter);
+  if (hasXErr) {
+    diffTree->SetBranchAddress("value_error_low", &valueErrLow);
+    diffTree->SetBranchAddress("value_error_high", &valueErrHigh);
+  }
   diffTree->SetBranchAddress("count", &count);
   diffTree->SetBranchAddress("stat_error", &statErr);
   diffTree->SetBranchAddress("sys_error", &sysErr);
@@ -95,6 +102,8 @@ void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
     DiffPoint p;
     p.value_bin = valueBin;
     p.value_center = valueCenter;
+    p.value_error_low = hasXErr ? valueErrLow : 0.0;
+    p.value_error_high = hasXErr ? valueErrHigh : 0.0;
     p.count = count;
     p.stat_error = statErr;
     p.sys_error_up = hasAsymm ? sysErrUp : sysErr;
@@ -115,7 +124,7 @@ void buildDiffGraphs(TTree* diffTree, TDirectory* outDir) {
       double errDown = sqrt(p.stat_error * p.stat_error + p.sys_error_down * p.sys_error_down);
       int n = g->GetN();
       g->SetPoint(n, p.value_center, p.count);
-      g->SetPointError(n, 0.0, 0.0, errDown, errUp);
+      g->SetPointError(n, p.value_error_low, p.value_error_high, errDown, errUp);
     }
     g->Write();
   }

@@ -354,13 +354,16 @@ int main(int argc, char** argv) {
   vector<int> d_axisBin;
   vector<double> d_axisCenter;
   int d_valueBin;
-  double d_valueCenter, d_count, d_statErr, d_sysErr, d_sysErrUp, d_sysErrDown;
+  double d_valueCenter, d_valueErrLow, d_valueErrHigh;
+  double d_count, d_statErr, d_sysErr, d_sysErrUp, d_sysErrDown;
   diffTree->Branch("task_name", &d_task);
   diffTree->Branch("selection", &d_sel);
   diffTree->Branch("axis_bin", &d_axisBin);
   diffTree->Branch("axis_center", &d_axisCenter);
   diffTree->Branch("value_bin", &d_valueBin, "value_bin/I");
   diffTree->Branch("value_center", &d_valueCenter, "value_center/D");
+  diffTree->Branch("value_error_low", &d_valueErrLow, "value_error_low/D");
+  diffTree->Branch("value_error_high", &d_valueErrHigh, "value_error_high/D");
   diffTree->Branch("count", &d_count, "count/D");
   diffTree->Branch("stat_error", &d_statErr, "stat_error/D");
   diffTree->Branch("sys_error", &d_sysErr, "sys_error/D");
@@ -393,6 +396,8 @@ int main(int argc, char** argv) {
       d_axisCenter = r.axis_center;
       d_valueBin = r.value_bin;
       d_valueCenter = r.value_center;
+      d_valueErrLow = r.value_error_low;
+      d_valueErrHigh = r.value_error_high;
       d_count = r.count;
       d_statErr = r.stat_error;
       d_sysErr = r.sys_error;
@@ -456,6 +461,8 @@ int main(int argc, char** argv) {
       d_axisCenter = r.axis_center;
       d_valueBin = r.value_bin;
       d_valueCenter = r.value_center;
+      d_valueErrLow = r.value_error_low;
+      d_valueErrHigh = r.value_error_high;
       d_count = r.count;
       d_statErr = r.stat_error;
       d_sysErr = r.sys_error;

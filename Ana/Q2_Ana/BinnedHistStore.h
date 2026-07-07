@@ -219,6 +219,8 @@ struct DiffRow {
   std::vector<double> axis_center;
   int value_bin = 0;              // bin index within the histogrammed quantity
   double value_center = 0.0;
+  double value_error_low = 0.0;
+  double value_error_high = 0.0;
   double count = 0.0;
   double stat_error = 0.0;
   double sys_error = 0.0;
@@ -253,6 +255,8 @@ std::vector<DiffRow> buildDiffRows(const FillTask<EventT>& task, int taskIdx,
       row.axis_center = centers;
       row.value_bin = vb - 1;
       row.value_center = hNom->GetXaxis()->GetBinCenter(vb);
+      row.value_error_low = row.value_center - hNom->GetXaxis()->GetBinLowEdge(vb);
+      row.value_error_high = hNom->GetXaxis()->GetBinUpEdge(vb) - row.value_center;
       row.count = hNom->GetBinContent(vb);
       row.stat_error = hNom->GetBinError(vb);
 
@@ -418,6 +422,8 @@ std::vector<DiffRow> buildRatioDiffRows(const FillTask<EventT>& numTask, int num
       row.axis_center = centers;
       row.value_bin = vb - 1;
       row.value_center = ratioNom->GetXaxis()->GetBinCenter(vb);
+      row.value_error_low = row.value_center - ratioNom->GetXaxis()->GetBinLowEdge(vb);
+      row.value_error_high = ratioNom->GetXaxis()->GetBinUpEdge(vb) - row.value_center;
       row.count = ratioNom->GetBinContent(vb);
       row.stat_error = ratioNom->GetBinError(vb);
 

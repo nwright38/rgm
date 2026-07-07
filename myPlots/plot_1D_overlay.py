@@ -155,7 +155,7 @@ def _selected_variables(args):
 
 def _read_normalized(inp, task_name, selection):
     name = graph_names.diff_graph_name(task_name, selection, [])
-    x, y, yerr_low, yerr_high = graph_io.read_graph_asymm(inp.file, name)
+    x, y, xerr_low, xerr_high, yerr_low, yerr_high = graph_io.read_graph_asymm_with_xerr(inp.file, name)
     integral = sum(y)
     if integral == 0.0:
         raise ValueError('Integral is zero for graph %s in %s' % (name, inp.path))
@@ -163,7 +163,7 @@ def _read_normalized(inp, task_name, selection):
     err_low_norm = [ei / integral for ei in yerr_low]
     err_high_norm = [ei / integral for ei in yerr_high]
     err_sym_norm = [max(lo, hi) for lo, hi in zip(err_low_norm, err_high_norm)]
-    return x, y_norm, err_low_norm, err_high_norm, err_sym_norm
+    return x, xerr_low, xerr_high, y_norm, err_low_norm, err_high_norm, err_sym_norm
 
 
 def _median_spacing(x):
@@ -176,6 +176,24 @@ def _median_spacing(x):
     return 0.5 * (spacings[mid - 1] + spacings[mid])
 
 
+def _auto_xlim_from_points(x, fallback_xlim, extra_pad=0.0, xerr_low=None, xerr_high=None):
+    if xerr_low is not None and xerr_high is not None and any(e > 0.0 for e in xerr_low + xerr_high):
+        return (min(xi - ei for xi, ei in zip(x, xerr_low)) - extra_pad,
+                max(xi + ei for xi, ei in zip(x, xerr_high)) + extra_pad)
+
+    xs = sorted(set(float(xi) for xi in x))
+    if len(xs) >= 2:
+        left_width = xs[1] - xs[0]
+        right_width = xs[-1] - xs[-2]
+        return (xs[0] - 0.5 * left_width - extra_pad,
+                xs[-1] + 0.5 * right_width + extra_pad)
+    if len(xs) == 1:
+        width = fallback_xlim[1] - fallback_xlim[0]
+        pad = 0.5 * width if width > 0.0 else 0.5
+        return (xs[0] - pad - extra_pad, xs[0] + pad + extra_pad)
+    return fallback_xlim
+
+
 def _offsets(n_inputs, spacing, shift_fraction):
     if n_inputs <= 1 or spacing == 0.0 or shift_fraction == 0.0:
         return [0.0] * n_inputs
@@ -185,9 +203,10 @@ def _offsets(n_inputs, spacing, shift_fraction):
     return [span * (i / float(n_inputs - 1) - 0.5) for i in range(n_inputs)]
 
 
-def _draw_points(ax, x, y, yerr_low, yerr_high, offset, inp, markersize=4):
+def _draw_points(ax, x, xerr_low, xerr_high, y, yerr_low, yerr_high, offset, inp, markersize=4):
     shifted_x = [xi + offset for xi in x]
-    ax.errorbar(shifted_x, y, yerr=[yerr_low, yerr_high],
+    xerr = [xerr_low, xerr_high] if any(e > 0.0 for e in xerr_low + xerr_high) else None
+    ax.errorbar(shifted_x, y, xerr=xerr, yerr=[yerr_low, yerr_high],
                 color=inp.color, marker=inp.marker, linestyle='',
                 markersize=markersize, label=inp.label)
     return shifted_x
@@ -226,10 +245,13 @@ def _ratio_specs(args, n_inputs):
 
 
 def _plot_one(inputs, variable, args, out_path):
-    key, task_name, selection, xlabel, xlim = variable
+    key, task_name, selection, xlabel, fallback_xlim = variable
     normalized = [_read_normalized(inp, task_name, selection) for inp in inputs]
     spacing = _median_spacing(normalized[0][0])
     offsets = _offsets(len(inputs), spacing, args.shift_fraction)
+    xlim = _auto_xlim_from_points(normalized[0][0], fallback_xlim,
+                                  max([abs(o) for o in offsets] or [0.0]),
+                                  normalized[0][1], normalized[0][2])
 
     show_ratio = args.with_ratio and len(inputs) > 1
     if show_ratio:
@@ -244,8 +266,8 @@ def _plot_one(inputs, variable, args, out_path):
 
     ymax = 0.0
     for inp, offset, values in zip(inputs, offsets, normalized):
-        x, y, yerr_low, yerr_high, _ = values
-        _draw_points(ax, x, y, yerr_low, yerr_high, offset, inp)
+        x, xerr_low, xerr_high, y, yerr_low, yerr_high, _ = values
+        _draw_points(ax, x, xerr_low, xerr_high, y, yerr_low, yerr_high, offset, inp)
         local_max = max([yi + ei for yi, ei in zip(y, yerr_high)] or [0.0])
         ymax = max(ymax, local_max)
 
@@ -261,8 +283,8 @@ def _plot_one(inputs, variable, args, out_path):
     if show_ratio:
         ratio_offsets = _offsets(len(ratio_specs), spacing, args.shift_fraction)
         for j, (num_idx, den_idx) in enumerate(ratio_specs):
-            num_x, num_y, _, _, num_err = normalized[num_idx]
-            den_x, den_y, _, _, den_err = normalized[den_idx]
+            num_x, _, _, num_y, _, _, num_err = normalized[num_idx]
+            den_x, _, _, den_y, _, _, den_err = normalized[den_idx]
             if len(num_x) != len(den_x):
                 raise ValueError('Cannot ratio %s and %s for %s: different point counts'
                                  % (inputs[num_idx].label, inputs[den_idx].label, key))

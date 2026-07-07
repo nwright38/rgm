@@ -20,6 +20,7 @@ import argparse
 import os
 
 import graph_io
+import graph_names
 import normalization
 from plot_helpers import Series
 import plot_helpers as ph
@@ -66,6 +67,29 @@ VARIABLES = [
 DEFAULT_SIM_COLORS = ['red', 'blue', 'green', 'darkorange']
 
 CORNER_LABELS = {'ep': r"$(e,e^{\prime}p)$", 'epp': r"$(e,e^{\prime}pp)$"}
+
+
+def _auto_xlim_from_points(x, fallback_xlim, xerr_low=None, xerr_high=None):
+    if xerr_low is not None and xerr_high is not None and any(e > 0.0 for e in xerr_low + xerr_high):
+        return (min(xi - ei for xi, ei in zip(x, xerr_low)),
+                max(xi + ei for xi, ei in zip(x, xerr_high)))
+
+    xs = sorted(set(float(xi) for xi in x))
+    if len(xs) >= 2:
+        left_width = xs[1] - xs[0]
+        right_width = xs[-1] - xs[-2]
+        return (xs[0] - 0.5 * left_width, xs[-1] + 0.5 * right_width)
+    if len(xs) == 1:
+        width = fallback_xlim[1] - fallback_xlim[0]
+        pad = 0.5 * width if width > 0.0 else 0.5
+        return (xs[0] - pad, xs[0] + pad)
+    return fallback_xlim
+
+
+def _graph_xlim(root_file, task_name, selection, fallback_xlim):
+    name = graph_names.diff_graph_name(task_name, selection, [])
+    x, _, xerr_low, xerr_high, _, _ = graph_io.read_graph_asymm_with_xerr(root_file, name)
+    return _auto_xlim_from_points(x, fallback_xlim, xerr_low, xerr_high)
 
 
 class _NoOpPdf(object):
@@ -123,14 +147,15 @@ def main():
 
     pdf = _NoOpPdf()
     missing = []
-    for key, task_name, selection, xlabel, xlim in VARIABLES:
+    for key, task_name, selection, xlabel, fallback_xlim in VARIABLES:
         try:
-            _, y, yerr = ph.get_xy_err(data, task_name, selection)
+            x, y, yerr = ph.get_xy_err(data, task_name, selection)
         except Exception as exc:
             missing.append('%s: %s' % (key, exc))
             continue
         peak = max([v + e for v, e in zip(y, yerr)] or [0.0])
         ylim = (0.0, peak * 1.2 if peak > 0.0 else 1.0)
+        xlim = _graph_xlim(data.file, task_name, selection, fallback_xlim)
 
         out_path = os.path.join(args.out_dir, key + '.pdf')
         ph.plot_overlay(
