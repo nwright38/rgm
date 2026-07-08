@@ -47,6 +47,35 @@ const int linbin = 100;
 const double min_sigma = 0.08;
 const double max_sigma = 0.3;
 
+enum class LeadMode { FD, CD, BOTH };
+
+struct AnalysisOptions {
+  LeadMode leadMode = LeadMode::FD;
+  bool requirePcmLtPrel = false;
+};
+
+string leadModeName(LeadMode mode) {
+  if (mode == LeadMode::CD) return "cd";
+  if (mode == LeadMode::BOTH) return "both";
+  return "fd";
+}
+
+bool parseLeadMode(const string& s, LeadMode& mode) {
+  if (s == "fd" || s == "FD") {
+    mode = LeadMode::FD;
+    return true;
+  }
+  if (s == "cd" || s == "CD") {
+    mode = LeadMode::CD;
+    return true;
+  }
+  if (s == "both" || s == "BOTH") {
+    mode = LeadMode::BOTH;
+    return true;
+  }
+  return false;
+}
+
 
 const double c = 29.9792458;
 
@@ -73,11 +102,12 @@ double G(double x, double N, double mu, double sigma){
 }
 
 void getG(TFile *f, TCanvas * myCanvas, char fileName[100], string objectName, TH1D * h_myhist[7], double min, double max);
-void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & q, double & x, double & y, double & z, bool & passepp, int & ctr);
+void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & q, double & x, double & y, double & z, bool & passepp, int & ctr, const AnalysisOptions& opts);
 void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scale, double & min_chi2);
 void Usage()
 {
-  std::cerr << "Usage: ./Main_sigmaCM A outputfile.root [--q2-reweight weights.root] "
+  std::cerr << "Usage: ./Main_sigmaCM A outputfile.root "
+            << "[--lead-mode fd|cd|both] [--pcm-lt-prel] [--q2-reweight weights.root] "
             << "inputdatafile.hipo inputsimfiles.hipo \n\n\n";
 }
 
@@ -95,9 +125,34 @@ int main(int argc, char ** argv)
   cout<<"Ouput file "<< outFile <<endl;
 
   string q2ReweightFile;
+  AnalysisOptions analysisOpts;
   vector<string> inputFiles;
   for(int i = 3; i < argc; i++){
     string arg = argv[i];
+    if(arg == "--lead-mode"){
+      if(i + 1 >= argc){
+        Usage();
+        return -1;
+      }
+      string leadModeArg = argv[++i];
+      if(!parseLeadMode(leadModeArg, analysisOpts.leadMode)){
+        cerr<<"Unknown lead mode '"<<leadModeArg<<"'. Use 'fd', 'cd', or 'both'."<<endl;
+        return -1;
+      }
+      continue;
+    }
+    if(arg.rfind("--lead-mode=",0) == 0){
+      string leadModeArg = arg.substr(12);
+      if(!parseLeadMode(leadModeArg, analysisOpts.leadMode)){
+        cerr<<"Unknown lead mode '"<<leadModeArg<<"'. Use 'fd', 'cd', or 'both'."<<endl;
+        return -1;
+      }
+      continue;
+    }
+    if(arg == "--pcm-lt-prel"){
+      analysisOpts.requirePcmLtPrel = true;
+      continue;
+    }
     if(arg == "--q2-reweight"){
       if(i + 1 >= argc){
         Usage();
@@ -116,6 +171,9 @@ int main(int argc, char ** argv)
     Usage();
     return -1;
   }
+  cout<<"Lead mode "<<leadModeName(analysisOpts.leadMode)
+      <<"; e'pp pCM < pRel cut "
+      <<(analysisOpts.requirePcmLtPrel ? "enabled" : "disabled")<<endl;
     
   ////////////////////////////
   clas12root::HipoChain chain;
@@ -304,7 +362,7 @@ int main(int argc, char ** argv)
     {
       double q,x,y,z,yP;
       bool pass = false;
-      runEvent(c12,clasAna,false,q,x,y,z,pass,ctr); 
+      runEvent(c12,clasAna,false,q,x,y,z,pass,ctr,analysisOpts);
       double T = sqrt(x*x+y*y);
       if(pass){
 	h_pcmx_epp->Fill(x,1.0);
@@ -329,7 +387,7 @@ int main(int argc, char ** argv)
       double q = 0, x = 0, y = 0, z = 0, yP = 0;
       bool pass = false;
       double original_weight = c12_Sim->mcevent()->getWeight();
-      runEvent(c12_Sim,clasAna,true,q,x,y,z,pass,ctr); 
+      runEvent(c12_Sim,clasAna,true,q,x,y,z,pass,ctr,analysisOpts);
       const double q2Weight = q2Reweight.enabled() ? q2Reweight.weight(q) : 1.0;
       double T = sqrt(x*x+y*y);
 
@@ -382,6 +440,10 @@ int main(int argc, char ** argv)
   f->cd();
   TNamed q2ReweightMeta("q2_reweight_file", q2ReweightFile.empty() ? "none" : q2ReweightFile.c_str());
   q2ReweightMeta.Write();
+  TNamed leadModeMeta("lead_mode", leadModeName(analysisOpts.leadMode).c_str());
+  leadModeMeta.Write();
+  TNamed pcmLtPrelMeta("pcm_lt_prel_cut", analysisOpts.requirePcmLtPrel ? "enabled" : "disabled");
+  pcmLtPrelMeta.Write();
   for(int i=0; i<(bQ2); i++){
     h_Q2[i]->Write();
   }
@@ -437,7 +499,7 @@ int main(int argc, char ** argv)
   return 0;
 }
 
-void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & qSq, double & x, double & y, double & z, bool & passepp, int & ctr){
+void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & qSq, double & x, double & y, double & z, bool & passepp, int & ctr, const AnalysisOptions& opts){
 
   
   passepp=false;
@@ -534,11 +596,23 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
   if(Q2<1.5){return;}
   if(mmiss<0.65){return;}
   if(mmiss>1.10){return;}
-  if(lead[0]->getRegion()!=FD){return;}
   if(kmiss<0.3){return;}            
   if(kmiss>1.0){return;}            
   if(mom_lead<1.0){return;}
-  if(theta_lead>37){return;}
+
+  bool passLeadRegionAndTheta = false;
+  if(opts.leadMode == LeadMode::FD){
+    passLeadRegionAndTheta = (lead[0]->getRegion() == FD && theta_lead < 37);
+  }
+  else if(opts.leadMode == LeadMode::CD){
+    passLeadRegionAndTheta = (lead[0]->getRegion() == CD && theta_lead > 45);
+  }
+  else{
+    passLeadRegionAndTheta =
+      (lead[0]->getRegion() == FD && theta_lead < 37) ||
+      (lead[0]->getRegion() == CD && theta_lead > 45);
+  }
+  if(!passLeadRegionAndTheta){return;}
   
   if(!rec){return;}
   GetLorentzVector_Corrected(recoil_ptr,recoil[0],isMC);
@@ -564,6 +638,7 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
 
   if(v_rec.Mag()<0.3){return;}
   if(v_rec.Mag()>1.0){return;}
+  if(opts.requirePcmLtPrel && !(v_cm.Mag() < v_rel.Mag())){return;}
 
   //std::cout<<mmiss<<endl;
   
