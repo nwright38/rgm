@@ -113,7 +113,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
 
   if (lead.size() != 1) return ek;
   GetLorentzVector_Corrected(lead_ptr, lead[0], isMC);
-  if (lead[0]->getRegion() != FD) return ek;
+  if (lead[0]->getRegion() != FD && lead[0]->getRegion() != CD) return ek;
 
   TLorentzVector miss = q + deut_ptr - lead_ptr;
   double mmiss2 = miss.M2();
@@ -290,8 +290,8 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"phiElectron_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiE; }, epp_bins*2, -180, 180, {}},
       {"pLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pL; }, ep_bins, 1, 3, {}},
       {"pLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pL; }, epp_bins, 1, 3, {}},
-      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 10, 40, {}},
-      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 10, 40, {}},
+      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 35, 125, {}},
+      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 35, 125, {}},
       {"phiLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.phiL; }, ep_bins, -180, 180, {}},
       {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
       {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
