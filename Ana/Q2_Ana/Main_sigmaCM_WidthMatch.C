@@ -407,11 +407,11 @@ int Main_sigmaCM_WidthMatch(const char* inFileName = nullptr, const char* outFil
 
   vector<Component> comps = {
     {"pcmx", "pcmx_epp", "h_pcmx_epp_simSCM", "h_pcmx_epp_SRC_Q2", "h_pcmx_epp_SRC_simSCM_Q2",
-     "sigmacmx_int", "sigmacmx_Q2", -0.2, 0.2, false},
+     "sigmacmx_int", "sigmacmx_Q2", -0.25, 0.25, false},
     {"pcmy", "pcmy_epp", "h_pcmy_epp_simSCM", "h_pcmy_epp_SRC_Q2", "h_pcmy_epp_SRC_simSCM_Q2",
-     "sigmacmy_int", "sigmacmy_Q2", -0.2, 0.2, false},
+     "sigmacmy_int", "sigmacmy_Q2", -0.25, 0.25, false},
     {"pcmz", "pcmz_epp", "h_pcmz_epp_simSCM", "h_pcmz_epp_SRC_Q2", "h_pcmz_epp_SRC_simSCM_Q2",
-     "sigmacmz_int", "sigmacmz_Q2", -0.2, 0.2, false},
+     "sigmacmz_int", "sigmacmz_Q2", -0.25, 0.25, false},
     {"pcmT", "pcmT_epp", "h_pcmT_epp_simSCM", "h_pcmT_epp_SRC_Q2", "h_pcmT_epp_SRC_simSCM_Q2",
      "sigmacmT_int", "sigmacmT_Q2", 0.0, 0.5, true},
   };

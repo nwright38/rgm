@@ -46,7 +46,7 @@ using namespace clas12;
 
 const int linbin = 100;
 const double min_sigma = 0.08;
-const double max_sigma = 0.3;
+const double max_sigma = 0.25;
 
 // .05, .2 were orig
 //////////////////////////////////

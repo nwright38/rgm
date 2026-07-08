@@ -271,7 +271,7 @@ int main(int argc, char **argv)
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
-      //if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
