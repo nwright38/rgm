@@ -13,6 +13,7 @@ Usage:
     python plot_pcm_gaussian_fits.py Data_He.root --out-dir pdf/pcm_fits
     python plot_pcm_gaussian_fits.py Data_He.root --method stddev
     python plot_pcm_gaussian_fits.py Data_He.root --overlay-pcmxy
+    python plot_pcm_gaussian_fits.py Data_He.root --rebin 2
 """
 
 from __future__ import division
@@ -33,6 +34,8 @@ from scipy.optimize import curve_fit
 
 LEGEND_FONTSIZE = 12
 STATS_FONTSIZE = 11
+FIT_LINEWIDTH = 1.6
+FIT_ALPHA = 0.65
 
 
 PLOTS = [
@@ -61,6 +64,8 @@ def parse_args():
                    help="Use a Gaussian fit sigma or histogram std dev in the range.")
     p.add_argument("--xlim", nargs=2, type=float, default=(-0.75, 0.75),
                    metavar=("MIN", "MAX"))
+    p.add_argument("--rebin", type=positive_int, default=1,
+                   help="Combine this many adjacent bins before fitting/drawing.")
     p.add_argument("--fit-range-pcmx", nargs=2, type=float, default=None,
                    metavar=("MIN", "MAX"))
     p.add_argument("--fit-range-pcmy", nargs=2, type=float, default=None,
@@ -68,6 +73,16 @@ def parse_args():
     p.add_argument("--overlay-pcmxy", action="store_true",
                    help="Draw pcm_x and pcm_y on one figure.")
     return p.parse_args()
+
+
+def positive_int(value):
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
 
 
 def gaussian(x, norm, mu, sigma):
@@ -99,6 +114,38 @@ def read_hist(root_file, task):
 
     raise KeyError("Could not find histogram for %s. Tried: %s"
                    % (task, ", ".join(tried)))
+
+
+def rebin_hist(counts, edges, errors, factor):
+    if factor == 1:
+        return counts, edges, errors
+
+    counts = np.asarray(counts, dtype=float)
+    edges = np.asarray(edges, dtype=float)
+    errors = np.asarray(errors, dtype=float)
+    variances = np.clip(errors, 0.0, None) ** 2
+
+    rebinned_counts = []
+    rebinned_variances = []
+    rebinned_edges = [edges[0]]
+
+    for start in range(0, len(counts), factor):
+        stop = min(start + factor, len(counts))
+        rebinned_counts.append(np.sum(counts[start:stop]))
+        rebinned_variances.append(np.sum(variances[start:stop]))
+        rebinned_edges.append(edges[stop])
+
+    return (
+        np.asarray(rebinned_counts, dtype=float),
+        np.asarray(rebinned_edges, dtype=float),
+        np.sqrt(np.asarray(rebinned_variances, dtype=float)),
+    )
+
+
+def read_hist_for_plot(root_file, task, rebin):
+    counts, edges, errors, hist_name = read_hist(root_file, task)
+    counts, edges, errors = rebin_hist(counts, edges, errors, rebin)
+    return counts, edges, errors, hist_name
 
 
 def initial_guess(x, y, fit_mask):
@@ -187,11 +234,14 @@ def draw_plot(counts, edges, errors, hist_name, spec, fit_range, args):
                 color="black", linestyle="", marker="o", markersize=4,
                 linewidth=1.0, label="Data")
 
-    ax.axvspan(fit_min, fit_max, color="firebrick", alpha=0.08, linewidth=0)
-
     peak = np.max(counts + errors)
     if args.method == "gaussian":
         popt, perr = fit_gaussian(centers, counts, errors, fit_min, fit_max)
+        xfit = np.linspace(fit_min, fit_max, 400)
+        yfit = gaussian(xfit, *popt)
+        ax.plot(xfit, yfit, color="firebrick", linewidth=FIT_LINEWIDTH,
+                alpha=FIT_ALPHA, label="Gaussian fit")
+        peak = max(peak, np.max(yfit))
         text = stats_text(popt[1], perr[1], popt[2], perr[2])
         result = (popt[1], perr[1], popt[2], perr[2])
     else:
@@ -261,7 +311,8 @@ def draw_overlay_pcmxy(root_file, fit_range_overrides, args):
     results = []
 
     for spec in PLOTS:
-        counts, edges, errors, hist_name = read_hist(root_file, spec["task"])
+        counts, edges, errors, hist_name = read_hist_for_plot(
+            root_file, spec["task"], args.rebin)
         centers = 0.5 * (edges[:-1] + edges[1:])
         widths = np.diff(edges)
         fit_range = fit_range_overrides[spec["key"]] or spec["fit_range"]
@@ -274,7 +325,13 @@ def draw_overlay_pcmxy(root_file, fit_range_overrides, args):
                     color=color, linestyle="", marker=markers[spec["key"]],
                     markersize=4, linewidth=1.0, label=labels[spec["key"]])
 
-        if args.method != "gaussian":
+        if args.method == "gaussian":
+            xfit = np.linspace(fit_min, fit_max, 400)
+            yfit = gaussian(xfit, *result["fit_params"])
+            ax.plot(xfit, yfit, color=color, linewidth=FIT_LINEWIDTH,
+                    alpha=FIT_ALPHA)
+            peak = max(peak, np.max(yfit))
+        else:
             ax.axvline(result["mean"], color=color, linewidth=1.5,
                        linestyle="--", alpha=0.9)
 
@@ -335,7 +392,8 @@ def main():
         return
 
     for spec in PLOTS:
-        counts, edges, errors, hist_name = read_hist(root_file, spec["task"])
+        counts, edges, errors, hist_name = read_hist_for_plot(
+            root_file, spec["task"], args.rebin)
         fit_range = fit_range_overrides[spec["key"]] or spec["fit_range"]
         out_path, result = draw_plot(
             counts, edges, errors, hist_name, spec, fit_range, args)
