@@ -259,7 +259,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
   auto passEPP = [](const EventKinematics& ek) { return ek.passepp; };
 
   int ep_bins = 30.;
-  int epp_bins = 15.;
+  int epp_bins = 20.;
 
   vector<OneDHistDef<EventKinematics>> plain1D = {
       // Plain Q2/pMiss/kMiss yields, no selector binning.
@@ -295,15 +295,15 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"phiRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiR; }, epp_bins, -180, 180, {}},
       {"q_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qMag; }, ep_bins, 1., 3.5, {}},
       {"q_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qMag; }, epp_bins, 1., 3.5, {}},
-      {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, ep_bins, 100, 180, {}},
-      {"theta_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPMissQ; }, epp_bins, 100, 180, {}},
-      {"theta_pLeadq_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, ep_bins, 0, 40, {}},
-      {"theta_pLeadq_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, epp_bins, 0, 40, {}},
+      {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, ep_bins, 100, 165, {}},
+      {"theta_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPMissQ; }, epp_bins, 100, 165, {}},
+      {"theta_pLeadq_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, ep_bins, 0, 45, {}},
+      {"theta_pLeadq_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPLeadQ; }, epp_bins, 0, 45, {}},
       {"pRel_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pRel; }, epp_bins, 0.15, 1.0, {}},
       {"pRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pR; }, epp_bins, 0.3, 1.0, {}},
-      {"pcmx_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.px; }, epp_bins*2, -0.75, 0.75, {}},
-      {"pcmy_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.py; }, epp_bins*2, -0.75, 0.75, {}},
-      {"pcmz_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pz; }, epp_bins*2, -0.3, 1.1, {}},
+      {"pcmx_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.px; }, epp_bins, -0.75, 0.75, {}},
+      {"pcmy_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.py; }, epp_bins, -0.75, 0.75, {}},
+      {"pcmz_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pz; }, epp_bins, -0.3, 1.1, {}},
       {"pcm_epp", Selection::EPP, passEPP,
        [](const EventKinematics& ek) { return sqrt(ek.px * ek.px + ek.py * ek.py + ek.pz * ek.pz); },
        epp_bins, 0.0, 1.0, {}},
