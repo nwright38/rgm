@@ -21,6 +21,7 @@ const double mP = 0.938;
 // const double mN = 0.939565;
 const double mU = 0.9314941024;
 const double me = 0.000511;
+const double m_4He = 4.00260325415 * mU - 2 * me;
 
 const int MAXP = 4;  // max number of proton candidates considered per event
 
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
   // pRel and pCM (filled only when a recoil partner exists)
   Float_t b_pRel, b_pRelTheta, b_pRelPhi;
   Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
+  Float_t b_E2miss;
 
   // event-level summary
   Int_t  b_nGoodLeads;
@@ -122,6 +124,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
   srcTree->Branch("pCMz",        &b_pCMz,        "pCMz/F");
+  srcTree->Branch("E2miss",      &b_E2miss,      "E2miss/F");
 
   srcTree->Branch("nGoodLeads",     &b_nGoodLeads,     "nGoodLeads/I");
   srcTree->Branch("singleGoodLead", &b_singleGoodLead, "singleGoodLead/O");
@@ -149,6 +152,7 @@ int main(int argc, char **argv)
   // fixed 4-vectors
   const double md = 2.01410178 * mU - me;
   TLorentzVector targP4(0., 0., 0., md);
+  TLorentzVector nucleusP4(0., 0., 0., m_4He);
   TLorentzVector beamP4(0., 0., Ebeam, Ebeam);
 
   TLorentzVector eP4(0., 0., 0., me);
@@ -187,6 +191,7 @@ int main(int argc, char **argv)
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
+    b_E2miss = -9.f;
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_theta_PmQ = -9.f;
     b_theta_PleadQ = -9.f;
@@ -356,6 +361,17 @@ int main(int argc, char **argv)
         b_pCMx = v_cm.Dot(vx);
         b_pCMy = v_cm.Dot(vy);
         b_pCMz = v_cm.Dot(vz);
+
+        // Same E2miss definition used by Main_Figs_Binned.cpp.
+        TLorentzVector selectedLeadP4;
+        selectedLeadP4.SetVectM(cand_p3[leadIdx], mP);
+        TLorentzVector recoilP4;
+        recoilP4.SetVectM(recoil_p3, mP);
+        double TP = selectedLeadP4.E() - selectedLeadP4.M();
+        double TP2 = recoilP4.E() - recoilP4.M();
+        TLorentzVector miss_Am2 = q + nucleusP4 - selectedLeadP4 - recoilP4;
+        double TB2 = miss_Am2.E() - miss_Am2.M();
+        b_E2miss = q.E() - TP - TP2 - TB2;
 
         // recoil summary kinematics
         b_recP     = recoil_p3.Mag();
