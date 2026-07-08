@@ -205,6 +205,7 @@ struct CutVariation {
   double kMiss_lower = 0.3;
   double pLead_lower = 1.0;
   double tLead_upper = 37;
+  double tLead_lower = 45;
   double pRecoil_lower = 0.3;
 
   static CutVariation Nominal() { return CutVariation{}; }
@@ -218,6 +219,7 @@ struct CutVariation {
     v.kMiss_lower += rng.Gaus(0.0, 0.03);
     v.pLead_lower += rng.Gaus(0.0, 0.03);
     v.tLead_upper += rng.Gaus(0.0, 1.0);
+    v.tLead_lower += rng.Gaus(0.0, 1.0);
     v.pRecoil_lower += rng.Gaus(0.0, 0.045);
     return v;
   }
@@ -241,7 +243,8 @@ struct CutVariation {
     if (ek.mM > mMiss_upper) passep = false;
     if (ek.kM < kMiss_lower) passep = false;
     if (ek.pL < pLead_lower) passep = false;
-    if (ek.tL > tLead_upper) passep = false;
+   // if (ek.tL > tLead_upper) passep = false;
+    if (ek.tL < tLead_lower) passep = false;
     if (!passep) return;
 
     if (ek.pR < pRecoil_lower) passepp = false;
