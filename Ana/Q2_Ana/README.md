@@ -46,7 +46,7 @@ Most programs in this directory use the same nominal SRC selection:
 | x_B | > 1.2 |
 | Q² | 1.5 – 5.0 GeV² |
 | p_lead | > 1.0 GeV |
-| θ_lead | < 37° (FD only) |
+| θ_lead / lead detector | `--lead-mode fd`: FD and θ < 37° (default); `cd`: CD and θ > 45°; `both`: either rule |
 | k_miss (ZQ) | > 0.3 GeV |
 | m_miss | 0.65 – 1.10 GeV |
 | p_recoil | > 0.30–0.35 GeV (CD only) |
@@ -521,8 +521,13 @@ systematic stores, and writes flat ROOT tables.
 **Usage:**
 ```
 ./Main_Figs_Binned isMC A output.root [--mode legacy|modern] \
+    [--lead-mode fd|cd|both] [--pcm-lt-prel] \
     [--q2-reweight weights.root] inputfiles.hipo...
 ```
+
+`--lead-mode fd` is the default. `--lead-mode both` keeps the FD and CD angular
+thresholds fixed in the toy stores, so no angular-cut systematic is assigned for that combined
+sample. `--pcm-lt-prel` applies the optional e'pp-only cut `p_CM < p_rel`.
 
 **Output ROOT file contains:**
 - `diffTable` — `TTree` with one row per (task, selection, selector_bins, value_bin)

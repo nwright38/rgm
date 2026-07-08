@@ -6,7 +6,8 @@
 // uncertainties should be shown.
 //
 // Usage:
-//   ./Main_Figs_Binned_StatOnly isMC A outputfile.root [--mode legacy|modern] inputfiles.hipo
+//   ./Main_Figs_Binned_StatOnly isMC A outputfile.root [--mode legacy|modern]
+//       [--lead-mode fd|cd|both] [--pcm-lt-prel] inputfiles.hipo
 
 #define MAIN_FIGS_BINNED_NO_MAIN
 #include "Main_Figs_Binned.cpp"
@@ -197,7 +198,8 @@ void writeStatOnlyDerivedGraphs(TFile* f) {
 
 void StatOnlyUsage() {
   std::cerr << "Usage: ./Main_Figs_Binned_StatOnly isMC A outputfile.root "
-            << "[--mode legacy|modern] [--q2-reweight weights.root] inputfiles.hipo \n\n\n";
+            << "[--mode legacy|modern] [--lead-mode fd|cd|both] [--pcm-lt-prel] "
+            << "[--q2-reweight weights.root] inputfiles.hipo \n\n\n";
 }
 
 int main(int argc, char** argv) {
@@ -208,6 +210,7 @@ int main(int argc, char** argv) {
 
   bool legacyCompatMode = false;
   string q2ReweightFile;
+  AnalysisOptions analysisOpts;
   int inputStartArg = 4;
   while (inputStartArg < argc) {
     string opt = argv[inputStartArg];
@@ -230,6 +233,33 @@ int main(int argc, char** argv) {
         std::cerr << "Unknown mode '" << mode << "'. Use 'legacy' or 'modern'.\n";
         return -1;
       }
+      continue;
+    }
+    if (opt == "--lead-mode") {
+      if (inputStartArg + 1 >= argc) {
+        StatOnlyUsage();
+        return -1;
+      }
+      string leadModeArg = argv[inputStartArg + 1];
+      if (!parseLeadMode(leadModeArg, analysisOpts.leadMode)) {
+        std::cerr << "Unknown lead mode '" << leadModeArg << "'. Use 'fd', 'cd', or 'both'.\n";
+        return -1;
+      }
+      inputStartArg += 2;
+      continue;
+    }
+    if (opt.rfind("--lead-mode=", 0) == 0) {
+      string leadModeArg = opt.substr(12);
+      if (!parseLeadMode(leadModeArg, analysisOpts.leadMode)) {
+        std::cerr << "Unknown lead mode '" << leadModeArg << "'. Use 'fd', 'cd', or 'both'.\n";
+        return -1;
+      }
+      inputStartArg += 1;
+      continue;
+    }
+    if (opt == "--pcm-lt-prel") {
+      analysisOpts.requirePcmLtPrel = true;
+      inputStartArg += 1;
       continue;
     }
     if (opt == "--q2-reweight") {
@@ -265,6 +295,9 @@ int main(int argc, char** argv) {
   int nucleus_A = atoi(argv[2]);
   TString outFile = argv[3];
   cout << "Output file " << outFile << endl;
+  cout << "Lead mode " << leadModeName(analysisOpts.leadMode)
+       << "; e'pp pCM < pRel cut "
+       << (analysisOpts.requirePcmLtPrel ? "enabled" : "disabled") << endl;
 
   clas12ana clasAna;
   clasAna.printParams();
@@ -340,7 +373,7 @@ int main(int argc, char** argv) {
     }
 
     bool passep_nom, passepp_nom;
-    nominalCut.apply(ek, passep_nom, passepp_nom);
+    nominalCut.apply(ek, passep_nom, passepp_nom, analysisOpts);
     ek.passep = passep_nom;
     ek.passepp = passepp_nom;
     nominalStore.fill(tasks, ek, wep, wepp);

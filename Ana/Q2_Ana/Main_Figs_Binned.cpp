@@ -74,9 +74,39 @@ struct EventKinematics {
   double px = 0, py = 0, pz = 0;
   double mM = 0, pM = 0, kM = 0;
   double E0 = 0, E1 = 0, E2 = 0;
-  double qMag = 0, thPMissQ = 0, thPLeadQ = 0, pRel = 0;
+  double qMag = 0, thPMissQ = 0, thPLeadQ = 0, pRel = 0, pCM = 0;
+  int leadRegion = 0;
   bool passep = false, passepp = false;
 };
+
+enum class LeadMode { FD, CD, BOTH };
+
+struct AnalysisOptions {
+  LeadMode leadMode = LeadMode::FD;
+  bool requirePcmLtPrel = false;
+};
+
+string leadModeName(LeadMode mode) {
+  if (mode == LeadMode::CD) return "cd";
+  if (mode == LeadMode::BOTH) return "both";
+  return "fd";
+}
+
+bool parseLeadMode(const string& s, LeadMode& mode) {
+  if (s == "fd" || s == "FD") {
+    mode = LeadMode::FD;
+    return true;
+  }
+  if (s == "cd" || s == "CD") {
+    mode = LeadMode::CD;
+    return true;
+  }
+  if (s == "both" || s == "BOTH") {
+    mode = LeadMode::BOTH;
+    return true;
+  }
+  return false;
+}
 
 // Same kinematic calculation as runEvent() in Main_Figs_Sys_Err.cpp, just
 // returning one struct instead of writing through 14 reference parameters
@@ -149,6 +179,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.pL = mom_lead;
   ek.tL = theta_lead;
   ek.phiL = phi_lead;
+  ek.leadRegion = lead[0]->getRegion();
   ek.mM = mmiss;
   ek.pM = pmiss;
   ek.kM = kmiss;
@@ -181,6 +212,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.pz = v_cm.Dot(vz);
   ek.E2 = E2miss;
   ek.pRel = (miss_neg - v_rec).Mag() * 0.5;
+  ek.pCM = v_cm.Mag();
 
   return ek;
 }
@@ -210,7 +242,7 @@ struct CutVariation {
 
   static CutVariation Nominal() { return CutVariation{}; }
 
-  static CutVariation Randomized(TRandom3& rng) {
+  static CutVariation Randomized(TRandom3& rng, bool varyAngularCut = true) {
     CutVariation v;
     v.xB_lower += rng.Gaus(0.0, 0.01);
     v.Q2_lower += rng.Gaus(0.0, 0.01);
@@ -218,23 +250,37 @@ struct CutVariation {
     v.mMiss_upper += rng.Gaus(0.0, 0.03);
     v.kMiss_lower += rng.Gaus(0.0, 0.03);
     v.pLead_lower += rng.Gaus(0.0, 0.03);
-    v.tLead_upper += rng.Gaus(0.0, 1.0);
-    v.tLead_lower += rng.Gaus(0.0, 1.0);
+    if (varyAngularCut) {
+      v.tLead_upper += rng.Gaus(0.0, 1.0);
+      v.tLead_lower += rng.Gaus(0.0, 1.0);
+    }
     v.pRecoil_lower += rng.Gaus(0.0, 0.045);
     return v;
   }
 
   // Mirrors legacy CutRandom(..., randomize=true): thresholds are re-sampled
   // for each call rather than fixed per toy across the full event sample.
-  static CutVariation RandomizedLikeLegacy() {
+  static CutVariation RandomizedLikeLegacy(bool varyAngularCut = true) {
     TRandom3 rng(0);
-    return Randomized(rng);
+    return Randomized(rng, varyAngularCut);
   }
 
-  void apply(const EventKinematics& ek, bool& passep, bool& passepp) const {
+  void apply(const EventKinematics& ek, bool& passep, bool& passepp,
+             const AnalysisOptions& opts = AnalysisOptions{}) const {
     passep = ek.passep;
     passepp = ek.passepp;
     if (!passep) return;
+
+    bool passLeadRegionAndTheta = false;
+    if (opts.leadMode == LeadMode::FD) {
+      passLeadRegionAndTheta = (ek.leadRegion == FD && ek.tL < tLead_upper);
+    } else if (opts.leadMode == LeadMode::CD) {
+      passLeadRegionAndTheta = (ek.leadRegion == CD && ek.tL > tLead_lower);
+    } else {
+      passLeadRegionAndTheta =
+          (ek.leadRegion == FD && ek.tL < tLead_upper) ||
+          (ek.leadRegion == CD && ek.tL > tLead_lower);
+    }
 
     if (ek.x < xB_lower) passep = false;
     if (ek.qSq < Q2_lower) passep = false;
@@ -243,11 +289,14 @@ struct CutVariation {
     if (ek.mM > mMiss_upper) passep = false;
     if (ek.kM < kMiss_lower) passep = false;
     if (ek.pL < pLead_lower) passep = false;
-   // if (ek.tL > tLead_upper) passep = false;
-    if (ek.tL < tLead_lower) passep = false;
-    if (!passep) return;
+    if (!passLeadRegionAndTheta) passep = false;
+    if (!passep) {
+      passepp = false;
+      return;
+    }
 
     if (ek.pR < pRecoil_lower) passepp = false;
+    if (opts.requirePcmLtPrel && !(ek.pCM < ek.pRel)) passepp = false;
   }
 };
 
@@ -290,8 +339,8 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"phiElectron_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiE; }, epp_bins*2, -180, 180, {}},
       {"pLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.pL; }, ep_bins, 1, 3, {}},
       {"pLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.pL; }, epp_bins, 1, 3, {}},
-      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 35, 125, {}},
-      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 35, 125, {}},
+      {"thetaLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.tL; }, ep_bins, 0, 125, {}},
+      {"thetaLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tL; }, epp_bins, 0, 125, {}},
       {"phiLead_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.phiL; }, ep_bins, -180, 180, {}},
       {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
       {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
@@ -418,7 +467,8 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
 #ifndef MAIN_FIGS_BINNED_NO_MAIN
 void Usage() {
   std::cerr << "Usage: ./Main_Figs_Binned isMC A outputfile.root "
-            << "[--mode legacy|modern] [--q2-reweight weights.root] inputfiles.hipo \n\n\n";
+            << "[--mode legacy|modern] [--lead-mode fd|cd|both] [--pcm-lt-prel] "
+            << "[--q2-reweight weights.root] inputfiles.hipo \n\n\n";
 }
 
 int main(int argc, char** argv) {
@@ -429,6 +479,7 @@ int main(int argc, char** argv) {
 
   bool legacyCompatMode = false;  // false = modern behavior, true = legacy-compatible
   string q2ReweightFile;
+  AnalysisOptions analysisOpts;
   int inputStartArg = 4;
   while (inputStartArg < argc) {
     string opt = argv[inputStartArg];
@@ -451,6 +502,33 @@ int main(int argc, char** argv) {
         std::cerr << "Unknown mode '" << mode << "'. Use 'legacy' or 'modern'.\n";
         return -1;
       }
+      continue;
+    }
+    if (opt == "--lead-mode") {
+      if (inputStartArg + 1 >= argc) {
+        Usage();
+        return -1;
+      }
+      string leadModeArg = argv[inputStartArg + 1];
+      if (!parseLeadMode(leadModeArg, analysisOpts.leadMode)) {
+        std::cerr << "Unknown lead mode '" << leadModeArg << "'. Use 'fd', 'cd', or 'both'.\n";
+        return -1;
+      }
+      inputStartArg += 2;
+      continue;
+    }
+    if (opt.rfind("--lead-mode=", 0) == 0) {
+      string leadModeArg = opt.substr(12);
+      if (!parseLeadMode(leadModeArg, analysisOpts.leadMode)) {
+        std::cerr << "Unknown lead mode '" << leadModeArg << "'. Use 'fd', 'cd', or 'both'.\n";
+        return -1;
+      }
+      inputStartArg += 1;
+      continue;
+    }
+    if (opt == "--pcm-lt-prel") {
+      analysisOpts.requirePcmLtPrel = true;
+      inputStartArg += 1;
       continue;
     }
     if (opt == "--q2-reweight") {
@@ -491,6 +569,9 @@ int main(int argc, char** argv) {
   int nucleus_A = atoi(argv[2]);
   TString outFile = argv[3];
   cout << "Output file " << outFile << endl;
+  cout << "Lead mode " << leadModeName(analysisOpts.leadMode)
+       << "; e'pp pCM < pRel cut "
+       << (analysisOpts.requirePcmLtPrel ? "enabled" : "disabled") << endl;
 
   clas12ana clasAna;
   clasAna.printParams();
@@ -539,8 +620,9 @@ int main(int argc, char** argv) {
   vector<CutVariation> toyCuts(nToys);
   vector<reweighter> toyWeighters;
   toyWeighters.reserve(nToys);
+  const bool varyAngularCut = (analysisOpts.leadMode != LeadMode::BOTH);
   for (int i = 0; i < nToys; i++) {
-    toyCuts[i] = CutVariation::Randomized(toyRng);
+    toyCuts[i] = CutVariation::Randomized(toyRng, varyAngularCut);
     reweighter w(beam_E, Z, N, kelly, uType, .15);
     w.randomize_Config();
     toyWeighters.push_back(w);
@@ -579,7 +661,7 @@ int main(int argc, char** argv) {
     }
 
     bool passep_nom, passepp_nom;
-    nominalCut.apply(ek, passep_nom, passepp_nom);
+    nominalCut.apply(ek, passep_nom, passepp_nom, analysisOpts);
     EventKinematics ekNom = ek;
     ekNom.passep = passep_nom;
     ekNom.passepp = passepp_nom;
@@ -597,9 +679,9 @@ int main(int argc, char** argv) {
       }
       bool passep_i, passepp_i;
       if (legacyCompatMode) {
-        CutVariation::RandomizedLikeLegacy().apply(ek, passep_i, passepp_i);
+        CutVariation::RandomizedLikeLegacy(varyAngularCut).apply(ek, passep_i, passepp_i, analysisOpts);
       } else {
-        toyCuts[i].apply(ek, passep_i, passepp_i);
+        toyCuts[i].apply(ek, passep_i, passepp_i, analysisOpts);
       }
       EventKinematics ekToy = ek;
       ekToy.passep = passep_i;

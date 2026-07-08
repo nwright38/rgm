@@ -4,19 +4,19 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 inputs=(
-  "$HOME/data/RGM_DATA/Data_He_StatOnly.root"
-  "$HOME/data/RGM_DATA/Data_C_StatOnly.root"
-  # "$HOME/data/RGM_DATA/Data_40Ca_StatOnly.root"
-  # "$HOME/data/RGM_DATA/Data_48Ca_StatOnly.root"
-  # "$HOME/data/RGM_DATA/Data_Sn_StatOnly.root"
+  "$HOME/data/RGM_DATA/Data_He_StatOnly_CD.root"
+  "$HOME/data/RGM_DATA/Data_C_StatOnly_CD.root"
+  "$HOME/data/RGM_DATA/Data_40Ca_StatOnly_CD.root"
+  "$HOME/data/RGM_DATA/Data_48Ca_StatOnly_CD.root"
+  "$HOME/data/RGM_DATA/Data_Sn_StatOnly_CD.root"
 )
 
 labels=(
   He
   C
-  # 40Ca
-  # 48Ca
-  # Sn
+  40Ca
+  48Ca
+  Sn
 )
 
 label_args=()
@@ -30,4 +30,4 @@ python "$script_dir/plot_1D_overlay.py" \
   --with-ratio \
   --ratio-reference-index 0 \
   --ratio-ylim 0 2 \
-  --out-dir "$script_dir/pdf/1D_overlay/He_C"
+  --out-dir "$script_dir/pdf/1D_overlay/All_CD"
