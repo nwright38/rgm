@@ -339,7 +339,7 @@ int main(int argc, char **argv)
         // difference of lab momenta (standard SRC convention).
         TVector3 lead_p3 = cand_p3[leadIdx];
 
-        TVector3 pRelV = (lead_p3 - recoil_p3) * 0.5;
+        TVector3 pRelV = (miss_neg - recoil_p3) * 0.5;
         b_pRel      = pRelV.Mag();
         b_pRelTheta = pRelV.Theta();
         b_pRelPhi   = pRelV.Phi();

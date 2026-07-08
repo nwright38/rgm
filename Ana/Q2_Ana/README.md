@@ -641,8 +641,13 @@ templates, each reweighted to a different assumed input σ_CM value.
 
 **Usage:**
 ```
-./Main_sigmaCM A output.root data.hipo sim.hipo
+./Main_sigmaCM A output.root [--lead-mode fd|cd|both] [--pcm-lt-prel] \
+    [--q2-reweight weights.root] data.hipo sim.hipo
 ```
+
+`--lead-mode fd` is the default. `cd` uses CD lead protons with θ > 45°, and `both` accepts
+either the FD or CD lead rule. `--pcm-lt-prel` applies the optional e'pp-only cut
+`p_CM < p_rel`.
 
 **Output ROOT file:** integrated and Q²-binned histograms for p_CM-x, y, z, T. For each of the
 100 σ_CM values, a separate set of reweighted simulation histograms is stored.

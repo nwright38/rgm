@@ -142,7 +142,7 @@ import matplotlib.pyplot as plt
 # ------------------------------------------------------------------
 # Options
 # ------------------------------------------------------------------
-SHOW_LITERATURE_DATA = True   # set to False to hide the literature comparison points
+SHOW_LITERATURE_DATA = False   # set to False to hide the literature comparison points
 
 # ------------------------------------------------------------------
 # This Work: hard-coded fit results, sorted by increasing A

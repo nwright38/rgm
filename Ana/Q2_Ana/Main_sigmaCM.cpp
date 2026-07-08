@@ -651,7 +651,7 @@ void runEvent(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clas
 }
 
 
-void runEvent_oldSave(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & qSq, double & x, double & y, double & z, bool & passepp, int & ctr){
+void runEvent_oldSave(const std::unique_ptr<clas12::clas12reader>& c12, clas12ana & clasAna, bool isMC ,double & qSq, double & x, double & y, double & z, bool & passepp, int & ctr, const AnalysisOptions& opts = AnalysisOptions{}){
 
   passepp=false;
   
@@ -748,7 +748,6 @@ void runEvent_oldSave(const std::unique_ptr<clas12::clas12reader>& c12, clas12an
   if(Q2>5){return;}
   if(mmiss<0.65){return;}
   if(mmiss>1.10){return;}
-  if(lead[0]->getRegion()!=FD){return;}
 
   if(kmiss<0.3){return;}            
 
@@ -757,7 +756,19 @@ void runEvent_oldSave(const std::unique_ptr<clas12::clas12reader>& c12, clas12an
   //if(kmiss>0.7){return;}            
 
   if(mom_lead<1.0){return;}
-  if(theta_lead>37){return;}
+  bool passLeadRegionAndTheta = false;
+  if(opts.leadMode == LeadMode::FD){
+    passLeadRegionAndTheta = (lead[0]->getRegion() == FD && theta_lead < 37);
+  }
+  else if(opts.leadMode == LeadMode::CD){
+    passLeadRegionAndTheta = (lead[0]->getRegion() == CD && theta_lead > 45);
+  }
+  else{
+    passLeadRegionAndTheta =
+      (lead[0]->getRegion() == FD && theta_lead < 37) ||
+      (lead[0]->getRegion() == CD && theta_lead > 45);
+  }
+  if(!passLeadRegionAndTheta){return;}
       
   if(!rec){return;}
   GetLorentzVector_Corrected(recoil_ptr,recoil[0],isMC);
@@ -772,6 +783,7 @@ void runEvent_oldSave(const std::unique_ptr<clas12::clas12reader>& c12, clas12an
   TVector3 v_rec  = recoil_ptr.Vect();
   TVector3 v_rel  = (miss_neg - v_rec) * 0.5;
   TVector3 v_cm   = miss_neg + v_rec;
+  if(opts.requirePcmLtPrel && !(v_cm.Mag() < v_rel.Mag())){return;}
       
   TVector3 vz = miss_neg.Unit();
   TVector3 vy = miss_neg.Cross(q.Vect()).Unit();
