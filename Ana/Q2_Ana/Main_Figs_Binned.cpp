@@ -74,7 +74,7 @@ struct EventKinematics {
   double px = 0, py = 0, pz = 0;
   double mM = 0, pM = 0, kM = 0;
   double E0 = 0, E1 = 0, E2 = 0;
-  double qMag = 0, thPMissQ = 0, thPLeadQ = 0, pRel = 0, pCM = 0;
+  double qMag = 0, thPMissQ = 0, thPLeadQ = 0, thPRecPMiss = 0, pRel = 0, pCM = 0;
   int leadRegion = 0;
   bool passep = false, passepp = false;
 };
@@ -207,6 +207,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.pR = v_rec.Mag();
   ek.tR = recoil_ptr.Theta() * 180 / M_PI;
   ek.phiR = recoil_ptr.Phi() * 180 / M_PI;
+  ek.thPRecPMiss = v_rec.Angle(miss_neg) * 180 / M_PI;
   ek.px = v_cm.Dot(vx);
   ek.py = v_cm.Dot(vy);
   ek.pz = v_cm.Dot(vz);
@@ -345,6 +346,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
       {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
       {"phiRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiR; }, epp_bins, -180, 180, {}},
+      {"theta_pRec_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPRecPMiss; }, epp_bins, 0, 180, {}},
       {"q_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qMag; }, ep_bins, 1., 3.5, {}},
       {"q_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qMag; }, epp_bins, 1., 3.5, {}},
       {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, ep_bins, 100, 165, {}},

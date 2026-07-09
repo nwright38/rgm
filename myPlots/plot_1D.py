@@ -50,6 +50,7 @@ VARIABLES = [
     ('phiLead_epp', 'phiLead_epp', 'epp', r'$\phi_{lead} [deg]$', (-180, 180)),
     ('thetaRec_epp', 'thetaRec_epp', 'epp', r'$\theta_{rec} [deg]$', (0, 180)),
     ('phiRec_epp', 'phiRec_epp', 'epp', r'$\phi_{rec} [deg]$', (-180, 180)),
+    ('theta_pRec_pmiss_epp', 'theta_pRec_pmiss_epp', 'epp', r'$\theta_{p_{rec},p_{miss}} [deg]$', (0, 180)),
     ('pRel_epp', 'pRel_epp', 'epp', r'$p_{rel} [GeV]$', (0.15, 1.0)),
     ('pRec_epp', 'pRec_epp', 'epp', r'$p_{rec} [GeV]$', (0.3, 1.0)),
     ('pcmz_epp', 'pcmz_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{z} [GeV]$', (-0.75, 0.75)),
