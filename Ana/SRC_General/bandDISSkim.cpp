@@ -48,6 +48,8 @@ int main(int argc, char **argv)
   TFile *outFile = new TFile(argv[3], "RECREATE");
   TTree *bandTree = new TTree("bandTree", "DIS spectator recoil kinematics");
 
+  Int_t b_run, b_event;
+  Int_t b_nProtons, b_nNeutrons;
   Float_t b_weight;
 
   Float_t b_Q2, b_W2, b_W, b_xB, b_omega, b_y;
@@ -64,6 +66,10 @@ int main(int argc, char **argv)
   Float_t b_pStruckP, b_pStruckE, b_pStruckMass2;
   Float_t b_tSpectator, b_missingMass2;
 
+  bandTree->Branch("run", &b_run, "run/I");
+  bandTree->Branch("event", &b_event, "event/I");
+  bandTree->Branch("nProtons", &b_nProtons, "nProtons/I");
+  bandTree->Branch("nNeutrons", &b_nNeutrons, "nNeutrons/I");
   bandTree->Branch("weight", &b_weight, "weight/F");
 
   bandTree->Branch("Q2", &b_Q2, "Q2/F");
@@ -148,8 +154,6 @@ int main(int argc, char **argv)
     }
     counter++;
 
-    b_weight = 1.f;
-
     clasAna.Run(c12);
     auto electrons = clasAna.getByPid(11);
     auto protons = clasAna.getByPid(2212);
@@ -175,6 +179,14 @@ int main(int argc, char **argv)
     if(isMC){
       b_weight = c12->mcevent()->getWeight();
     }
+    else{
+      b_weight = 1.f;
+    }
+
+    b_run = c12->runconfig()->getRun();
+    b_event = c12->runconfig()->getEvent();
+    b_nProtons = protons.size();
+    b_nNeutrons = neutrons.size();
 
     b_Q2 = Q2;
     b_W2 = W2;
