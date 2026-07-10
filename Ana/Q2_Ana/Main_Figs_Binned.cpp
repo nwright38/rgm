@@ -346,7 +346,7 @@ vector<FillTask<EventKinematics>> buildFillTasks(bool legacyCompatMode) {
       {"phiLead_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiL; }, epp_bins, -180, 180, {}},
       {"thetaRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.tR; }, epp_bins, 0, 180, {}},
       {"phiRec_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.phiR; }, epp_bins, -180, 180, {}},
-      {"theta_pRec_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPRecPMiss; }, epp_bins, 0, 180, {}},
+      {"theta_pRec_pmiss_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.thPRecPMiss; }, epp_bins, 80, 180, {}},
       {"q_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.qMag; }, ep_bins, 1., 3.5, {}},
       {"q_epp", Selection::EPP, passEPP, [](const EventKinematics& ek) { return ek.qMag; }, epp_bins, 1., 3.5, {}},
       {"theta_pmiss_ep", Selection::EP, passEP, [](const EventKinematics& ek) { return ek.thPMissQ; }, ep_bins, 100, 165, {}},

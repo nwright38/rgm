@@ -147,11 +147,11 @@ int main(int argc, char ** argv)
       if(kmiss_ZQ < 0.3){continue;}
       if(mmiss < 0.65){continue;}
       if(mmiss > 1.1){continue;}
-      if(theta_lead > 37){continue;}
+  //    if(theta_lead > 37){continue;}
 
       // Only keep FD-region leads (matches the analysis code's treatment;
       // CD-region leads are dropped there too).
-      if(lead[0]->getRegion() != FD){continue;}
+    //  if(lead[0]->getRegion() != FD){continue;}
 
       // Tag (logged only, not written into the hipo file) for whether
       // this event also has a reconstructed recoil -> e'pp.

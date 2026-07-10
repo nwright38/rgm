@@ -220,7 +220,8 @@ int main(int argc, char **argv)
     double Q2    = qP3.Mag2() - omega * omega;
     double xB    = Q2 / (2. * mP * omega);
 
-    if(xB < 1.2 || Q2 < 1.5) continue;
+    if(xB < 1.2) continue;
+    if(Q2 < 1.5) continue;
 
     if(isMC){
       b_weight     = c12->mcevent()->getWeight();
