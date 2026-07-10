@@ -212,6 +212,7 @@ int main(int argc, char **argv)
       setParticleP4(recP4, recoil, pid, isMC);
       if(recP4.P() <= 0.2){ return; }
 
+      if(pid != 2212){return;}
       double mass = (pid == 2112) ? mN : mP;
       TLorentzVector struck = target - recP4;
       TLorentzVector finalHadronic = struck + q;
@@ -238,6 +239,8 @@ int main(int argc, char **argv)
       b_recVz = recoil->par()->getVz();
       b_recBeta = recoil->par()->getBeta();
       b_recPath = recoil->getPath();
+
+      if(b_recTheta_deg < 90) { return; }  // only backward spectators
 
       b_theta_nq = theta;
       b_theta_nq_deg = theta * 180. / M_PI;

@@ -176,6 +176,11 @@ int main(int argc, char ** argv)
   TH1D * h_pcmy_epp = (TH1D*)inFile->Get("pcmy_epp");
   TH1D * h_pcmz_epp = (TH1D*)inFile->Get("pcmz_epp");
   TH1D * h_pcmT_epp = (TH1D*)inFile->Get("pcmT_epp");
+
+  // h_pcmx_epp->Rebin();
+  // h_pcmy_epp->Rebin();
+  // h_pcmz_epp->Rebin();
+  // h_pcmT_epp->Rebin();
   
   TH1D * h_pcmx_epp_SRC_Q2[bQ2];
   TH1D * h_pcmy_epp_SRC_Q2[bQ2];
@@ -195,6 +200,11 @@ int main(int argc, char ** argv)
 
     sprintf(temp_name,"h_pcmT_epp_SRC_Q2_%d",i);
     h_pcmT_epp_SRC_Q2[i] = (TH1D*)inFile->Get(temp_name);
+
+    // h_pcmx_epp_SRC_Q2[i]->Rebin();
+    // h_pcmy_epp_SRC_Q2[i]->Rebin();
+    // h_pcmz_epp_SRC_Q2[i]->Rebin();
+    // h_pcmT_epp_SRC_Q2[i]->Rebin();
   }
 
 
@@ -229,6 +239,11 @@ int main(int argc, char ** argv)
     sprintf(temp_name,"h_pcmT_epp_simSCM_%d",j);
     h_pcmT_epp_simSCM[j] = (TH1D*)inFile->Get(temp_name);
 
+    // h_pcmx_epp_simSCM[j]->Rebin();
+    // h_pcmy_epp_simSCM[j]->Rebin();
+    // h_pcmz_epp_simSCM[j]->Rebin();
+    // h_pcmT_epp_simSCM[j]->Rebin();
+
     for(int i=0; i<(bQ2); i++){
       int sCM= ((double)j/(double)linbin)*(max_sigma-min_sigma) + min_sigma;
       sprintf(temp_title,"sCM=%f %f - %f",sCM,bE_Q2[i],bE_Q2[i+1]);
@@ -244,6 +259,11 @@ int main(int argc, char ** argv)
 
       sprintf(temp_name,"h_pcmT_epp_SRC_simSCM_Q2_%d_%d",j,i);
       h_pcmT_epp_SRC_simSCM_Q2[j][i] = (TH1D*)inFile->Get(temp_name);
+
+      // h_pcmx_epp_SRC_simSCM_Q2[j][i]->Rebin();
+      // h_pcmy_epp_SRC_simSCM_Q2[j][i]->Rebin();
+      // h_pcmz_epp_SRC_simSCM_Q2[j][i]->Rebin();
+      // h_pcmT_epp_SRC_simSCM_Q2[j][i]->Rebin();
     }
   }
 
@@ -357,22 +377,22 @@ int main(int argc, char ** argv)
 
     double chi2_x_int, chi2_y_int, chi2_z_int, chi2_T_int, scale_x_int, scale_y_int, scale_z_int, scale_T_int;
     
-    getChi2(h_pcmx_epp,h_pcmx_epp_simSCM[j],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_x_int,chi2_x_int);
+    getChi2(h_pcmx_epp,h_pcmx_epp_simSCM[j],-cutRange,cutRange,scale_x_int,chi2_x_int);
     h_pcmx_epp_simSCM_scale[j]=scale_x_int;
     g_chi2_pcmx_epp->SetPoint(g_chi2_pcmx_epp->GetN(),sCM,chi2_x_int);
     g_scale_pcmx_epp->SetPoint(g_scale_pcmx_epp->GetN(),sCM,scale_x_int);
 
-    getChi2(h_pcmy_epp,h_pcmy_epp_simSCM[j],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_y_int,chi2_y_int);
+    getChi2(h_pcmy_epp,h_pcmy_epp_simSCM[j],-cutRange,cutRange,scale_y_int,chi2_y_int);
     h_pcmy_epp_simSCM_scale[j]=scale_y_int;
     g_chi2_pcmy_epp->SetPoint(g_chi2_pcmy_epp->GetN(),sCM,chi2_y_int);
     g_scale_pcmy_epp->SetPoint(g_scale_pcmy_epp->GetN(),sCM,scale_y_int);
 
-    getChi2(h_pcmz_epp,h_pcmz_epp_simSCM[j],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_z_int,chi2_z_int);
+    getChi2(h_pcmz_epp,h_pcmz_epp_simSCM[j],-cutRange,cutRange,scale_z_int,chi2_z_int);
     h_pcmz_epp_simSCM_scale[j]=scale_z_int;
     g_chi2_pcmz_epp->SetPoint(g_chi2_pcmz_epp->GetN(),sCM,chi2_z_int);
     g_scale_pcmz_epp->SetPoint(g_scale_pcmz_epp->GetN(),sCM,scale_z_int);
     
-    getChi2(h_pcmT_epp,h_pcmT_epp_simSCM[j],0.0,cutRange,scale_T_int,chi2_T_int);
+    getChi2(h_pcmT_epp,h_pcmT_epp_simSCM[j],0.0,cutRange*sqrt(2.0),scale_T_int,chi2_T_int);
     h_pcmT_epp_simSCM_scale[j]=scale_T_int;     
     g_chi2_pcmT_epp->SetPoint(g_chi2_pcmT_epp->GetN(),sCM,chi2_T_int);    
     g_scale_pcmT_epp->SetPoint(g_scale_pcmT_epp->GetN(),sCM,scale_T_int);
@@ -380,22 +400,22 @@ int main(int argc, char ** argv)
     for(int i=0; i<(bQ2); i++){
       double chi2_x, chi2_y, chi2_z, chi2_T, scale_x, scale_y, scale_z, scale_T;
       
-      getChi2(h_pcmx_epp_SRC_Q2[i],h_pcmx_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_x,chi2_x);
+      getChi2(h_pcmx_epp_SRC_Q2[i],h_pcmx_epp_SRC_simSCM_Q2[j][i],-cutRange,cutRange,scale_x,chi2_x);
       h_pcmx_epp_SRC_simSCM_Q2_scale[j][i]=scale_x;
       g_chi2_pcmx_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmx_epp_SRC_Q2[i]->GetN(),sCM,chi2_x);
       g_scale_pcmx_epp_SRC_Q2[i]->SetPoint(g_scale_pcmx_epp_SRC_Q2[i]->GetN(),sCM,scale_x);
 
-      getChi2(h_pcmy_epp_SRC_Q2[i],h_pcmy_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_y,chi2_y);
+      getChi2(h_pcmy_epp_SRC_Q2[i],h_pcmy_epp_SRC_simSCM_Q2[j][i],-cutRange,cutRange,scale_y,chi2_y);
       h_pcmy_epp_SRC_simSCM_Q2_scale[j][i]=scale_y;
       g_chi2_pcmy_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmy_epp_SRC_Q2[i]->GetN(),sCM,chi2_y);
       g_scale_pcmy_epp_SRC_Q2[i]->SetPoint(g_scale_pcmy_epp_SRC_Q2[i]->GetN(),sCM,scale_y);
 
-      getChi2(h_pcmz_epp_SRC_Q2[i],h_pcmz_epp_SRC_simSCM_Q2[j][i],-cutRange/sqrt(2.0),cutRange/sqrt(2.0),scale_z,chi2_z);
+      getChi2(h_pcmz_epp_SRC_Q2[i],h_pcmz_epp_SRC_simSCM_Q2[j][i],-cutRange,cutRange,scale_z,chi2_z);
       h_pcmz_epp_SRC_simSCM_Q2_scale[j][i]=scale_z;
       g_chi2_pcmz_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmz_epp_SRC_Q2[i]->GetN(),sCM,chi2_z);
       g_scale_pcmz_epp_SRC_Q2[i]->SetPoint(g_scale_pcmz_epp_SRC_Q2[i]->GetN(),sCM,scale_z);
       
-      getChi2(h_pcmT_epp_SRC_Q2[i],h_pcmT_epp_SRC_simSCM_Q2[j][i],0.0,cutRange,scale_T,chi2_T);
+      getChi2(h_pcmT_epp_SRC_Q2[i],h_pcmT_epp_SRC_simSCM_Q2[j][i],0.0,cutRange*sqrt(2.0),scale_T,chi2_T);
       h_pcmT_epp_SRC_simSCM_Q2_scale[j][i]=scale_T;      
       g_chi2_pcmT_epp_SRC_Q2[i]->SetPoint(g_chi2_pcmT_epp_SRC_Q2[i]->GetN(),sCM,chi2_T);
       g_scale_pcmT_epp_SRC_Q2[i]->SetPoint(g_scale_pcmT_epp_SRC_Q2[i]->GetN(),sCM,scale_T);
@@ -960,7 +980,7 @@ void getChi2(TH1D * h_d, TH1D * h_s, double min, double max, double & final_scal
       double ex = h_s_clone->GetBinContent(j);
       double ex_err = h_s_clone->GetBinError(j);
    //   double chi2_point = 0.5 * sq(ob - ex) / sq(ob_err + ex_err);   
-      double chi2_point = sq(ob - ex) / (sq(ob_err));// + sq(ex_err));
+      double chi2_point = sq(ob - ex) / (sq(ob_err) + sq(ex_err));
 
       chi2+=chi2_point;
     }

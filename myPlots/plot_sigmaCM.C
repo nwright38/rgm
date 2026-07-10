@@ -114,7 +114,7 @@ void drawPage(TCanvas *c,
         leg->AddEntry(gQ2,  Form("#sigma_{%s} vs Q^{2}", label), "lpe");
         leg->AddEntry(lmid, Form("Integrated #sigma_{%s} = %.3f^{+%.3f}_{-%.3f} GeV/c",
                                  label, sigma_int, err_hi, err_lo), "l");
-        leg->Draw();
+       // leg->Draw();
 
         // Numeric label in upper-left
         TLatex tex;
@@ -139,9 +139,10 @@ void drawPage(TCanvas *c,
 // -----------------------------------------------------------------------
 // MAIN macro function
 // -----------------------------------------------------------------------
-void plot_sigmaCM(const char *inFileName  = "/work/clas12/users/nwright/rgm_andrew/build/Ana/Q2_Ana/test.root",
+void plot_sigmaCM(const char *inFileName  = "/work/clas12/users/nwright/rgm_andrew/build/Ana/Q2_Ana/c12_upd.root",
                   const char *outPDFFile  = "sigmaCM_plots.pdf")
 {
+   // inFileName = "c12_cm_cut.root";
     gStyle->SetOptStat(0);
     gStyle->SetOptTitle(0);
     gStyle->SetPadGridX(true);

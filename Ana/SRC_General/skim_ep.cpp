@@ -63,9 +63,37 @@ int main(int argc, char ** argv)
   // Writer chain
   clas12root::HipoChainWriter chain(outName);
   for(int k = 3; k < argc; k++){
-    cout << "Input file " << argv[k] << endl;
-    chain.Add(argv[k]);
+    std::string fname = argv[k];
+
+    bool ok = true;
+    try {
+      hipo::reader testReader;
+      testReader.open(fname.c_str());   // void return; bad files throw or leave reader empty
+      if(testReader.getEntries() <= 0){
+        ok = false;
+      }
+    } catch (const std::exception &e) {
+      cerr << "WARNING: exception opening " << fname << ": " << e.what() << endl;
+      ok = false;
+    } catch (...) {
+      cerr << "WARNING: unknown error opening " << fname << endl;
+      ok = false;
+    }
+
+    if(!ok){
+      cerr << "SKIPPING bad/corrupt file: " << fname << endl;
+      continue;
+    }
+
+    cout << "Input file " << fname << endl;
+    chain.Add(fname.c_str());
   }
+
+
+  // for(int k = 3; k < argc; k++){
+  //   cout << "Input file " << argv[k] << endl;
+  //   chain.Add(argv[k]);
+  // }
   chain.SetReaderTags({0});
   chain.db()->turnOffQADB();
   auto config_c12 = chain.GetC12Reader();
