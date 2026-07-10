@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
-project(SigmaCM LANGUAGES CXX)
 
-find_package(ROOT REQUIRED COMPONENTS Core RIO Tree Hist MathCore Minuit2)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  project(SigmaCM LANGUAGES CXX)
+endif()
+
+if(NOT TARGET ROOT::Core OR NOT TARGET ROOT::Minuit2)
+  find_package(ROOT REQUIRED COMPONENTS Core RIO Tree Hist MathCore Minuit2)
+endif()
 
 add_library(sigmacm
   src/SigmaCMConfig.cpp

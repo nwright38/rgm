@@ -1,16 +1,27 @@
 # Sigma_CM extraction
 
-This directory contains a standalone C++17 + ROOT pipeline for the SRC `(e,e'pp)`
-sigma_CM extraction from flat ROOT skims. It intentionally does not depend on
-clas12root, HIPO, or experiment framework libraries.
+This directory contains the C++17 + ROOT pipeline for the SRC `(e,e'pp)`
+sigma_CM extraction from flat ROOT skims. It is built as part of the repository
+through `Ana/Q2_Ana/CMakeLists.txt`, while keeping the code in its own directory
+so this analysis can evolve separately from the older Q2 programs. It
+intentionally does not depend on clas12root, HIPO, or experiment framework
+libraries.
 
 ## Build
 
-From a configured ROOT environment:
+From the repository root, using the normal repository build:
 
 ```bash
 cmake -S . -B build
 cmake --build build --target sigmacm_tests
+```
+
+For quick local iteration on only this package, the subdirectory can also be
+configured directly:
+
+```bash
+cmake -S Ana/Q2_Ana/Sigma_CM -B /tmp/sigmacm_build
+cmake --build /tmp/sigmacm_build --target sigmacm_tests
 ```
 
 Driver executables are named `sigmacm_run_nominal`, `sigmacm_run_cut_toys`,
