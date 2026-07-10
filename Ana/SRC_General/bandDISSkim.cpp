@@ -185,8 +185,8 @@ int main(int argc, char **argv)
 
     b_run = c12->runconfig()->getRun();
     b_event = c12->runconfig()->getEvent();
-    b_nProtons = protons.size();
-    b_nNeutrons = neutrons.size();
+    b_nProtons = (int)protons.size();
+    b_nNeutrons = (int)neutrons.size();
 
     b_Q2 = Q2;
     b_W2 = W2;
