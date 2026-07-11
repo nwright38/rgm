@@ -66,11 +66,32 @@ Useful common options:
 --fit-z-max=1.0
 ```
 
-## 3. Python Helpers
+## 3. Plotting And Budget Scripts
 
-The Python scripts are optional. They are only for assembling systematic budget
-tables and making PDF/PNG plots from the ROOT files produced by the C++
-executables.
+The plotting and budget scripts are in this same directory:
+
+```text
+plot_sigmaCM.py       obvious-name plotting script
+make_plots.py         same plotting code; kept for compatibility
+budget_assembler.py   systematic budget tables
+run_sigmaCM.py        convenience wrapper around executables plus scripts
+```
+
+`plot_sigmaCM.py` reads the ROOT files made by the C++ executables and writes:
+
+```text
+sigma vs Q2 with stat and stat+sys bands
+profile-chi2 curves
+toy sigma-hat distributions
+integrated sigma summaries
+```
+
+`budget_assembler.py` reads the nominal/toy/scan/closure ROOT files and writes
+the systematic budget as JSON, CSV, and TeX.
+
+The data+best-fit overlay canvases with the exact old ROOT object names are
+still made by `Main_sigmaCM_Hists`, because that is the legacy-compatible ROOT
+output path.
 
 They need these Python packages:
 
@@ -103,7 +124,7 @@ Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
   --closure closure.root \
   --out-prefix budget
 
-Ana/Q2_Ana/Sigma_CM/make_plots.py \
+Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py \
   nominal.root cut_toys.root gcf_toys.root combined_toys.root profile_x.root profile_y.root profile_z.root \
   --budget-json budget.json \
   --out-dir plots
