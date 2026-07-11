@@ -122,20 +122,34 @@ plots/*.png
 ## 4. One-Command Wrapper
 
 `run_sigmaCM.py` is just a convenience wrapper around the C++ executables plus
-the Python helpers.
+the Python helpers. It can be run from the repository root or from the build
+output directory that contains `sigmacm_run_nominal`.
 
-Use it only after the Python environment above is working.
+If the Python environment is not ready yet, add `--skip-python`. That runs the
+C++ executable steps and skips budget/plot scripts.
 
-Quick nominal run plus plots:
+Quick nominal run plus plots, from the repository root:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out
+```
+
+Quick nominal run with no Python helpers, from `build/Ana/Q2_Ana/Sigma_CM`:
+
+```bash
+python3 ../../../../Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --skip-python
 ```
 
 Full run with toys, profiles, budget, and plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --full
+```
+
+Full run with only the C++ ROOT outputs:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --full --skip-python
 ```
 
 If you built Sigma_CM directly instead of through the full repo, pass that build

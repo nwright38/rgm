@@ -7,6 +7,7 @@ Use --full for cut/GCF/combined toys, profile scans, budget assembly, and plots.
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -16,10 +17,34 @@ def run(cmd):
 
 
 def exe(build_dir, name):
-    top_level = Path(build_dir) / "Ana" / "Q2_Ana" / "Sigma_CM" / f"sigmacm_{name}"
-    if top_level.exists():
-        return top_level
-    return Path(build_dir) / f"sigmacm_{name}"
+    exe_name = f"sigmacm_{name}"
+    build = Path(build_dir)
+    here = Path.cwd()
+    script = Path(__file__).resolve()
+    source_root = script.parents[3]
+    candidates = [
+        here / exe_name,
+        build / "Ana" / "Q2_Ana" / "Sigma_CM" / exe_name,
+        build / exe_name,
+        source_root / "build" / "Ana" / "Q2_Ana" / "Sigma_CM" / exe_name,
+        source_root / "build" / exe_name,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    tried = "\n  ".join(str(c) for c in candidates)
+    raise FileNotFoundError(
+        f"Could not find {exe_name}. Tried:\n  {tried}\n"
+        "Run from the build/Ana/Q2_Ana/Sigma_CM directory, or pass --build-dir."
+    )
+
+
+def helper(name):
+    return Path(__file__).resolve().with_name(name)
+
+
+def run_python(script, args):
+    run([sys.executable, helper(script), *args])
 
 
 def main():
@@ -30,6 +55,8 @@ def main():
     ap.add_argument("--build-dir", default="build")
     ap.add_argument("--seed", default="17")
     ap.add_argument("--full", action="store_true", help="Run systematic toys/profile scans too")
+    ap.add_argument("--skip-python", action="store_true",
+                    help="Run only the C++ executables; skip budget and plot scripts")
     ap.add_argument("--n-toys", default="100")
     ap.add_argument("--n-bootstrap", default="200")
     args = ap.parse_args()
@@ -64,18 +91,23 @@ def main():
                  f"--axis={axis}", "--scan-min=0.08", "--scan-max=0.26", "--n-points=61"])
             profiles.append(prof)
         budget = prefix.with_suffix(".budget")
-        run([Path(__file__).with_name("budget_assembler.py"), "--nominal", nominal,
-             "--cut-toys", cut, "--gcf-toys", gcf, "--fit-range", ranges,
-             "--closure", closure, "--out-prefix", budget])
-        budget_json = budget.with_suffix(".json")
+        if not args.skip_python:
+            run_python("budget_assembler.py", ["--nominal", nominal,
+                       "--cut-toys", cut, "--gcf-toys", gcf, "--fit-range", ranges,
+                       "--closure", closure, "--out-prefix", budget])
+            budget_json = budget.with_suffix(".json")
         roots.extend([cut, gcf, combined, ranges, closure, *profiles])
 
-    plot_cmd = [Path(__file__).with_name("make_plots.py"), *roots, "--out-dir", plot_dir]
-    if budget_json:
-        plot_cmd.extend(["--budget-json", budget_json])
-    run(plot_cmd)
+    if not args.skip_python:
+        plot_cmd = [*roots, "--out-dir", plot_dir]
+        if budget_json:
+            plot_cmd.extend(["--budget-json", budget_json])
+        run_python("make_plots.py", plot_cmd)
     print(f"Wrote {nominal}")
-    print(f"Wrote plots in {plot_dir}")
+    if args.skip_python:
+        print("Skipped Python budget/plot helpers")
+    else:
+        print(f"Wrote plots in {plot_dir}")
 
 
 if __name__ == "__main__":
