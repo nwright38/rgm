@@ -36,6 +36,17 @@ Nominal/stat-only extraction, integrated plus Q2-binned:
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_nominal data.root mc.root nominal.root
 ```
 
+`nominal.root` contains both:
+
+```text
+sigmaCM/profile TTrees for the new workflow
+legacy-style hists, graphs, best-fit overlays, and canvases
+```
+
+The legacy-style objects are written by the new Sigma_CM code. You do not need
+to run `Main_sigmaCM_Hists` to get the ROOT plotting surface from a nominal
+Sigma_CM extraction.
+
 Profile-chi2 scan for one projection:
 
 ```bash
@@ -86,6 +97,11 @@ toy sigma-hat distributions
 integrated sigma summaries
 ```
 
+You can run it with only the nominal ROOT file. In that case it makes the plots
+that are possible from nominal/stat-only results. `--budget-json` is optional;
+only add it when you have already run the systematic toys/scans and want
+stat+sys bands.
+
 `budget_assembler.py` reads the nominal/toy/scan/closure ROOT files and writes
 the systematic budget as JSON, CSV, and TeX.
 
@@ -116,6 +132,10 @@ python -m pip install numpy uproot matplotlib
 Then run the helpers with that environment active:
 
 ```bash
+Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py \
+  nominal.root \
+  --out-dir plots_nominal_only
+
 Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
   --nominal nominal.root \
   --cut-toys cut_toys.root \
@@ -180,12 +200,15 @@ directory:
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --build-dir /tmp/sigmacm_build
 ```
 
-## 5. Legacy ROOT Output
+## 5. Legacy-Style ROOT Output
 
-The old ROOT-object contract is still produced by
-`Ana/Q2_Ana/Main_sigmaCM_Hists.cpp`, not by the new skim-based executables.
+`sigmacm_run_nominal` now writes a legacy-style plotting surface into its output
+ROOT file, alongside the compact `sigmaCM` result TTree. `Main_sigmaCM_Hists`
+is still untouched and remains the original legacy program, but the new
+Sigma_CM nominal output has the same kind of ROOT objects available for legacy
+plotting and inspection.
 
-Use `Main_sigmaCM_Hists` when legacy plotting needs the exact old object names:
+Important object names include:
 
 ```text
 sigmacmx_int, sigmacmy_int, sigmacmz_int, sigmacmT_int
@@ -195,8 +218,17 @@ pcmx_epp_fit, pcmy_epp_fit, pcmz_epp_fit, pcmT_epp_fit
 c_chi2_*, c_scale_*, c_overlay_*
 ```
 
-Use this `Sigma_CM` directory when you want the newer skim-based nominal,
-profile, toy, systematic-budget, and plotting workflow.
+For Q2-binned overlays it also writes names like:
+
+```text
+h_pcmx_epp_SRC_Q2_0, h_pcmx_epp_SRC_Q2_0_fit
+g_chi2_pcmx_epp_SRC_Q2_0, g_scale_pcmx_epp_SRC_Q2_0
+c_overlay_pcmx_Q2_0
+```
+
+The old program `Main_sigmaCM_Hists` should remain useful for comparing against
+the historical output. The new `Sigma_CM` directory is now the place to get the
+same style of ROOT plotting objects from the current skim-based fit.
 
 ## 6. Input Requirements
 

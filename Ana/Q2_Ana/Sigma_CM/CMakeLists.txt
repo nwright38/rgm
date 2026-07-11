@@ -4,18 +4,19 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(SigmaCM LANGUAGES CXX)
 endif()
 
-if(NOT TARGET ROOT::Core OR NOT TARGET ROOT::Minuit2)
-  find_package(ROOT REQUIRED COMPONENTS Core RIO Tree Hist MathCore Minuit2)
+if(NOT TARGET ROOT::Core OR NOT TARGET ROOT::Minuit2 OR NOT TARGET ROOT::Gpad)
+  find_package(ROOT REQUIRED COMPONENTS Core RIO Tree Hist Gpad MathCore Minuit2)
 endif()
 
 add_library(sigmacm
   SigmaCMConfig.cpp
   SigmaCMExtractor.cpp
+  SigmaCMLegacyOutput.cpp
   SigmaCMSkimIO.cpp
   SigmaCMResultIO.cpp
 )
 target_include_directories(sigmacm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(sigmacm PUBLIC ROOT::Core ROOT::RIO ROOT::Tree ROOT::Hist ROOT::MathCore ROOT::Minuit2)
+target_link_libraries(sigmacm PUBLIC ROOT::Core ROOT::RIO ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::MathCore ROOT::Minuit2)
 target_compile_features(sigmacm PUBLIC cxx_std_17)
 
 foreach(app

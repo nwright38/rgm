@@ -1,4 +1,8 @@
 #include "SigmaCMExtractor.h"
+#include "SigmaCMLegacyOutput.h"
+#include "SigmaCMResultIO.h"
+
+#include <TFile.h>
 
 #include <cassert>
 #include <cmath>
@@ -66,6 +70,18 @@ int main() {
   Result r = extract(data, mc, sigmaGen, cfg);
   assert(r.converged);
   assert(std::abs(r.scale - 1.0) < 0.15);
+
+  const char* legacyPath = "sigmacm_legacy_surface_test.root";
+  writeResultsTree(legacyPath, {r});
+  writeLegacyRootObjects(legacyPath, data, mc, sigmaGen, {r});
+  TFile legacyFile(legacyPath, "READ");
+  assert(!legacyFile.IsZombie());
+  assert(legacyFile.Get("sigmaCM"));
+  assert(legacyFile.Get("pcmx_epp"));
+  assert(legacyFile.Get("pcmx_epp_fit"));
+  assert(legacyFile.Get("sigmacmx_int"));
+  assert(legacyFile.Get("g_chi2_pcmx_epp"));
+  assert(legacyFile.Get("c_overlay_pcmx_epp"));
 
   const double c1 = textbookChi2(10.0, 8.0, 1.2, 8.0);
   const double c2 = (10.0 - 1.2 * 8.0) * (10.0 - 1.2 * 8.0) / (10.0 + 1.2 * 1.2 * 8.0);
