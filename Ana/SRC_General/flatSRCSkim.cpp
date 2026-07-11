@@ -24,7 +24,6 @@ using namespace std;
 using namespace clas12;
 
 const double mP = 0.938;
-const double mN = 0.939565;
 const double mU = 0.9314941024;
 const double me = 0.000511;
 const double m_4He = 4.00260325415 * mU - 2 * me;
@@ -46,7 +45,7 @@ string getCommandOutput(const char *cmd)
 
 void Usage()
 {
-  cerr << "Usage: ./code <MC=1,Data=0> <Ebeam(GeV)> <output.root> <input.hipo> [more hipo...]\n";
+  cerr << "Usage: ./code <MC=1,Data=0> <A> <Ebeam(GeV)> <output.root> <input.hipo> [more hipo...]\n";
 }
 
 bool inFD(int status){ return (abs(status) >= 2000 && abs(status) < 4000); }
@@ -54,12 +53,13 @@ bool inCD(int status){ return (abs(status) >= 4000 && abs(status) < 8000); }
 
 int main(int argc, char **argv)
 {
-  if(argc < 4){ Usage(); return -1; }
+  if(argc < 5){ Usage(); return -1; }
 
   bool isMC = (atoi(argv[1]) == 1);
-  double Ebeam = atof(argv[2]);
+  int A = atoi(argv[2]);
+  double Ebeam = atof(argv[3]);
 
-  TFile *outFile = new TFile(argv[3], "RECREATE");
+  TFile *outFile = new TFile(argv[4], "RECREATE");
   TTree *srcTree = new TTree("srcTree", "SRC Kinematics");
 
   // ---- output branches ----
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
-  for(int k = 4; k < argc; k++){
+  for(int k = 5; k < argc; k++){
     cout << "Input file " << argv[k] << endl;
     chain.Add(argv[k]);
   }
@@ -242,7 +242,19 @@ int main(int argc, char **argv)
   long long cut_lead_region = 0;
   long long cut_written = 0;
 
-  reweighter newWeight(Ebeam,2,2,kelly,"AV18",.15);
+  int Z = A / 2;
+  int N = A / 2;
+
+  if(A == 48){
+    Z = 20;
+    N = 20;
+  }
+  else if(A == 120){
+    Z = 50;
+    N = 70;
+  }
+
+  reweighter newWeight(Ebeam,Z,N,kelly,"AV18",.15);
 
   int ctr = 0;
   while(chain.Next())
