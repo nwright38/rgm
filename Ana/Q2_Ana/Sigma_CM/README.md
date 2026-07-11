@@ -1,16 +1,17 @@
 # Sigma_CM extraction
 
-This is the flat, event-skim based sigma_CM workflow. All source, drivers,
-tests, and plotting helpers live in this directory on purpose.
+This directory is intentionally flat. The C++ source, executable drivers, tests,
+and optional Python helpers all live directly in `Ana/Q2_Ana/Sigma_CM`.
 
-The quantitative basis is unchanged: MC templates are reweighted from
-`sigma_gen`, fits minimize the shared-scale chi2
-`sum (d - s e)^2 / (sigma_d^2 + s^2 sigma_e^2)`, and template bin errors are
-recomputed from `sum w^2` at each parameter point. The default is nominal/stat
-only for quick iteration. Use `--full` in the wrapper, or `--full-errors` in the
-C++ drivers, when assembling systematic bands.
+The fit basis is unchanged from the previous Sigma_CM code: MC templates are
+reweighted from `sigma_gen`, the default fit uses one shared scale, and the chi2
+is
 
-## Build
+```text
+sum (data - scale * mc)^2 / (data_err^2 + scale^2 * mc_err^2)
+```
+
+## 1. Build
 
 From the repository root:
 
@@ -19,77 +20,171 @@ cmake -S . -B build
 cmake --build build --target sigmacm_tests
 ```
 
-## One-command running
+The executables will be under:
 
-Quick nominal/stat-only extraction and PDF plots:
+```bash
+build/Ana/Q2_Ana/Sigma_CM/
+```
+
+## 2. Run With C++ Only
+
+This is the simplest path and does not require any Python packages.
+
+Nominal/stat-only extraction, integrated plus Q2-binned:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_nominal data.root mc.root nominal.root
+```
+
+Profile-chi2 scan for one projection:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data.root mc.root profile_x.root --axis=0
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data.root mc.root profile_y.root --axis=1
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data.root mc.root profile_z.root --axis=2
+```
+
+Toy and systematic inputs:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data.root mc.root cut_toys.root --n-cut-toys=100 --n-bootstrap=200
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data.root mc.root gcf_toys.root --n-toys=100
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data.root mc.root combined_toys.root --n-toys=100
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data.root mc.root fit_ranges.root --xy-ranges=0.45,0.50,0.55
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root
+```
+
+Useful common options:
+
+```text
+--seed N
+--q2-bin N
+--aux-weight branchName
+--legacy-independent-scales
+--cut-range-xy=0.55
+--fit-z-min=-0.5
+--fit-z-max=1.0
+```
+
+## 3. Python Helpers
+
+The Python scripts are optional. They are only for assembling systematic budget
+tables and making PDF/PNG plots from the ROOT files produced by the C++
+executables.
+
+They need these Python packages:
+
+```text
+numpy
+uproot
+matplotlib
+```
+
+In the current shell I checked, `uproot` is not installed for `python3`, so the
+C++ executables can run but the Python plotting scripts will fail until the
+Python environment has those packages.
+
+One clean setup is:
+
+```bash
+python3 -m venv .venv_sigmacm
+source .venv_sigmacm/bin/activate
+python -m pip install numpy uproot matplotlib
+```
+
+Then run the helpers with that environment active:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
+  --nominal nominal.root \
+  --cut-toys cut_toys.root \
+  --gcf-toys gcf_toys.root \
+  --fit-range fit_ranges.root \
+  --closure closure.root \
+  --out-prefix budget
+
+Ana/Q2_Ana/Sigma_CM/make_plots.py \
+  nominal.root cut_toys.root gcf_toys.root combined_toys.root profile_x.root profile_y.root profile_z.root \
+  --budget-json budget.json \
+  --out-dir plots
+```
+
+This writes:
+
+```text
+budget.json
+budget.csv
+budget.tex
+plots/*.pdf
+plots/*.png
+```
+
+## 4. One-Command Wrapper
+
+`run_sigmaCM.py` is just a convenience wrapper around the C++ executables plus
+the Python helpers.
+
+Use it only after the Python environment above is working.
+
+Quick nominal run plus plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out
 ```
 
-Full pass with cut toys, GCF toys, combined toys, fit-range scan, closure,
-profile-chi2 scans, budget tables, and plots:
+Full run with toys, profiles, budget, and plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --full
 ```
 
-Outputs are written next to the chosen prefix:
-
-- `sigmacm_out.nominal.root`: integrated and Q2-binned nominal results
-- `sigmacm_out.*.root`: toy, scan, closure, and profile outputs in full mode
-- `sigmacm_out.budget.{json,csv,tex}`: systematic budget in full mode
-- `sigmacm_out_plots/*.pdf`: sigma-vs-Q2 bands, profile-chi2 curves, and toy
-  sigma-hat distributions
-
-## Legacy ROOT compatibility
-
-The old plotting contract is still owned by
-`Ana/Q2_Ana/Main_sigmaCM_Hists.cpp`. Its output ROOT object names are unchanged,
-including:
-
-- `sigmacmx_int`, `sigmacmy_int`, `sigmacmz_int`, `sigmacmT_int`
-- `sigmacmx_Q2`, `sigmacmy_Q2`, `sigmacmz_Q2`, `sigmacmT_Q2`
-- `pcmx_epp`, `pcmy_epp`, `pcmz_epp`, `pcmT_epp`
-- `pcmx_epp_fit`, `pcmy_epp_fit`, `pcmz_epp_fit`, `pcmT_epp_fit`
-- `c_chi2_*`, `c_scale_*`, and `c_overlay_*` canvases
-
-Use that macro when you need a ROOT file that is byte-for-byte shaped for
-legacy plotting. Use this directory when you want the cleaner skim-based
-nominal/profile/toy/systematic workflow and additional PDF plots.
-
-## Individual drivers
-
-All drivers accept common options from `SigmaCMConfig.cpp`, including
-`--seed`, `--lead-mode`, `--q2-bin`, `--aux-weight`,
-`--legacy-independent-scales`, `--full-errors`, `--cut-range-xy`,
-`--fit-z-min`, and `--fit-z-max`.
+If you built Sigma_CM directly instead of through the full repo, pass that build
+directory:
 
 ```bash
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_nominal data.root mc.root nominal.root
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data.root mc.root profile.root --axis=0
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data.root mc.root cut.root --n-cut-toys=100 --n-bootstrap=200
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data.root mc.root gcf.root --n-toys=100
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data.root mc.root combined.root --n-toys=100
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data.root mc.root ranges.root --xy-ranges=0.45,0.50,0.55
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --build-dir /tmp/sigmacm_build
 ```
 
-Budget and plotting helpers:
+## 5. Legacy ROOT Output
 
-```bash
-Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
-  --nominal nominal.root --cut-toys cut.root --gcf-toys gcf.root \
-  --fit-range ranges.root --closure closure.root --out-prefix budget
+The old ROOT-object contract is still produced by
+`Ana/Q2_Ana/Main_sigmaCM_Hists.cpp`, not by the new skim-based executables.
 
-Ana/Q2_Ana/Sigma_CM/make_plots.py nominal.root cut.root profile.root \
-  --budget-json budget.json --out-dir plots
+Use `Main_sigmaCM_Hists` when legacy plotting needs the exact old object names:
+
+```text
+sigmacmx_int, sigmacmy_int, sigmacmz_int, sigmacmT_int
+sigmacmx_Q2, sigmacmy_Q2, sigmacmz_Q2, sigmacmT_Q2
+pcmx_epp, pcmy_epp, pcmz_epp, pcmT_epp
+pcmx_epp_fit, pcmy_epp_fit, pcmz_epp_fit, pcmT_epp_fit
+c_chi2_*, c_scale_*, c_overlay_*
 ```
 
-## Input requirements
+Use this `Sigma_CM` directory when you want the newer skim-based nominal,
+profile, toy, systematic-budget, and plotting workflow.
 
-The loader requires fixed skim branches. MC files must also contain `isMC`,
-`genWeight`, and `pcmX/Y/Z_truth`. Metadata must contain `sigma_gen` and FD/CD
-lead-region enum values under one of these names:
-`leadRegionFD`/`leadRegionCD`, `lead_region_fd`/`lead_region_cd`, or
-`fdLeadRegionValue`/`cdLeadRegionValue`. Missing schema elements are fatal.
+## 6. Input Requirements
+
+The skim loader expects a TTree named `srcTree` or `skim`.
+
+Data and MC need:
+
+```text
+run, event, Q2, xB, mMiss, kMiss, pMiss, pLead, thetaLead,
+leadRegion, hasRecoil, pRec, thetaRec, pcmX, pcmY, pcmZ, pRel, pCM
+```
+
+MC also needs:
+
+```text
+isMC, genWeight, pcmX_truth, pcmY_truth, pcmZ_truth
+```
+
+Metadata must include `sigma_gen` and FD/CD lead-region enum values under one of
+these name pairs:
+
+```text
+leadRegionFD / leadRegionCD
+lead_region_fd / lead_region_cd
+fdLeadRegionValue / cdLeadRegionValue
+```
