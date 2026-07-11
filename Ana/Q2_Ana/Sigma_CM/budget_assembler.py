@@ -5,8 +5,24 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
-import uproot
+np = None
+uproot = None
+
+
+def require_budget_modules():
+    global np, uproot
+    if np is not None and uproot is not None:
+        return
+    try:
+        import numpy as numpy_module
+        import uproot as uproot_module
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "budget_assembler.py needs numpy and uproot. Install them in this "
+            "Python environment, or run from an environment where they are available."
+        ) from exc
+    np = numpy_module
+    uproot = uproot_module
 
 
 DIRECTIONS = ["X", "Y", "Z"]
@@ -39,6 +55,7 @@ def main():
     ap.add_argument("--closure", required=True)
     ap.add_argument("--out-prefix", required=True)
     args = ap.parse_args()
+    require_budget_modules()
 
     nominal = read(args.nominal)
     cut = read(args.cut_toys)

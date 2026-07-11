@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Simple plotting for Sigma_CM ROOT result files."""
+
+import argparse
+import json
+from pathlib import Path
+
+np = None
+plt = None
+uproot = None
+
+
+def require_plot_modules():
+    global np, plt, uproot
+    if np is not None and plt is not None and uproot is not None:
+        return
+    try:
+        import numpy as numpy_module
+        import matplotlib.pyplot as pyplot
+        import uproot as uproot_module
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "make_plots.py needs numpy, matplotlib, and uproot. Install them in this "
+            "Python environment, or run from an environment where they are available."
+        ) from exc
+    np = numpy_module
+    plt = pyplot
+    uproot = uproot_module
+
+
+DIRECTIONS = ("X", "Y", "Z")
+
+
+def read_tree(path, tree):
+    with uproot.open(path) as f:
+        if tree not in f:
+            return None
+        return f[tree].arrays(library="np")
+
+
+def systematic_lookup(path):
+    if not path:
+        return {d: 0.0 for d in DIRECTIONS}
+    rows = json.loads(Path(path).read_text())
+    return {row["direction"]: float(row.get("total_systematic", 0.0)) for row in rows}
+
+
+def savefig(out, name):
+    plt.tight_layout()
+    plt.savefig(out / f"{name}.pdf")
+    plt.savefig(out / f"{name}.png", dpi=180)
+    plt.close()
+
+
+def plot_toy_distributions(arr, stem, out):
+    for d in DIRECTIONS:
+        values = np.asarray(arr[f"sigma{d}"], dtype=float)
+        if values.size == 0:
+            continue
+        plt.figure(figsize=(6.2, 4.4))
+        plt.hist(values, bins=30, histtype="stepfilled", alpha=0.65, color="#4477aa")
+        plt.axvline(np.mean(values), color="#cc6677", lw=1.8)
+        plt.xlabel(rf"$\hat{{\sigma}}_{{CM,{d}}}$ [GeV/c]")
+        plt.ylabel("Toy fits")
+        plt.title(f"{stem}: sigma-hat toys, {d}")
+        savefig(out, f"{stem}_sigma{d}_toy_distribution")
+
+
+def plot_sigma_vs_q2(arr, stem, out, sys):
+    if "q2BinIndex" not in arr:
+        return
+    mask = np.asarray(arr["q2BinIndex"]) >= 0
+    if not np.any(mask):
+        return
+    x = 0.5 * (np.asarray(arr["q2Lower"])[mask] + np.asarray(arr["q2Upper"])[mask])
+    order = np.argsort(x)
+    x = x[order]
+    plt.figure(figsize=(7.2, 4.8))
+    colors = {"X": "#4477aa", "Y": "#228833", "Z": "#cc6677"}
+    for d in DIRECTIONS:
+        y = np.asarray(arr[f"sigma{d}"])[mask][order]
+        stat = np.asarray(arr[f"sigma{d}ErrHigh"])[mask][order]
+        total = np.sqrt(stat * stat + sys.get(d, 0.0) ** 2)
+        plt.fill_between(x, y - total, y + total, color=colors[d], alpha=0.13, linewidth=0)
+        plt.errorbar(x, y, yerr=stat, marker="o", linestyle="-", color=colors[d], label=f"{d} stat")
+    plt.xlabel(r"$Q^2$ [GeV$^2$]")
+    plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
+    plt.title(f"{stem}: sigma vs Q2")
+    plt.legend(frameon=False, ncol=3)
+    savefig(out, f"{stem}_sigma_vs_q2_stat_and_total")
+
+
+def plot_integrated_summary(arr, stem, out, sys):
+    if arr is None or len(arr.get("sigmaX", [])) == 0:
+        return
+    use = 0
+    if "q2BinIndex" in arr:
+        integrated = np.where(np.asarray(arr["q2BinIndex"]) < 0)[0]
+        if integrated.size:
+            use = int(integrated[0])
+    labels = list(DIRECTIONS)
+    y = np.array([arr[f"sigma{d}"][use] for d in labels], dtype=float)
+    stat = np.array([arr[f"sigma{d}ErrHigh"][use] for d in labels], dtype=float)
+    total = np.sqrt(stat * stat + np.array([sys.get(d, 0.0) for d in labels]) ** 2)
+    x = np.arange(len(labels))
+    plt.figure(figsize=(5.8, 4.2))
+    plt.errorbar(x - 0.04, y, yerr=total, fmt="none", ecolor="#999999", elinewidth=6, alpha=0.45, label="stat+sys")
+    plt.errorbar(x, y, yerr=stat, fmt="o", color="#222222", label="stat")
+    plt.xticks(x, labels)
+    plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
+    plt.title(f"{stem}: integrated widths")
+    plt.legend(frameon=False)
+    savefig(out, f"{stem}_integrated_sigma_stat_and_total")
+
+
+def plot_profiles(path, stem, out):
+    prof = read_tree(path, "profile")
+    if prof is None or len(prof.get("sigma", [])) == 0:
+        return
+    axes = sorted(set(int(a) for a in prof["axis"]))
+    names = {0: "X", 1: "Y", 2: "Z"}
+    for axis in axes:
+        mask = np.asarray(prof["axis"]) == axis
+        x = np.asarray(prof["sigma"])[mask]
+        y = np.asarray(prof["chi2"])[mask]
+        order = np.argsort(x)
+        y = y[order]
+        x = x[order]
+        plt.figure(figsize=(6.2, 4.4))
+        plt.plot(x, y - np.min(y), marker="o", ms=3, color="#4477aa")
+        plt.axhline(1.0, color="#cc6677", lw=1.4, ls="--")
+        plt.xlabel(r"$\sigma_{CM}$ [GeV/c]")
+        plt.ylabel(r"$\Delta\chi^2$")
+        plt.title(f"{stem}: profile chi2, {names.get(axis, axis)}")
+        savefig(out, f"{stem}_profile_chi2_{names.get(axis, axis)}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("root_files", nargs="+", help="Nominal, toy, profile, or scan result ROOT files")
+    ap.add_argument("--out-dir", required=True)
+    ap.add_argument("--budget-json", help="JSON written by budget_assembler.py")
+    args = ap.parse_args()
+    require_plot_modules()
+
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    sys = systematic_lookup(args.budget_json)
+
+    for root in args.root_files:
+        arr = read_tree(root, "sigmaCM")
+        if arr is None:
+            continue
+        stem = Path(root).stem
+        plot_integrated_summary(arr, stem, out, sys)
+        plot_sigma_vs_q2(arr, stem, out, sys)
+        plot_toy_distributions(arr, stem, out)
+        plot_profiles(root, stem, out)
+
+
+if __name__ == "__main__":
+    main()

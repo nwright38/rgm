@@ -9,12 +9,12 @@ if(NOT TARGET ROOT::Core OR NOT TARGET ROOT::Minuit2)
 endif()
 
 add_library(sigmacm
-  src/SigmaCMConfig.cpp
-  src/SigmaCMExtractor.cpp
-  src/SigmaCMSkimIO.cpp
-  src/SigmaCMResultIO.cpp
+  SigmaCMConfig.cpp
+  SigmaCMExtractor.cpp
+  SigmaCMSkimIO.cpp
+  SigmaCMResultIO.cpp
 )
-target_include_directories(sigmacm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(sigmacm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(sigmacm PUBLIC ROOT::Core ROOT::RIO ROOT::Tree ROOT::Hist ROOT::MathCore ROOT::Minuit2)
 target_compile_features(sigmacm PUBLIC cxx_std_17)
 
@@ -28,11 +28,11 @@ foreach(app
   run_diagnostics
   run_profile_scan
 )
-  add_executable(sigmacm_${app} apps/${app}.cpp)
+  add_executable(sigmacm_${app} ${app}.cpp)
   target_link_libraries(sigmacm_${app} PRIVATE sigmacm)
 endforeach()
 
-add_executable(sigmacm_unit_tests tests/test_sigmacm.cpp)
+add_executable(sigmacm_unit_tests test_sigmacm.cpp)
 target_link_libraries(sigmacm_unit_tests PRIVATE sigmacm)
 
 add_custom_target(sigmacm_tests
