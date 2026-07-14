@@ -30,6 +30,22 @@ build/Ana/Q2_Ana/Sigma_CM/
 
 This is the simplest path and does not require any Python packages.
 
+Daily hipo-to-result path, from a full repo build with CLAS12/hipo available:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_extract 4 nominal.root data.hipo sim.hipo
+```
+
+Fast/debug skim path:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_extract --from-skim nominal.root data.root mc.root
+```
+
+The standalone Sigma_CM build can still compile without CLAS12/hipo; in that
+case hipo mode prints a clear "build does not include hipo support" error and
+`--from-skim` remains available.
+
 Nominal/stat-only extraction, integrated plus Q2-binned:
 
 ```bash
@@ -40,10 +56,10 @@ Nominal/stat-only extraction, integrated plus Q2-binned:
 
 ```text
 sigmaCM/profile TTrees for the new workflow
-legacy-style hists, graphs, best-fit overlays, and canvases
+standard ROOT hists, graphs, best-fit overlays, and canvases
 ```
 
-The legacy-style objects are written by the new Sigma_CM code. You do not need
+The standard plotting objects are written by the new Sigma_CM code. You do not need
 to run `Main_sigmaCM_Hists` to get the ROOT plotting surface from a nominal
 Sigma_CM extraction.
 
@@ -71,11 +87,26 @@ Useful common options:
 --seed N
 --q2-bin N
 --aux-weight branchName
---legacy-independent-scales
+--independent-scales
+--pcm-lt-prel
 --cut-range-xy=0.55
 --fit-z-min=-0.5
 --fit-z-max=1.0
+--beam-energy=5.98636
+--max-events=N
 ```
+
+Histogram comparison ranges:
+
+```text
+X chi2 compares bins from -cutRangeXY to +cutRangeXY
+Y chi2 compares bins from -cutRangeXY to +cutRangeXY
+Z chi2 compares bins from fitZMin to fitZMax
+T chi2 compares bins from 0 to sqrt(2)*cutRangeXY
+```
+
+With defaults, that is X/Y `[-0.55, 0.55]`, Z `[-0.5, 1.0]`,
+and T `[0, 0.778]`.
 
 ## 3. Plotting And Budget Scripts
 
@@ -98,16 +129,18 @@ integrated sigma summaries
 ```
 
 You can run it with only the nominal ROOT file. In that case it makes the plots
-that are possible from nominal/stat-only results. `--budget-json` is optional;
-only add it when you have already run the systematic toys/scans and want
-stat+sys bands.
+that are possible from nominal/stat-only results. The script uses `uproot` to
+read the ROOT outputs directly. `--budget-json` is optional; only add it when
+you have explicitly exported a budget sidecar and want stat+sys bands from that
+file.
 
-`budget_assembler.py` reads the nominal/toy/scan/closure ROOT files and writes
-the systematic budget as JSON, CSV, and TeX.
+`budget_assembler.py` is an optional exporter. It reads the
+nominal/toy/scan/closure ROOT files and writes the systematic budget as JSON,
+CSV, and TeX only when you run it.
 
-The data+best-fit overlay canvases with the exact old ROOT object names are
-still made by `Main_sigmaCM_Hists`, because that is the legacy-compatible ROOT
-output path.
+The data+best-fit overlay canvases with the familiar ROOT object names are
+also made by `Main_sigmaCM_Hists`, which remains useful for comparisons to the
+historical stage-2 workflow.
 
 They need these Python packages:
 
@@ -136,6 +169,10 @@ Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py \
   nominal.root \
   --out-dir plots_nominal_only
 
+Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py \
+  nominal.root cut_toys.root gcf_toys.root combined_toys.root profile_x.root profile_y.root profile_z.root \
+  --out-dir plots
+
 Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
   --nominal nominal.root \
   --cut-toys cut_toys.root \
@@ -143,22 +180,17 @@ Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
   --fit-range fit_ranges.root \
   --closure closure.root \
   --out-prefix budget
-
-Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py \
-  nominal.root cut_toys.root gcf_toys.root combined_toys.root profile_x.root profile_y.root profile_z.root \
-  --budget-json budget.json \
-  --out-dir plots
 ```
 
-This writes:
+The plot command writes:
 
 ```text
-budget.json
-budget.csv
-budget.tex
 plots/*.pdf
 plots/*.png
 ```
+
+The optional budget export writes `budget.json`, `budget.csv`, and
+`budget.tex`.
 
 ## 4. One-Command Wrapper
 
@@ -181,10 +213,16 @@ Quick nominal run with no Python helpers, from `build/Ana/Q2_Ana/Sigma_CM`:
 python3 ../../../../Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --skip-python
 ```
 
-Full run with toys, profiles, budget, and plots:
+Full run with toys, profiles, and plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --full
+```
+
+Add table sidecars only when you want them:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --full --export-budget
 ```
 
 Full run with only the C++ ROOT outputs:
@@ -200,12 +238,12 @@ directory:
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data.root mc.root sigmacm_out --build-dir /tmp/sigmacm_build
 ```
 
-## 5. Legacy-Style ROOT Output
+## 5. Standard ROOT Plotting Output
 
-`sigmacm_run_nominal` now writes a legacy-style plotting surface into its output
+`sigmacm_run_nominal` now writes the standard ROOT plotting surface into its output
 ROOT file, alongside the compact `sigmaCM` result TTree. `Main_sigmaCM_Hists`
-is still untouched and remains the original legacy program, but the new
-Sigma_CM nominal output has the same kind of ROOT objects available for legacy
+is still untouched and remains available for historical comparisons, but the new
+Sigma_CM nominal output has the same ROOT objects available for everyday
 plotting and inspection.
 
 Important object names include:
@@ -226,9 +264,9 @@ g_chi2_pcmx_epp_SRC_Q2_0, g_scale_pcmx_epp_SRC_Q2_0
 c_overlay_pcmx_Q2_0
 ```
 
-The old program `Main_sigmaCM_Hists` should remain useful for comparing against
-the historical output. The new `Sigma_CM` directory is now the place to get the
-same style of ROOT plotting objects from the current skim-based fit.
+`Main_sigmaCM_Hists` should remain useful for comparing against the historical
+output. The new `Sigma_CM` directory is now the place to get the same style of
+ROOT plotting objects from the current skim-based fit.
 
 ## 6. Input Requirements
 

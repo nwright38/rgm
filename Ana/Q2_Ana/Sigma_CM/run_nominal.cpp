@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, binCfg));
     }
     writeResultsTree(pos[2], results);
-    writeLegacyRootObjects(pos[2], data.events, mc.events, mc.sigmaGen, results);
+    writePlottingRootObjects(pos[2], data.events, mc.events, mc.sigmaGen, results);
   } catch (const std::exception& e) {
     std::cerr << "run_nominal failed: " << e.what() << "\n";
     return 1;

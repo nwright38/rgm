@@ -188,7 +188,8 @@ std::unique_ptr<ROOT::Math::Minimizer> makeMinimizer() {
 }
 
 Result minimizeModel(const Chi2Model& model, const Config& cfg, bool fixedAxis = false,
-                     int fixedAxisIndex = -1, double fixedSigma = 0.0) {
+                     int fixedAxisIndex = -1, double fixedSigma = 0.0,
+                     bool computeErrors = true) {
   ROOT::Math::Functor f(model, model.nPars());
   auto minimizer = makeMinimizer();
   minimizer->SetFunction(f);
@@ -208,7 +209,7 @@ Result minimizeModel(const Chi2Model& model, const Config& cfg, bool fixedAxis =
     minimizer->SetLimitedVariable(pi++, "scaleZ", 1.0, 0.01, 1e-6, 1e6);
   }
   const bool ok = minimizer->Minimize();
-  minimizer->Hesse();
+  if (computeErrors) minimizer->Hesse();
 
   const double* xs = minimizer->X();
   const double* errs = minimizer->Errors();
@@ -245,6 +246,7 @@ Result minimizeModel(const Chi2Model& model, const Config& cfg, bool fixedAxis =
   r.effectiveMCEntries = model.effectiveMC(sigma);
 
   auto covariance = [&](int i, int j) {
+    if (!computeErrors) return 0.0;
     return minimizer->CovMatrix(i, j);
   };
   auto corr = [&](int i, int j) {
@@ -257,7 +259,7 @@ Result minimizeModel(const Chi2Model& model, const Config& cfg, bool fixedAxis =
   int sxIndex = fixedAxis && fixedAxisIndex == 0 ? -1 : 0;
   int syIndex = fixedAxis ? (fixedAxisIndex == 0 ? 0 : (fixedAxisIndex == 1 ? -1 : 1)) : 1;
   int szIndex = fixedAxis ? (fixedAxisIndex == 2 ? -1 : 2) : 2;
-  auto errFor = [&](int idx) { return (idx >= 0 && errs) ? errs[idx] : 0.0; };
+  auto errFor = [&](int idx) { return (computeErrors && idx >= 0 && errs) ? errs[idx] : 0.0; };
   r.sigmaXErrLow = r.sigmaXErrHigh = errFor(sxIndex);
   r.sigmaYErrLow = r.sigmaYErrHigh = errFor(syIndex);
   r.sigmaZErrLow = r.sigmaZErrHigh = errFor(szIndex);
@@ -301,12 +303,15 @@ bool passesCuts(const Event& e, const Config& cfg) {
   if (!(e.kMiss > cfg.kMissLower)) return false;
   if (!(e.pLead > cfg.pLeadLower)) return false;
   if (!(e.hasRecoil && e.pRec > cfg.pRecLower)) return false;
+  if (cfg.requirePcmLtPrel && !(e.pCM < e.pRel)) return false;
   if (cfg.leadMode == LeadMode::FD) {
     if (!(e.leadRegion == cfg.fdLeadRegionValue && e.thetaLead < cfg.thetaFDUpper)) return false;
   } else if (cfg.leadMode == LeadMode::CD) {
-    throw std::runtime_error("CD-region sigma_CM extraction is a scope guard and is not implemented");
+    if (!(e.leadRegion == cfg.cdLeadRegionValue && e.thetaLead > cfg.thetaCDLower)) return false;
   } else {
-    throw std::runtime_error("BOTH lead mode is parsed but not implemented for extraction");
+    const bool passFD = e.leadRegion == cfg.fdLeadRegionValue && e.thetaLead < cfg.thetaFDUpper;
+    const bool passCD = e.leadRegion == cfg.cdLeadRegionValue && e.thetaLead > cfg.thetaCDLower;
+    if (!(passFD || passCD)) return false;
   }
   if (!cfg.integratedQ2) {
     if (cfg.q2BinIndex < 0 || cfg.q2BinIndex + 1 >= static_cast<int>(cfg.q2Edges.size())) {
@@ -346,7 +351,7 @@ Result extractProfileScan(const std::vector<Event>& dataEvents, const std::vecto
   for (int i = 0; i < nPoints; ++i) {
     const double s = scanMin + (scanMax - scanMin) * i / std::max(1, nPoints - 1);
     Chi2Model fixed(prepared, sigmaGen, local, true, axis, s);
-    Result rr = minimizeModel(fixed, local, true, axis, s);
+    Result rr = minimizeModel(fixed, local, true, axis, s, false);
     base.profile.push_back({s, rr.chi2, rr.sigmaX, rr.sigmaY, rr.sigmaZ, rr.scale});
   }
   return base;

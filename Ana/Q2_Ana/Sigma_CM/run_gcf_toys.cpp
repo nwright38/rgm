@@ -10,6 +10,15 @@ using namespace sigmacm;
 int main(int argc, char** argv) {
   std::vector<std::string> pos;
   Config cfg = configFromArgs(argc, argv, 1, pos);
+  for (auto it = pos.begin(); it != pos.end();) {
+    if (it->rfind("--n-toys=", 0) == 0) {
+      std::cerr << "run_gcf_toys uses every w_gcf_toy_* branch in the MC file; ignoring "
+                << *it << "\n";
+      it = pos.erase(it);
+    } else {
+      ++it;
+    }
+  }
   if (pos.size() != 3) {
     printCommonUsage(argv[0]);
     return 2;

@@ -22,9 +22,10 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   int ndf, q2BinIndex, leadMode, sharedScale, statOnly, converged;
   long long nEventsData;
   unsigned long long seed;
-  double xBLower, q2Lower, q2Upper, mMissLower, mMissUpper, kMissLower, pLeadLower, thetaFDUpper, pRecLower;
+  double xBLower, q2Lower, q2Upper, mMissLower, mMissUpper, kMissLower, pLeadLower, thetaFDUpper;
+  double thetaCDLower, pRecLower;
   double cutRangeXY, fitZMin, fitZMax;
-  int binsX, binsY, binsZ, fdLeadRegionValue, cdLeadRegionValue;
+  int binsX, binsY, binsZ, fdLeadRegionValue, cdLeadRegionValue, requirePcmLtPrel;
   std::string configJson, auxWeightBranch, status;
 
   tree.Branch("sigmaX", &sigmaX);
@@ -65,7 +66,9 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   tree.Branch("kMissLower", &kMissLower);
   tree.Branch("pLeadLower", &pLeadLower);
   tree.Branch("thetaFDUpper", &thetaFDUpper);
+  tree.Branch("thetaCDLower", &thetaCDLower);
   tree.Branch("pRecLower", &pRecLower);
+  tree.Branch("requirePcmLtPrel", &requirePcmLtPrel);
   tree.Branch("cutRangeXY", &cutRangeXY);
   tree.Branch("fitZMin", &fitZMin);
   tree.Branch("fitZMax", &fitZMax);
@@ -106,7 +109,8 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
     xBLower = r.config.xBLower; q2Lower = r.config.q2Lower; q2Upper = r.config.q2Upper;
     mMissLower = r.config.mMissLower; mMissUpper = r.config.mMissUpper;
     kMissLower = r.config.kMissLower; pLeadLower = r.config.pLeadLower;
-    thetaFDUpper = r.config.thetaFDUpper; pRecLower = r.config.pRecLower;
+    thetaFDUpper = r.config.thetaFDUpper; thetaCDLower = r.config.thetaCDLower;
+    pRecLower = r.config.pRecLower; requirePcmLtPrel = r.config.requirePcmLtPrel ? 1 : 0;
     cutRangeXY = r.config.cutRangeXY; fitZMin = r.config.fitZMin; fitZMax = r.config.fitZMax;
     binsX = r.config.binsX; binsY = r.config.binsY; binsZ = r.config.binsZ;
     fdLeadRegionValue = r.config.fdLeadRegionValue; cdLeadRegionValue = r.config.cdLeadRegionValue;

@@ -83,6 +83,17 @@ int main() {
   assert(legacyFile.Get("g_chi2_pcmx_epp"));
   assert(legacyFile.Get("c_overlay_pcmx_epp"));
 
+  Result profile = extractProfileScan(data, mc, sigmaGen, cfg, 0, 0.10, 0.22, 7);
+  assert(profile.converged);
+  assert(profile.profileAxis == 0);
+  assert(profile.profile.size() == 7);
+  const char* profilePath = "sigmacm_profile_test.root";
+  writeResultsTree(profilePath, {profile});
+  TFile profileFile(profilePath, "READ");
+  assert(!profileFile.IsZombie());
+  assert(profileFile.Get("sigmaCM"));
+  assert(profileFile.Get("profile"));
+
   const double c1 = textbookChi2(10.0, 8.0, 1.2, 8.0);
   const double c2 = (10.0 - 1.2 * 8.0) * (10.0 - 1.2 * 8.0) / (10.0 + 1.2 * 1.2 * 8.0);
   assert(std::abs(c1 - c2) < 1e-15);

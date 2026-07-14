@@ -183,11 +183,11 @@ void fillSigmaPoint(TGraphAsymmErrors& g, const Result& r, int axis, double x,
 
 }  // namespace
 
-void writeLegacyRootObjects(const std::string& path,
-                            const std::vector<Event>& dataEvents,
-                            const std::vector<Event>& mcEvents,
-                            double sigmaGen,
-                            const std::vector<Result>& results) {
+void writePlottingRootObjects(const std::string& path,
+                              const std::vector<Event>& dataEvents,
+                              const std::vector<Event>& mcEvents,
+                              double sigmaGen,
+                              const std::vector<Result>& results) {
   if (results.empty()) return;
   const int integratedIndex = resultIndexFor(results, -1);
   if (integratedIndex < 0) return;
@@ -197,8 +197,8 @@ void writeLegacyRootObjects(const std::string& path,
 
   std::unique_ptr<TFile> file(TFile::Open(path.c_str(), "UPDATE"));
   if (!file || file->IsZombie()) throw std::runtime_error("Could not update ROOT file '" + path + "'");
-  TNamed note("sigmacm_legacy_surface",
-              "Legacy-style hists/graphs/canvases written by Sigma_CM skim fitter");
+  TNamed note("sigmacm_plotting_surface",
+              "Standard ROOT hists/graphs/canvases written by Sigma_CM skim fitter");
   note.Write(note.GetName(), TObject::kOverwrite);
 
   std::array<std::unique_ptr<TGraphAsymmErrors>, 4> q2Graphs;
@@ -283,6 +283,14 @@ void writeLegacyRootObjects(const std::string& path,
     writeGraphCanvas("c_" + std::string(axisDefs[a].sigQ2Name), *q2Graphs[a]);
   }
   file->Close();
+}
+
+void writeLegacyRootObjects(const std::string& path,
+                            const std::vector<Event>& dataEvents,
+                            const std::vector<Event>& mcEvents,
+                            double sigmaGen,
+                            const std::vector<Result>& results) {
+  writePlottingRootObjects(path, dataEvents, mcEvents, sigmaGen, results);
 }
 
 }  // namespace sigmacm

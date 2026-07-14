@@ -12,12 +12,30 @@ add_library(sigmacm
   SigmaCMConfig.cpp
   SigmaCMExtractor.cpp
   SigmaCMLegacyOutput.cpp
+  SigmaCMHipoIO.cpp
   SigmaCMSkimIO.cpp
   SigmaCMResultIO.cpp
 )
 target_include_directories(sigmacm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(sigmacm PUBLIC ROOT::Core ROOT::RIO ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::MathCore ROOT::Minuit2)
 target_compile_features(sigmacm PUBLIC cxx_std_17)
+
+if(TARGET Clas12Ana AND TARGET Clas12Debug AND TARGET PkgConfig::hipo4)
+  target_compile_definitions(sigmacm PUBLIC SIGMACM_WITH_HIPO)
+  target_link_libraries(sigmacm PUBLIC
+    PkgConfig::hipo4
+    -lEG
+    -lClas12Banks
+    -lClas12Root
+    -L${CLAS12ROOT}/lib
+    -L${CLAS12ROOT}/ccdb/lib
+    Clas12Ana
+    Clas12Debug
+  )
+endif()
+
+add_executable(sigmacm_extract run_extract.cpp)
+target_link_libraries(sigmacm_extract PRIVATE sigmacm)
 
 foreach(app
   run_nominal

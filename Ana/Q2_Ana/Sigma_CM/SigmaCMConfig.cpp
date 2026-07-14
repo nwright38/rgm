@@ -31,7 +31,9 @@ std::string toJson(const Config& c) {
      << ",\"kMissLower\":" << c.kMissLower
      << ",\"pLeadLower\":" << c.pLeadLower
      << ",\"thetaFDUpper\":" << c.thetaFDUpper
+     << ",\"thetaCDLower\":" << c.thetaCDLower
      << ",\"pRecLower\":" << c.pRecLower
+     << ",\"requirePcmLtPrel\":" << (c.requirePcmLtPrel ? "true" : "false")
      << ",\"leadMode\":\"" << leadModeName(c.leadMode) << "\""
      << ",\"fdLeadRegionValue\":" << c.fdLeadRegionValue
      << ",\"cdLeadRegionValue\":" << c.cdLeadRegionValue
@@ -82,6 +84,7 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
     else if (arg.rfind("--aux-weight=", 0) == 0) cfg.auxWeightBranch = arg.substr(13);
     else if (arg == "--q2-bin") { cfg.integratedQ2 = false; cfg.q2BinIndex = std::atoi(next().c_str()); }
     else if (arg.rfind("--q2-bin=", 0) == 0) { cfg.integratedQ2 = false; cfg.q2BinIndex = std::atoi(arg.substr(9).c_str()); }
+    else if (arg == "--independent-scales") cfg.sharedScale = false;
     else if (arg == "--legacy-independent-scales") cfg.sharedScale = false;
     else if (arg == "--full-errors") cfg.statOnly = false;
     else if (arg == "--seed") cfg.seed = std::strtoull(next().c_str(), nullptr, 10);
@@ -94,7 +97,9 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
     else if (arg.rfind("--kmiss-lower=", 0) == 0) cfg.kMissLower = valueAfterEquals(arg);
     else if (arg.rfind("--plead-lower=", 0) == 0) cfg.pLeadLower = valueAfterEquals(arg);
     else if (arg.rfind("--theta-fd-upper=", 0) == 0) cfg.thetaFDUpper = valueAfterEquals(arg);
+    else if (arg.rfind("--theta-cd-lower=", 0) == 0) cfg.thetaCDLower = valueAfterEquals(arg);
     else if (arg.rfind("--prec-lower=", 0) == 0) cfg.pRecLower = valueAfterEquals(arg);
+    else if (arg == "--pcm-lt-prel") cfg.requirePcmLtPrel = true;
     else if (arg.rfind("--cut-range-xy=", 0) == 0) cfg.cutRangeXY = valueAfterEquals(arg);
     else if (arg.rfind("--fit-z-min=", 0) == 0) cfg.fitZMin = valueAfterEquals(arg);
     else if (arg.rfind("--fit-z-max=", 0) == 0) cfg.fitZMax = valueAfterEquals(arg);
@@ -106,7 +111,7 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
 void printCommonUsage(const char* program) {
   std::cerr << "Usage: " << program << " <data.root> <mc.root> <out.root> [options]\n"
             << "Common options: --lead-mode FD|CD|BOTH --q2-bin N --aux-weight name --seed N\n"
-            << "  --legacy-independent-scales --cut-range-xy=v --fit-z-min=v --fit-z-max=v\n";
+            << "  --independent-scales --pcm-lt-prel --cut-range-xy=v --fit-z-min=v --fit-z-max=v\n";
 }
 
 }  // namespace sigmacm
