@@ -161,9 +161,6 @@ sigmacm_out.cut_toys.root
 sigmacm_out.combined_toys.root
 sigmacm_out.fit_ranges.root
 sigmacm_out.closure.root
-sigmacm_out.profile_axis0.root
-sigmacm_out.profile_axis1.root
-sigmacm_out.profile_axis2.root
 sigmacm_out_plots/*.pdf
 ```
 
@@ -177,6 +174,14 @@ To also export `sigmacm_out.budget.json`, `.csv`, and `.tex`, add:
 
 ```bash
 --export-budget
+```
+
+Profile scans are extra diagnostic outputs. Add `--profiles` if you want:
+
+```text
+sigmacm_out.profile_axis0.root
+sigmacm_out.profile_axis1.root
+sigmacm_out.profile_axis2.root
 ```
 
 The wrapper skips GCF toys for hipo input because those toys require
@@ -239,16 +244,22 @@ Quick skim nominal plus plots:
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data_skim.root sim_skim.root sigmacm_out
 ```
 
-Full skim-based toys/profiles plus plots:
+Full skim-based systematics plus plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data_skim.root sim_skim.root sigmacm_out --full
 ```
 
-Full hipo-based toys/profiles plus plots:
+Full hipo-based systematics plus plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py --from-hipo --A 4 data.hipo sim.hipo sigmacm_out --full
+```
+
+Add profile scans only when needed:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py --from-hipo --A 4 data.hipo sim.hipo sigmacm_out --full --profiles
 ```
 
 Export budget JSON/CSV/TeX only when wanted:

@@ -340,20 +340,28 @@ Result extract(const std::vector<Event>& dataEvents, const std::vector<Event>& m
 Result extractProfileScan(const std::vector<Event>& dataEvents, const std::vector<Event>& mcEvents,
                           double sigmaGen, const Config& cfg, int axis,
                           double scanMin, double scanMax, int nPoints) {
+  if (sigmaGen <= 0.0) throw std::runtime_error("sigma_gen metadata must be positive");
   if (axis < 0 || axis > 2) throw std::runtime_error("Profile scan axis must be 0, 1, or 2");
   Config local = cfg;
   const Prepared prepared = prepare(dataEvents, mcEvents, local);
+  if (prepared.data.empty()) throw std::runtime_error("No data events pass Config cuts");
+  if (prepared.mc.empty()) throw std::runtime_error("No MC events pass Config cuts");
   Chi2Model nominal(prepared, sigmaGen, local);
-  Result base = minimizeModel(nominal, local);
+  Result base = minimizeModel(nominal, local, false, -1, 0.0, false);
   base.nEventsData = static_cast<long long>(prepared.data.size());
   base.profileAxis = axis;
   base.profile.clear();
   for (int i = 0; i < nPoints; ++i) {
     const double s = scanMin + (scanMax - scanMin) * i / std::max(1, nPoints - 1);
-    Chi2Model fixed(prepared, sigmaGen, local, true, axis, s);
-    Result rr = minimizeModel(fixed, local, true, axis, s, false);
-    base.profile.push_back({s, rr.chi2, rr.sigmaX, rr.sigmaY, rr.sigmaZ, rr.scale});
+    try {
+      Chi2Model fixed(prepared, sigmaGen, local, true, axis, s);
+      Result rr = minimizeModel(fixed, local, true, axis, s, false);
+      base.profile.push_back({s, rr.chi2, rr.sigmaX, rr.sigmaY, rr.sigmaZ, rr.scale});
+    } catch (const std::exception& e) {
+      base.status += "; profile point failed at sigma=" + std::to_string(s) + ": " + e.what();
+    }
   }
+  if (base.profile.empty()) throw std::runtime_error("All profile scan points failed");
   return base;
 }
 

@@ -3,7 +3,8 @@
 
 Default mode is intentionally quick: nominal stat-only extraction plus plots.
 Use --from-hipo for hipo inputs.
-Use --full for cut/GCF/combined toys, profile scans, and plots.
+Use --full for systematic toys/scans and plots.
+Use --profiles when you explicitly want the slower profile-scan ROOT files.
 Use --export-budget when you explicitly want JSON/CSV/TeX budget sidecars.
 """
 
@@ -64,7 +65,9 @@ def main():
     ap.add_argument("--cache-dir",
                     help="Directory for hipo-to-skim caches; default is OUT_PREFIX_cache")
     ap.add_argument("--seed", default="17")
-    ap.add_argument("--full", action="store_true", help="Run systematic toys/profile scans too")
+    ap.add_argument("--full", action="store_true", help="Run systematic toys/scans too")
+    ap.add_argument("--profiles", action="store_true",
+                    help="Also run diagnostic profile scans for X/Y/Z")
     ap.add_argument("--export-budget", action="store_true",
                     help="Write budget JSON/CSV/TeX sidecars during --full runs")
     ap.add_argument("--skip-python", action="store_true",
@@ -114,12 +117,13 @@ def main():
              f"--n-toys={args.n_toys}"])
         run([exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges, *common])
         run([exe(args.build_dir, "run_closure"), mc_input, closure, *common])
-        for axis in range(3):
-            prof = prefix.with_suffix(f".profile_axis{axis}.root")
-            run([exe(args.build_dir, "run_profile_scan"), data_input, mc_input, prof,
-                 *common, f"--axis={axis}", "--scan-min=0.08", "--scan-max=0.26",
-                 "--n-points=61"])
-            profiles.append(prof)
+        if args.profiles:
+            for axis in range(3):
+                prof = prefix.with_suffix(f".profile_axis{axis}.root")
+                run([exe(args.build_dir, "run_profile_scan"), data_input, mc_input, prof,
+                     *common, f"--axis={axis}", "--scan-min=0.08", "--scan-max=0.26",
+                     "--n-points=61"])
+                profiles.append(prof)
         budget = prefix.with_suffix(".budget")
         if args.export_budget and not args.skip_python:
             budget_cmd = ["--nominal", nominal, "--cut-toys", cut,
