@@ -40,7 +40,7 @@ def read_tree(path, tree):
 
 def systematic_lookup(path):
     if not path:
-        return {d: 0.0 for d in DIRECTIONS}
+        return None
     rows = json.loads(Path(path).read_text())
     return {row["direction"]: float(row.get("total_systematic", 0.0)) for row in rows}
 
@@ -48,7 +48,6 @@ def systematic_lookup(path):
 def savefig(out, name):
     plt.tight_layout()
     plt.savefig(out / f"{name}.pdf")
-    plt.savefig(out / f"{name}.png", dpi=180)
     plt.close()
 
 
@@ -80,14 +79,16 @@ def plot_sigma_vs_q2(arr, stem, out, sys):
     for d in DIRECTIONS:
         y = np.asarray(arr[f"sigma{d}"])[mask][order]
         stat = np.asarray(arr[f"sigma{d}ErrHigh"])[mask][order]
-        total = np.sqrt(stat * stat + sys.get(d, 0.0) ** 2)
-        plt.fill_between(x, y - total, y + total, color=colors[d], alpha=0.13, linewidth=0)
+        if sys is not None:
+            total = np.sqrt(stat * stat + sys.get(d, 0.0) ** 2)
+            plt.fill_between(x, y - total, y + total, color=colors[d], alpha=0.13, linewidth=0)
         plt.errorbar(x, y, yerr=stat, marker="o", linestyle="-", color=colors[d], label=f"{d} stat")
     plt.xlabel(r"$Q^2$ [GeV$^2$]")
     plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
     plt.title(f"{stem}: sigma vs Q2")
     plt.legend(frameon=False, ncol=3)
-    savefig(out, f"{stem}_sigma_vs_q2_stat_and_total")
+    suffix = "stat_and_total" if sys is not None else "stat"
+    savefig(out, f"{stem}_sigma_vs_q2_{suffix}")
 
 
 def plot_integrated_summary(arr, stem, out, sys):
@@ -101,16 +102,19 @@ def plot_integrated_summary(arr, stem, out, sys):
     labels = list(DIRECTIONS)
     y = np.array([arr[f"sigma{d}"][use] for d in labels], dtype=float)
     stat = np.array([arr[f"sigma{d}ErrHigh"][use] for d in labels], dtype=float)
-    total = np.sqrt(stat * stat + np.array([sys.get(d, 0.0) for d in labels]) ** 2)
     x = np.arange(len(labels))
     plt.figure(figsize=(5.8, 4.2))
-    plt.errorbar(x - 0.04, y, yerr=total, fmt="none", ecolor="#999999", elinewidth=6, alpha=0.45, label="stat+sys")
+    if sys is not None:
+        total = np.sqrt(stat * stat + np.array([sys.get(d, 0.0) for d in labels]) ** 2)
+        plt.errorbar(x - 0.04, y, yerr=total, fmt="none", ecolor="#999999",
+                     elinewidth=6, alpha=0.45, label="stat+sys")
     plt.errorbar(x, y, yerr=stat, fmt="o", color="#222222", label="stat")
     plt.xticks(x, labels)
     plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
     plt.title(f"{stem}: integrated widths")
     plt.legend(frameon=False)
-    savefig(out, f"{stem}_integrated_sigma_stat_and_total")
+    suffix = "stat_and_total" if sys is not None else "stat"
+    savefig(out, f"{stem}_integrated_sigma_{suffix}")
 
 
 def plot_profiles(path, stem, out):

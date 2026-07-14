@@ -119,10 +119,11 @@ budget_assembler.py   systematic budget tables
 run_sigmaCM.py        convenience wrapper around executables plus scripts
 ```
 
-`plot_sigmaCM.py` reads the ROOT files made by the C++ executables and writes:
+`plot_sigmaCM.py` reads the ROOT files made by the C++ executables and writes
+PDF plots:
 
 ```text
-sigma vs Q2 with stat and stat+sys bands
+sigma vs Q2 with stat errors, plus stat+sys bands only when --budget-json is passed
 profile-chi2 curves
 toy sigma-hat distributions
 integrated sigma summaries
@@ -186,7 +187,6 @@ The plot command writes:
 
 ```text
 plots/*.pdf
-plots/*.png
 ```
 
 The optional budget export writes `budget.json`, `budget.csv`, and
