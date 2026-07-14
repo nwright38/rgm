@@ -31,6 +31,10 @@ if(TARGET Clas12Ana AND TARGET Clas12Debug AND TARGET PkgConfig::hipo4)
     Clas12Ana
     Clas12Debug
   )
+  if(TARGET reweighter)
+    target_compile_definitions(sigmacm PUBLIC SIGMACM_WITH_GCF_TOYS)
+    target_link_libraries(sigmacm PUBLIC reweighter)
+  endif()
 endif()
 
 add_executable(sigmacm_extract run_extract.cpp)

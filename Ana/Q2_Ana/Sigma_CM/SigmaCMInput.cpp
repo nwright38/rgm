@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <iomanip>
 #include <memory>
 #include <regex>
 #include <sstream>
@@ -236,11 +237,19 @@ void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranch
     tree.Branch("pcmY_truth", &e.pcmYTruth);
     tree.Branch("pcmZ_truth", &e.pcmZTruth);
   }
+  std::vector<double> auxValues(sample.auxWeightBranches.size(), 1.0);
+  for (size_t i = 0; i < sample.auxWeightBranches.size(); ++i) {
+    tree.Branch(sample.auxWeightBranches[i].c_str(), &auxValues[i]);
+  }
 
   for (const auto& event : sample.events) {
     e = event;
     hasRecoil = event.hasRecoil;
     isMC = event.isMC;
+    for (size_t i = 0; i < sample.auxWeightBranches.size(); ++i) {
+      auto it = event.auxWeights.find(sample.auxWeightBranches[i]);
+      auxValues[i] = it == event.auxWeights.end() ? 1.0 : it->second;
+    }
     tree.Fill();
   }
 
@@ -275,6 +284,9 @@ void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranch
 #include "Corrections.h"
 #include "HipoChain.h"
 #include "clas12ana.h"
+#ifdef SIGMACM_WITH_GCF_TOYS
+#include "reweighter.h"
+#endif
 
 #include <TDatabasePDG.h>
 #include <TLorentzVector.h>
@@ -428,6 +440,28 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
   sample.fdLeadRegionValue = static_cast<int>(clas12::FD);
   sample.cdLeadRegionValue = static_cast<int>(clas12::CD);
 
+#ifdef SIGMACM_WITH_GCF_TOYS
+  std::vector<reweighter> gcfToyWeights;
+  if (requireMC && options.nGcfToys > 0) {
+    gcfToyWeights.reserve(static_cast<size_t>(options.nGcfToys));
+    const int z = protonNumber(options.nucleusA);
+    const int n = neutronNumber(options.nucleusA);
+    for (int i = 0; i < options.nGcfToys; ++i) {
+      reweighter w(options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
+      w.randomize_Config();
+      gcfToyWeights.push_back(w);
+      std::ostringstream name;
+      name << "w_gcf_toy_" << std::setw(3) << std::setfill('0') << i;
+      sample.auxWeightBranches.push_back(name.str());
+    }
+  }
+#else
+  if (requireMC && options.nGcfToys > 0) {
+    throw std::runtime_error("This Sigma_CM build does not include GCF toy reweighting support. "
+                             "Build from the full repository so the reweighter target is available.");
+  }
+#endif
+
   std::ostringstream meta;
   meta << "sigma_gen=0.2\n"
        << "leadRegionFD=" << sample.fdLeadRegionValue << "\n"
@@ -438,7 +472,8 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
        << "nucleus_A=" << options.nucleusA << "\n"
        << "nucleus_Z=" << protonNumber(options.nucleusA) << "\n"
        << "nucleus_N=" << neutronNumber(options.nucleusA) << "\n"
-       << "target_mass_4He=" << helium4Mass() << "\n";
+       << "target_mass_4He=" << helium4Mass() << "\n"
+       << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";
   sample.metadataDump = meta.str();
 
   long long scanned = 0;
@@ -447,6 +482,14 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
     Event event;
     event.stableIndex = static_cast<std::uint64_t>(scanned);
     if (fillHipoEvent(c12, clasAna, requireMC, options.beamEnergy, event)) {
+#ifdef SIGMACM_WITH_GCF_TOYS
+      if (requireMC && !gcfToyWeights.empty()) {
+        auto* mcInfo = c12->mcparts();
+        for (size_t i = 0; i < gcfToyWeights.size(); ++i) {
+          event.auxWeights[sample.auxWeightBranches[i]] = gcfToyWeights[i].get_weight_epp(mcInfo);
+        }
+      }
+#endif
       sample.events.push_back(event);
     }
     ++scanned;

@@ -137,7 +137,7 @@ This only makes the cache.
 
 ```bash
 sigmacm_make_skim 4 data data_skim.root data.hipo
-sigmacm_make_skim 4 mc mc_skim.root sim.hipo
+sigmacm_make_skim 4 mc mc_skim.root sim.hipo --gcf-toys=100
 ```
 
 It does not fit `sigma_CM`. It just converts hipo into the compact ROOT event
@@ -277,10 +277,11 @@ How much does sigma_CM depend on this model-weight uncertainty?
 Important practical note:
 
 ```text
-Direct hipo caches do not currently contain w_gcf_toy_* branches.
+Hipo-made MC caches contain w_gcf_toy_* branches when made with --gcf-toys=N.
 ```
 
-So GCF toys only run when the input skim ROOT file already has those branches.
+The wrapper adds those branches automatically for hipo `--full` runs. If you
+make the MC cache by hand and want GCF toys, remember to pass `--gcf-toys=N`.
 
 ### Fit-Range Scan: `sigmacm_run_fit_range_scan`
 

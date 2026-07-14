@@ -103,6 +103,7 @@ listed at the end of this README.
 --fit-z-max=1.0              upper chi2 range for Z
 --beam-energy=5.98636        hipo mode beam energy
 --max-events=N               quick test run over first N hipo events
+--n-gcf-toys=N               wrapper: GCF toy branches in hipo MC cache during --full
 --seed=N                     seed used by toy/expert drivers
 ```
 
@@ -184,15 +185,15 @@ sigmacm_out.profile_axis1.root
 sigmacm_out.profile_axis2.root
 ```
 
-The wrapper skips GCF toys for hipo input because those toys require
-`w_gcf_toy_*` auxiliary weight branches. Use skim ROOT input if you need that
-source included in the budget.
+For hipo `--full` runs, the MC cache includes `w_gcf_toy_*` auxiliary weight
+branches by default, so GCF toys can be included in the budget. Control the
+number of branches with `--n-gcf-toys=N`.
 
 If you only want to make the reusable hipo cache:
 
 ```bash
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 data data_skim.root data.hipo
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo --gcf-toys=100
 ```
 
 The systematic/profile drivers operate on skim ROOT files:
@@ -284,7 +285,7 @@ Starting from hipo:
 
 ```bash
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 data data_skim.root data.hipo
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo --gcf-toys=100
 ```
 
 Then nominal:
@@ -310,7 +311,9 @@ Optional profiles:
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data_skim.root mc_skim.root profile_axis2.root --axis=2
 ```
 
-Only run GCF toys if the MC skim already has `w_gcf_toy_*` branches:
+Run GCF toys when the MC skim has `w_gcf_toy_*` branches. Hipo-made MC skims
+get these branches when made with `--gcf-toys=N`, and the wrapper does that
+automatically for hipo `--full` runs.
 
 ```bash
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data_skim.root mc_skim.root gcf_toys.root

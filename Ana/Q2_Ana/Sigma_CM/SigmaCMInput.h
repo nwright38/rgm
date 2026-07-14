@@ -12,6 +12,7 @@ struct HipoLoadOptions {
   int nucleusA = 4;
   double beamEnergy = 5.98636;
   long long maxEvents = -1;
+  int nGcfToys = 0;
 };
 
 Sample loadSkim(const std::string& path, bool requireMC);

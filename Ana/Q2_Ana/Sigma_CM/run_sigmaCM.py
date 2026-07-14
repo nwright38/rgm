@@ -80,6 +80,8 @@ def main():
                     help="Run only the C++ executables; skip budget and plot scripts")
     ap.add_argument("--n-toys", default="100")
     ap.add_argument("--n-bootstrap", default="200")
+    ap.add_argument("--n-gcf-toys", type=int, default=100,
+                    help="Number of GCF toy weight branches to write in hipo MC caches during --full")
     args = ap.parse_args()
 
     prefix = Path(args.out_prefix)
@@ -99,7 +101,10 @@ def main():
         data_input = cache_dir / "data_skim.root"
         mc_input = cache_dir / "mc_skim.root"
         run([exe(args.build_dir, "make_skim"), args.A, "data", data_input, args.data, *hipo_common])
-        run([exe(args.build_dir, "make_skim"), args.A, "mc", mc_input, args.mc, *hipo_common])
+        mc_skim_cmd = [exe(args.build_dir, "make_skim"), args.A, "mc", mc_input, args.mc, *hipo_common]
+        if args.full and args.n_gcf_toys > 0:
+            mc_skim_cmd.append(f"--gcf-toys={args.n_gcf_toys}")
+        run(mc_skim_cmd)
 
     nominal = prefix.with_suffix(".nominal.root")
     run([exe(args.build_dir, "extract"), "--from-skim", nominal, data_input, mc_input, *common])
@@ -115,11 +120,8 @@ def main():
         profiles = []
         run([exe(args.build_dir, "run_cut_toys"), data_input, mc_input, cut, *common,
              f"--n-cut-toys={args.n_toys}", f"--n-bootstrap={args.n_bootstrap}"])
-        if args.from_hipo:
-            print("Skipping GCF toys for hipo input: the hipo cache does not contain w_gcf_toy_* weights.")
-        else:
-            remove_stale(gcf)
-            run([exe(args.build_dir, "run_gcf_toys"), args.data, args.mc, gcf, *common])
+        remove_stale(gcf)
+        run([exe(args.build_dir, "run_gcf_toys"), data_input, mc_input, gcf, *common])
         run([exe(args.build_dir, "run_combined_toys"), data_input, mc_input, combined, *common,
              f"--n-toys={args.n_toys}"])
         run([exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges, *common])
