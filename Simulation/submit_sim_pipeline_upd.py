@@ -11,7 +11,7 @@ NJOBS = int(sys.argv[1])
 NEVENTS_PER_JOB = 25000 # go for about 10% of the total events
 
 SCRIPT = '/work/clas12/users/nwright/rgm_andrew/Simulation/submit_sim_pipeline_upd.sh'
-START_IDX = 3001
+START_IDX = 5001
 for idx in range(START_IDX, NJOBS + START_IDX):
 
 	command = f"""#!/bin/bash

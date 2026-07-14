@@ -40,7 +40,7 @@ struct Config {
   double histZMin = -0.5;
   double histZMax = 1.0;
 
-  double cutRangeXY = 0.55;
+  double cutRangeXY = 0.2;
   double fitZMin = -0.5;
   double fitZMax = 1.0;
 
