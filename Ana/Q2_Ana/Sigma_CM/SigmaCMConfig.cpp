@@ -85,7 +85,6 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
     else if (arg == "--q2-bin") { cfg.integratedQ2 = false; cfg.q2BinIndex = std::atoi(next().c_str()); }
     else if (arg.rfind("--q2-bin=", 0) == 0) { cfg.integratedQ2 = false; cfg.q2BinIndex = std::atoi(arg.substr(9).c_str()); }
     else if (arg == "--independent-scales") cfg.sharedScale = false;
-    else if (arg == "--legacy-independent-scales") cfg.sharedScale = false;
     else if (arg == "--full-errors") cfg.statOnly = false;
     else if (arg == "--seed") cfg.seed = std::strtoull(next().c_str(), nullptr, 10);
     else if (arg.rfind("--seed=", 0) == 0) cfg.seed = std::strtoull(arg.substr(7).c_str(), nullptr, 10);

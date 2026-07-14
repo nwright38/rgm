@@ -1,4 +1,4 @@
-#include "SigmaCMLegacyOutput.h"
+#include "SigmaCMPlotOutput.h"
 
 #include <TCanvas.h>
 #include <TFile.h>
@@ -283,14 +283,6 @@ void writePlottingRootObjects(const std::string& path,
     writeGraphCanvas("c_" + std::string(axisDefs[a].sigQ2Name), *q2Graphs[a]);
   }
   file->Close();
-}
-
-void writeLegacyRootObjects(const std::string& path,
-                            const std::vector<Event>& dataEvents,
-                            const std::vector<Event>& mcEvents,
-                            double sigmaGen,
-                            const std::vector<Result>& results) {
-  writePlottingRootObjects(path, dataEvents, mcEvents, sigmaGen, results);
 }
 
 }  // namespace sigmacm

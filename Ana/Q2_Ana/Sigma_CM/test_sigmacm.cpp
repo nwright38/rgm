@@ -1,5 +1,5 @@
 #include "SigmaCMExtractor.h"
-#include "SigmaCMLegacyOutput.h"
+#include "SigmaCMPlotOutput.h"
 #include "SigmaCMResultIO.h"
 
 #include <TFile.h>
@@ -71,17 +71,17 @@ int main() {
   assert(r.converged);
   assert(std::abs(r.scale - 1.0) < 0.15);
 
-  const char* legacyPath = "sigmacm_legacy_surface_test.root";
-  writeResultsTree(legacyPath, {r});
-  writeLegacyRootObjects(legacyPath, data, mc, sigmaGen, {r});
-  TFile legacyFile(legacyPath, "READ");
-  assert(!legacyFile.IsZombie());
-  assert(legacyFile.Get("sigmaCM"));
-  assert(legacyFile.Get("pcmx_epp"));
-  assert(legacyFile.Get("pcmx_epp_fit"));
-  assert(legacyFile.Get("sigmacmx_int"));
-  assert(legacyFile.Get("g_chi2_pcmx_epp"));
-  assert(legacyFile.Get("c_overlay_pcmx_epp"));
+  const char* plotPath = "sigmacm_plotting_surface_test.root";
+  writeResultsTree(plotPath, {r});
+  writePlottingRootObjects(plotPath, data, mc, sigmaGen, {r});
+  TFile plotFile(plotPath, "READ");
+  assert(!plotFile.IsZombie());
+  assert(plotFile.Get("sigmaCM"));
+  assert(plotFile.Get("pcmx_epp"));
+  assert(plotFile.Get("pcmx_epp_fit"));
+  assert(plotFile.Get("sigmacmx_int"));
+  assert(plotFile.Get("g_chi2_pcmx_epp"));
+  assert(plotFile.Get("c_overlay_pcmx_epp"));
 
   Result profile = extractProfileScan(data, mc, sigmaGen, cfg, 0, 0.10, 0.22, 7);
   assert(profile.converged);

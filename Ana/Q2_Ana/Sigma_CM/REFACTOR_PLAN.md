@@ -19,15 +19,15 @@ Make `Ana/Q2_Ana/Sigma_CM` feel like the old `Main_sigmaCM` +
 The current code already has a useful core:
 
 - `SigmaCMExtractor` performs the multi-parameter chi2 minimization.
-- `run_nominal` runs integrated plus Q2-binned fits.
-- `SigmaCMLegacyOutput` writes the standard ROOT plotting objects expected by
+- `sigmacm_extract` runs integrated plus Q2-binned fits from hipo or skim input.
+- `SigmaCMPlotOutput` writes the standard ROOT plotting objects expected by
   `myPlots/plot_sigmaCM.C` and the old inspection macros.
 - `run_sigmaCM.py` can orchestrate nominal, toys, profiles, budgets, and plots.
 
 The pain points are mostly at the workflow boundary:
 
-- `SigmaCMSkimIO` requires a fixed `srcTree`/`skim` branch contract.
-- Direct hipo-to-result running is not the main path.
+- optional skim input requires a fixed `srcTree`/`skim` branch contract.
+- Direct hipo-to-result running is now the main path.
 - Nominal, profile scans, toys, budgets, and plotting are split across many
   executables/scripts.
 - Profile-chi2 information exists, but is not produced by the nominal command.
@@ -67,10 +67,10 @@ not files produced by default in every run.
 
 Introduce a small input-adapter layer:
 
-- `SigmaCMHipoIO`: reads hipo files with `HipoChain`/`clas12ana`, computes
+- `SigmaCMInput`: reads hipo files with `HipoChain`/`clas12ana`, computes
   the kinematics currently expected as branches, and fills `sigmacm::Event`.
-- `SigmaCMSkimIO`: keeps the current ROOT tree loader for debugging and
-  fast reruns.
+- The same file keeps the optional ROOT skim loader for debugging and fast
+  reruns.
 
 This lets the extractor stay independent of whether events came from hipo or a
 ROOT skim. It also removes the feeling that branch production is a prerequisite
@@ -149,11 +149,11 @@ numbers.
 
 ## Migration steps
 
-1. Done: keep current `loadSkim` in `SigmaCMSkimIO`.
-2. Done: add `SigmaCMHipoIO` to compute hipo event kinematics directly into
+1. Done: keep optional `loadSkim` in `SigmaCMInput`.
+2. Done: add hipo loading in `SigmaCMInput` to compute event kinematics directly into
    `sigmacm::Event`.
-3. Done: add `sigmacm_extract` and make it reproduce current `run_nominal`
-   output in `--from-skim` mode.
+3. Done: add `sigmacm_extract` and make it produce the nominal `sigmaCM` tree
+   plus standard ROOT plotting objects in `--from-skim` mode.
 4. Done: make `sigmacm_extract A out.root data.hipo sim.hipo` the default
    hipo input path in full CLAS12/hipo builds.
 5. Fold profile scans into the nominal output behind a cheap default, e.g.
@@ -176,8 +176,8 @@ sigmacm_extract --from-skim out.root data.root sim.root --profiles integrated
 
 It should produce:
 
-- the same `sigmaCM` tree as `run_nominal`;
-- the same standard ROOT plotting objects as `run_nominal`;
+- the same `sigmaCM` tree as the hipo mode;
+- the same standard ROOT plotting objects as the hipo mode;
 - profile chi2 curves in the same file;
 - a clear console summary table of integrated and Q2-binned sigma values.
 

@@ -1,7 +1,7 @@
 #include "SigmaCMConfig.h"
 #include "SigmaCMExtractor.h"
 #include "SigmaCMResultIO.h"
-#include "SigmaCMSkimIO.h"
+#include "SigmaCMInput.h"
 
 #include <algorithm>
 #include <iostream>

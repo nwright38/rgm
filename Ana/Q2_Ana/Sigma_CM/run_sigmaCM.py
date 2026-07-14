@@ -69,7 +69,7 @@ def main():
     common = ["--seed", args.seed]
 
     nominal = prefix.with_suffix(".nominal.root")
-    run([exe(args.build_dir, "run_nominal"), args.data, args.mc, nominal, *common])
+    run([exe(args.build_dir, "extract"), "--from-skim", nominal, args.data, args.mc, *common])
 
     roots = [nominal]
     budget_json = None

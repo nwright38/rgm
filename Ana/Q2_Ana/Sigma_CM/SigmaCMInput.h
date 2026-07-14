@@ -14,9 +14,9 @@ struct HipoLoadOptions {
   long long maxEvents = -1;
 };
 
+Sample loadSkim(const std::string& path, bool requireMC);
 Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
                 const Config& cfg, const HipoLoadOptions& options = {});
-
 bool hipoSupportAvailable();
 
 }  // namespace sigmacm

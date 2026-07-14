@@ -1,9 +1,8 @@
 #include "SigmaCMConfig.h"
 #include "SigmaCMExtractor.h"
-#include "SigmaCMHipoIO.h"
-#include "SigmaCMLegacyOutput.h"
+#include "SigmaCMInput.h"
+#include "SigmaCMPlotOutput.h"
 #include "SigmaCMResultIO.h"
-#include "SigmaCMSkimIO.h"
 
 #include <cstdlib>
 #include <iomanip>

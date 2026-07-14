@@ -11,9 +11,8 @@ endif()
 add_library(sigmacm
   SigmaCMConfig.cpp
   SigmaCMExtractor.cpp
-  SigmaCMLegacyOutput.cpp
-  SigmaCMHipoIO.cpp
-  SigmaCMSkimIO.cpp
+  SigmaCMPlotOutput.cpp
+  SigmaCMInput.cpp
   SigmaCMResultIO.cpp
 )
 target_include_directories(sigmacm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -38,7 +37,6 @@ add_executable(sigmacm_extract run_extract.cpp)
 target_link_libraries(sigmacm_extract PRIVATE sigmacm)
 
 foreach(app
-  run_nominal
   run_cut_toys
   run_gcf_toys
   run_combined_toys
