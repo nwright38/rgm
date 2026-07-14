@@ -22,7 +22,8 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   int ndf, q2BinIndex, leadMode, sharedScale, statOnly, converged;
   long long nEventsData;
   unsigned long long seed;
-  double xBLower, q2Lower, q2Upper, mMissLower, mMissUpper, kMissLower, pLeadLower, thetaFDUpper;
+  double xBLower, q2Lower, q2Upper, q2BinLow, q2BinHigh, mMissLower, mMissUpper, kMissLower;
+  double pLeadLower, thetaFDUpper;
   double thetaCDLower, pRecLower;
   double cutRangeXY, fitZMin, fitZMax;
   int binsX, binsY, binsZ, fdLeadRegionValue, cdLeadRegionValue, requirePcmLtPrel;
@@ -61,6 +62,8 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   tree.Branch("xBLower", &xBLower);
   tree.Branch("q2Lower", &q2Lower);
   tree.Branch("q2Upper", &q2Upper);
+  tree.Branch("q2BinLow", &q2BinLow);
+  tree.Branch("q2BinHigh", &q2BinHigh);
   tree.Branch("mMissLower", &mMissLower);
   tree.Branch("mMissUpper", &mMissUpper);
   tree.Branch("kMissLower", &kMissLower);
@@ -107,6 +110,14 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
     q2BinIndex = r.config.integratedQ2 ? -1 : r.config.q2BinIndex;
     sharedScale = r.config.sharedScale ? 1 : 0; statOnly = r.config.statOnly ? 1 : 0;
     xBLower = r.config.xBLower; q2Lower = r.config.q2Lower; q2Upper = r.config.q2Upper;
+    q2BinLow = r.config.q2Lower;
+    q2BinHigh = r.config.q2Upper;
+    if (!r.config.integratedQ2 &&
+        r.config.q2BinIndex >= 0 &&
+        r.config.q2BinIndex + 1 < static_cast<int>(r.config.q2Edges.size())) {
+      q2BinLow = r.config.q2Edges[r.config.q2BinIndex];
+      q2BinHigh = r.config.q2Edges[r.config.q2BinIndex + 1];
+    }
     mMissLower = r.config.mMissLower; mMissUpper = r.config.mMissUpper;
     kMissLower = r.config.kMissLower; pLeadLower = r.config.pLeadLower;
     thetaFDUpper = r.config.thetaFDUpper; thetaCDLower = r.config.thetaCDLower;

@@ -51,6 +51,34 @@ def savefig(out, name):
     plt.close()
 
 
+def _as_text(value):
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
+def q2_bin_centers(arr, mask):
+    if "q2BinLow" in arr and "q2BinHigh" in arr:
+        low = np.asarray(arr["q2BinLow"])[mask]
+        high = np.asarray(arr["q2BinHigh"])[mask]
+        return 0.5 * (low + high)
+
+    if "configJson" in arr:
+        centers = []
+        for cfg_text, bin_index in zip(np.asarray(arr["configJson"])[mask],
+                                       np.asarray(arr["q2BinIndex"])[mask]):
+            cfg = json.loads(_as_text(cfg_text))
+            edges = cfg.get("q2Edges", [])
+            idx = int(bin_index)
+            if idx < 0 or idx + 1 >= len(edges):
+                centers.append(float("nan"))
+            else:
+                centers.append(0.5 * (float(edges[idx]) + float(edges[idx + 1])))
+        return np.asarray(centers, dtype=float)
+
+    return 0.5 * (np.asarray(arr["q2Lower"])[mask] + np.asarray(arr["q2Upper"])[mask])
+
+
 def plot_toy_distributions(arr, stem, out):
     for d in DIRECTIONS:
         values = np.asarray(arr[f"sigma{d}"], dtype=float)
@@ -71,14 +99,19 @@ def plot_sigma_vs_q2(arr, stem, out, sys):
     mask = np.asarray(arr["q2BinIndex"]) >= 0
     if not np.any(mask):
         return
-    x = 0.5 * (np.asarray(arr["q2Lower"])[mask] + np.asarray(arr["q2Upper"])[mask])
+    x = q2_bin_centers(arr, mask)
+    finite = np.isfinite(x)
+    if not np.any(finite):
+        return
+    mask_indices = np.where(mask)[0][finite]
+    x = x[finite]
     order = np.argsort(x)
     x = x[order]
     plt.figure(figsize=(7.2, 4.8))
     colors = {"X": "#4477aa", "Y": "#228833", "Z": "#cc6677"}
     for d in DIRECTIONS:
-        y = np.asarray(arr[f"sigma{d}"])[mask][order]
-        stat = np.asarray(arr[f"sigma{d}ErrHigh"])[mask][order]
+        y = np.asarray(arr[f"sigma{d}"])[mask_indices][order]
+        stat = np.asarray(arr[f"sigma{d}ErrHigh"])[mask_indices][order]
         if sys is not None:
             total = np.sqrt(stat * stat + sys.get(d, 0.0) ** 2)
             plt.fill_between(x, y - total, y + total, color=colors[d], alpha=0.13, linewidth=0)
