@@ -268,6 +268,102 @@ Export budget JSON/CSV/TeX only when wanted:
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data_skim.root sim_skim.root sigmacm_out --full --export-budget
 ```
 
+## Manual Troubleshooting Order
+
+If you run the steps individually, use this order:
+
+```text
+1. make skims from hipo
+2. nominal extraction
+3. optional systematic/diagnostic runners
+4. optional budget assembly
+5. optional Python plots
+```
+
+Starting from hipo:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 data data_skim.root data.hipo
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo
+```
+
+Then nominal:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_extract --from-skim nominal.root data_skim.root mc_skim.root
+```
+
+Then optional systematics:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data_skim.root mc_skim.root cut_toys.root --n-cut-toys=100 --n-bootstrap=200
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data_skim.root mc_skim.root combined_toys.root --n-toys=100
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data_skim.root mc_skim.root fit_ranges.root
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc_skim.root closure.root
+```
+
+Optional profiles:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data_skim.root mc_skim.root profile_axis0.root --axis=0
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data_skim.root mc_skim.root profile_axis1.root --axis=1
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_profile_scan data_skim.root mc_skim.root profile_axis2.root --axis=2
+```
+
+Only run GCF toys if the MC skim already has `w_gcf_toy_*` branches:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data_skim.root mc_skim.root gcf_toys.root
+```
+
+Budget without GCF:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
+  --nominal nominal.root \
+  --cut-toys cut_toys.root \
+  --fit-range fit_ranges.root \
+  --closure closure.root \
+  --out-prefix budget
+```
+
+Budget with GCF:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
+  --nominal nominal.root \
+  --cut-toys cut_toys.root \
+  --gcf-toys gcf_toys.root \
+  --fit-range fit_ranges.root \
+  --closure closure.root \
+  --out-prefix budget
+```
+
+Plots:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py nominal.root cut_toys.root combined_toys.root fit_ranges.root closure.root --out-dir plots
+```
+
+Plots with stat+sys bands:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py nominal.root --budget-json budget.json --out-dir plots
+```
+
+Dependency map:
+
+```text
+make_skim -> everything else if starting from hipo
+nominal.root -> budget, main plots
+cut_toys.root -> budget
+fit_ranges.root -> budget
+closure.root -> budget
+gcf_toys.root -> budget only if available
+combined_toys.root -> plots/diagnostics, not currently used by budget
+profile_axis*.root -> profile plots only
+```
+
 ## Code Map
 
 ```text
