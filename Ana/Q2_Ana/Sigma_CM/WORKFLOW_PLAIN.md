@@ -56,6 +56,7 @@ That ROOT file is the main output. It contains:
 sigmaCM tree              fitted sigma values, errors, chi2, settings
 sigma-vs-Q2 graphs        sigma_CM in each Q2 bin
 chi2 scan graphs          chi2 as a function of trial sigma
+joint chi2 scan graphs    total X+Y+Z chi2 as a function of trial sigma
 scale scan graphs         best MC normalization scale vs trial sigma
 overlay histograms        data and best-fit MC projections
 ROOT canvases             quick ROOT-viewable diagnostic canvases
@@ -67,6 +68,20 @@ In plain terms:
 sigmacm_extract answers:
 "What sigma_CM best describes my data, and what do the chi2 curves look like?"
 ```
+
+There are two kinds of chi2 graphs:
+
+```text
+g_chi2_pcmx_*, g_chi2_pcmy_*, g_chi2_pcmz_*
+  per-projection diagnostic chi2 curves
+
+g_chi2_joint_sigmaX_*, g_chi2_joint_sigmaY_*, g_chi2_joint_sigmaZ_*
+  total X+Y+Z chi2 curves connected to the simultaneous fit
+```
+
+If you are diagnosing the simultaneous fit, start with the `joint` graphs.
+If you are asking which projection is causing tension, then look at the
+projection-specific graphs.
 
 ## Why There Is A Skim Cache
 
@@ -297,6 +312,38 @@ I include in the fit?
 If it moves a lot, that can mean the model describes the core and tails
 differently, or that the chosen fit range matters more than expected.
 
+By default the scan tries X/Y half-windows:
+
+```text
+0.45, 0.50, 0.55 GeV/c
+```
+
+For each X/Y half-window `w`, the Z window is set to:
+
+```text
+[-w, 2w]
+```
+
+The useful diagnostic PDFs are:
+
+```text
+fit_ranges_sigma_vs_fit_window.pdf
+fit_ranges_chi2ndf_vs_fit_window.pdf
+fit_ranges_z_window_vs_fit_window.pdf
+```
+
+The first plot answers:
+
+```text
+How much does sigma_CM move as I change the fit window?
+```
+
+The second answers:
+
+```text
+Does chi2/ndf improve or worsen as I change the fit window?
+```
+
 ### Closure: `sigmacm_run_closure`
 
 Closure uses MC to make pseudo-data with known injected widths, then fits it
@@ -398,6 +445,7 @@ sigmacmx_Q2             sigma_CMx vs Q2
 sigmacmy_Q2             sigma_CMy vs Q2
 sigmacmz_Q2             sigma_CMz vs Q2
 g_chi2_*                chi2 curves
+g_chi2_joint_*          total X+Y+Z chi2 curves
 c_overlay_*             data/MC overlays
 ```
 

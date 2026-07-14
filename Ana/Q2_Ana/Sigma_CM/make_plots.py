@@ -151,6 +151,63 @@ def plot_integrated_summary(arr, stem, out, sys):
     savefig(out, f"{stem}_integrated_sigma_{suffix}")
 
 
+def plot_fit_range_scan(arr, stem, out):
+    if "cutRangeXY" not in arr or "chi2" not in arr or "ndf" not in arr:
+        return
+    if len(arr.get("sigmaX", [])) < 2:
+        return
+    if "q2BinIndex" in arr:
+        mask = np.asarray(arr["q2BinIndex"]) < 0
+    else:
+        mask = np.ones(len(arr["sigmaX"]), dtype=bool)
+    if np.count_nonzero(mask) < 2:
+        return
+
+    x = np.asarray(arr["cutRangeXY"], dtype=float)[mask]
+    finite = np.isfinite(x)
+    if np.count_nonzero(finite) < 2:
+        return
+    indices = np.where(mask)[0][finite]
+    x = x[finite]
+    order = np.argsort(x)
+    indices = indices[order]
+    x = x[order]
+
+    colors = {"X": "#4477aa", "Y": "#228833", "Z": "#cc6677"}
+    plt.figure(figsize=(7.0, 4.6))
+    for d in DIRECTIONS:
+        y = np.asarray(arr[f"sigma{d}"], dtype=float)[indices]
+        err = np.asarray(arr[f"sigma{d}ErrHigh"], dtype=float)[indices]
+        plt.errorbar(x, y, yerr=err, marker="o", linestyle="-", color=colors[d], label=d)
+    plt.xlabel(r"X/Y fit half-window [GeV/c]")
+    plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
+    plt.title(f"{stem}: sigma vs fit window")
+    plt.legend(frameon=False, ncol=3)
+    savefig(out, f"{stem}_sigma_vs_fit_window")
+
+    ndf = np.asarray(arr["ndf"], dtype=float)[indices]
+    chi2 = np.asarray(arr["chi2"], dtype=float)[indices]
+    chi2ndf = np.divide(chi2, ndf, out=np.full_like(chi2, np.nan), where=ndf > 0)
+    plt.figure(figsize=(6.6, 4.3))
+    plt.plot(x, chi2ndf, marker="o", linestyle="-", color="#444444")
+    plt.xlabel(r"X/Y fit half-window [GeV/c]")
+    plt.ylabel(r"$\chi^2 / ndf$")
+    plt.title(f"{stem}: fit quality vs fit window")
+    savefig(out, f"{stem}_chi2ndf_vs_fit_window")
+
+    if "fitZMin" in arr and "fitZMax" in arr:
+        zmin = np.asarray(arr["fitZMin"], dtype=float)[indices]
+        zmax = np.asarray(arr["fitZMax"], dtype=float)[indices]
+        plt.figure(figsize=(6.6, 4.3))
+        plt.plot(x, zmin, marker="o", linestyle="-", label="Z min", color="#4477aa")
+        plt.plot(x, zmax, marker="o", linestyle="-", label="Z max", color="#cc6677")
+        plt.xlabel(r"X/Y fit half-window [GeV/c]")
+        plt.ylabel(r"Z fit edge [GeV/c]")
+        plt.title(f"{stem}: Z window used in scan")
+        plt.legend(frameon=False)
+        savefig(out, f"{stem}_z_window_vs_fit_window")
+
+
 def plot_profiles(path, stem, out):
     prof = read_tree(path, "profile")
     if prof is None or len(prof.get("sigma", [])) == 0:
@@ -192,6 +249,7 @@ def main():
         stem = Path(root).stem
         plot_integrated_summary(arr, stem, out, sys)
         plot_sigma_vs_q2(arr, stem, out, sys)
+        plot_fit_range_scan(arr, stem, out)
         plot_toy_distributions(arr, stem, out)
         plot_profiles(root, stem, out)
 

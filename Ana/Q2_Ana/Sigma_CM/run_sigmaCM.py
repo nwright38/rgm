@@ -71,6 +71,11 @@ def main():
     ap.add_argument("--cache-dir",
                     help="Directory for hipo-to-skim caches; default is OUT_PREFIX_cache")
     ap.add_argument("--seed", default="17")
+    ap.add_argument("--cut-range-xy", help="Nominal X/Y fit half-window, e.g. 0.55")
+    ap.add_argument("--fit-z-min", help="Nominal Z fit lower edge")
+    ap.add_argument("--fit-z-max", help="Nominal Z fit upper edge")
+    ap.add_argument("--xy-ranges", default="0.45,0.50,0.55",
+                    help="Comma-separated X/Y half-windows for fit-range scan")
     ap.add_argument("--full", action="store_true", help="Run systematic toys/scans too")
     ap.add_argument("--profiles", action="store_true",
                     help="Also run diagnostic profile scans for X/Y/Z")
@@ -87,6 +92,12 @@ def main():
     prefix = Path(args.out_prefix)
     plot_dir = prefix.parent / f"{prefix.name}_plots"
     common = ["--seed", args.seed]
+    if args.cut_range_xy:
+        common.append(f"--cut-range-xy={args.cut_range_xy}")
+    if args.fit_z_min:
+        common.append(f"--fit-z-min={args.fit_z_min}")
+    if args.fit_z_max:
+        common.append(f"--fit-z-max={args.fit_z_max}")
     hipo_common = []
     if args.from_hipo:
         hipo_common.extend(["--beam-energy", args.beam_energy])
@@ -124,7 +135,8 @@ def main():
         run([exe(args.build_dir, "run_gcf_toys"), data_input, mc_input, gcf, *common])
         run([exe(args.build_dir, "run_combined_toys"), data_input, mc_input, combined, *common,
              f"--n-toys={args.n_toys}"])
-        run([exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges, *common])
+        run([exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges,
+             *common, f"--xy-ranges={args.xy_ranges}"])
         run([exe(args.build_dir, "run_closure"), mc_input, closure, *common])
         if args.profiles:
             for axis in range(3):

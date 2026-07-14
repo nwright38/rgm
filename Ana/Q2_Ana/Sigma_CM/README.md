@@ -31,6 +31,7 @@ sigmacmT_Q2             transverse sigma_CM vs Q2 graph
 pcmx_epp                data histogram
 pcmx_epp_fit            best-fit MC histogram
 g_chi2_*                chi2 scan graphs
+g_chi2_joint_*          total X+Y+Z chi2 scans for the simultaneous fit
 g_scale_*               scale scan graphs
 c_chi2_*                chi2 canvases
 c_scale_*               scale canvases
@@ -50,6 +51,11 @@ c_overlay_pcmx_Q2_0
 In other words: you do **not** need to run `Main_sigmaCM` and then
 `Main_sigmaCM_Hists` just to see the chi2 curves, scale curves, overlays, and
 sigma-vs-Q2 graphs. `sigmacm_extract` writes that plotting surface directly.
+
+The `g_chi2_pcmx_*`, `g_chi2_pcmy_*`, and `g_chi2_pcmz_*` graphs are
+per-projection diagnostics. The simultaneous-fit diagnostic graphs are named
+`g_chi2_joint_sigmaX_*`, `g_chi2_joint_sigmaY_*`, and
+`g_chi2_joint_sigmaZ_*`; those use the total X+Y+Z chi2.
 
 ## Build
 
@@ -101,6 +107,7 @@ listed at the end of this README.
 --cut-range-xy=0.55          chi2 range for X/Y and transverse projection
 --fit-z-min=-0.5             lower chi2 range for Z
 --fit-z-max=1.0              upper chi2 range for Z
+--xy-ranges=0.45,0.50,0.55  wrapper: fit-window scan values for --full
 --beam-energy=5.98636        hipo mode beam energy
 --max-events=N               quick test run over first N hipo events
 --n-gcf-toys=N               wrapper: GCF toy branches in hipo MC cache during --full
@@ -114,6 +121,27 @@ X chi2 compares bins from -cutRangeXY to +cutRangeXY
 Y chi2 compares bins from -cutRangeXY to +cutRangeXY
 Z chi2 compares bins from fitZMin to fitZMax
 T chi2 compares bins from 0 to sqrt(2)*cutRangeXY
+```
+
+For the nominal fit, set:
+
+```bash
+--cut-range-xy=0.55 --fit-z-min=-0.5 --fit-z-max=1.0
+```
+
+For the optional fit-range scan, set:
+
+```bash
+--xy-ranges=0.40,0.45,0.50,0.55,0.60
+```
+
+The fit-range scan writes `fit_ranges.root`. Python plotting turns that into
+diagnostic PDFs such as:
+
+```text
+fit_ranges_sigma_vs_fit_window.pdf
+fit_ranges_chi2ndf_vs_fit_window.pdf
+fit_ranges_z_window_vs_fit_window.pdf
 ```
 
 ## Plotting

@@ -143,6 +143,46 @@ std::pair<double, double> bestScaleChi2(const TH1D& data, const TH1D& mc, const 
   return {bestScale, bestChi2};
 }
 
+std::pair<double, double> bestJointScaleChi2(const std::array<TH1D*, 3>& data,
+                                             const std::array<TH1D*, 3>& mc,
+                                             const std::array<Axis, 4>& axisDefs,
+                                             const Config& cfg) {
+  if (!cfg.sharedScale) {
+    double chi2 = 0.0;
+    double scale = 0.0;
+    for (int a = 0; a < 3; ++a) {
+      auto [axisScale, axisChi2] = bestScaleChi2(*data[a], *mc[a], axisDefs[a]);
+      scale += axisScale;
+      chi2 += axisChi2;
+    }
+    return {scale / 3.0, chi2};
+  }
+
+  double dataIntegral = 0.0;
+  double mcIntegral = 0.0;
+  for (int a = 0; a < 3; ++a) {
+    dataIntegral += data[a]->Integral();
+    mcIntegral += mc[a]->Integral();
+  }
+  const double intScale = mcIntegral > 0.0 ? dataIntegral / mcIntegral : 1.0;
+  const double start = std::max(1.0e-9, 0.1 * intScale);
+  const double stop = std::max(start, 3.0 * intScale);
+  double bestScale = intScale;
+  double bestChi2 = 1.0e100;
+  for (int i = 0; i < 120; ++i) {
+    const double scale = start + (stop - start) * i / 119.0;
+    double chi2 = 0.0;
+    for (int a = 0; a < 3; ++a) {
+      chi2 += chi2WithScale(*data[a], *mc[a], axisDefs[a], scale);
+    }
+    if (chi2 < bestChi2) {
+      bestChi2 = chi2;
+      bestScale = scale;
+    }
+  }
+  return {bestScale, bestChi2};
+}
+
 int resultIndexFor(const std::vector<Result>& results, int q2Bin) {
   for (size_t i = 0; i < results.size(); ++i) {
     const int idx = results[i].config.integratedQ2 ? -1 : results[i].config.q2BinIndex;
@@ -181,6 +221,44 @@ void fillSigmaPoint(TGraphAsymmErrors& g, const Result& r, int axis, double x,
   g.SetPointError(p, xLow, xHigh, sigmaErrFor(r, axis, false), sigmaErrFor(r, axis, true));
 }
 
+void writeJointChi2Scans(const std::string& suffix, const std::vector<Event>& dataEvents,
+                         const std::vector<Event>& mcEvents, double sigmaGen,
+                         const Result& r, const Config& cfg,
+                         const std::array<Axis, 4>& axisDefs) {
+  std::array<std::unique_ptr<TH1D>, 3> dataOwned;
+  std::array<TH1D*, 3> data{};
+  for (int a = 0; a < 3; ++a) {
+    dataOwned[a] = makeHist("joint_data_tmp_" + std::to_string(a), axisDefs[a]);
+    fillData(*dataOwned[a], dataEvents, cfg, a);
+    data[a] = dataOwned[a].get();
+  }
+
+  const char* sigmaNames[] = {"sigmaX", "sigmaY", "sigmaZ"};
+  for (int varied = 0; varied < 3; ++varied) {
+    TGraph chi2;
+    chi2.SetName(("g_chi2_joint_" + std::string(sigmaNames[varied]) + suffix).c_str());
+    TGraph scale;
+    scale.SetName(("g_scale_joint_" + std::string(sigmaNames[varied]) + suffix).c_str());
+    for (int s = 0; s < kScanBins; ++s) {
+      const double sigma = kSigmaMin + (kSigmaMax - kSigmaMin) * s / kScanBins;
+      std::array<std::unique_ptr<TH1D>, 3> mcOwned;
+      std::array<TH1D*, 3> mc{};
+      for (int a = 0; a < 3; ++a) {
+        mcOwned[a] = makeHist("joint_scan_tmp_" + std::to_string(a), axisDefs[a]);
+        fillMC(*mcOwned[a], mcEvents, sigmaGen, r, cfg, a, sigma, varied);
+        mc[a] = mcOwned[a].get();
+      }
+      auto [bestScale, bestChi2] = bestJointScaleChi2(data, mc, axisDefs, cfg);
+      chi2.SetPoint(chi2.GetN(), sigma, bestChi2);
+      scale.SetPoint(scale.GetN(), sigma, bestScale);
+    }
+    writeObject(&chi2);
+    writeObject(&scale);
+    writeGraphCanvas("c_" + std::string(chi2.GetName()), chi2);
+    writeGraphCanvas("c_" + std::string(scale.GetName()), scale);
+  }
+}
+
 }  // namespace
 
 void writePlottingRootObjects(const std::string& path,
@@ -215,6 +293,7 @@ void writePlottingRootObjects(const std::string& path,
     Config cfg = r.config;
     const bool integratedMode = q2 < 0;
     const std::string suffix = integratedMode ? "" : ("_SRC_Q2_" + std::to_string(q2));
+    const std::string jointSuffix = integratedMode ? "_epp" : ("_epp_SRC_Q2_" + std::to_string(q2));
 
     if (!integratedMode) {
       auto hq2 = makeHist("h_Q2_" + std::to_string(q2), {"Q2", "", "", "", "", "", "", "",
@@ -228,6 +307,8 @@ void writePlottingRootObjects(const std::string& path,
         fillSigmaPoint(*q2Graphs[a], r, a, center, center - cfg.q2Edges[q2], cfg.q2Edges[q2 + 1] - center);
       }
     }
+
+    writeJointChi2Scans(jointSuffix, dataEvents, mcEvents, sigmaGen, r, cfg, axisDefs);
 
     for (int a = 0; a < 4; ++a) {
       const Axis& axis = axisDefs[a];
