@@ -29,6 +29,7 @@ def require_plot_modules():
 
 
 DIRECTIONS = ("X", "Y", "Z")
+MIN_TOY_ENTRIES = 25
 
 
 def read_tree(path, tree):
@@ -82,7 +83,7 @@ def q2_bin_centers(arr, mask):
 def plot_toy_distributions(arr, stem, out):
     for d in DIRECTIONS:
         values = np.asarray(arr[f"sigma{d}"], dtype=float)
-        if values.size == 0:
+        if values.size < MIN_TOY_ENTRIES:
             continue
         plt.figure(figsize=(6.2, 4.4))
         plt.hist(values, bins=30, histtype="stepfilled", alpha=0.65, color="#4477aa")

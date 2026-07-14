@@ -142,7 +142,55 @@ matplotlib
 
 Systematic/toy studies are intentionally optional because they are slow.
 
-The expert C++ drivers still operate on skim ROOT files:
+The easiest hipo workflow is the wrapper:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py \
+  --from-hipo --A 4 \
+  data.hipo sim.hipo sigmacm_out \
+  --full
+```
+
+That writes:
+
+```text
+sigmacm_out_cache/data_skim.root
+sigmacm_out_cache/mc_skim.root
+sigmacm_out.nominal.root
+sigmacm_out.cut_toys.root
+sigmacm_out.combined_toys.root
+sigmacm_out.fit_ranges.root
+sigmacm_out.closure.root
+sigmacm_out.profile_axis0.root
+sigmacm_out.profile_axis1.root
+sigmacm_out.profile_axis2.root
+sigmacm_out_plots/*.pdf
+```
+
+In hipo mode, the wrapper reads the hipo files once and writes the two cached
+skim ROOT files first. Nominal extraction, toys, fit-range scans, closure, and
+profile scans then run from those cached ROOT files. This mirrors the old
+`Main_sigmaCM` then `Main_sigmaCM_Hists` split: hipo/event reading is stage 1;
+ROOT-based fitting/plotting/systematics are stage 2.
+
+To also export `sigmacm_out.budget.json`, `.csv`, and `.tex`, add:
+
+```bash
+--export-budget
+```
+
+The wrapper skips GCF toys for hipo input because those toys require
+`w_gcf_toy_*` auxiliary weight branches. Use skim ROOT input if you need that
+source included in the budget.
+
+If you only want to make the reusable hipo cache:
+
+```bash
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 data data_skim.root data.hipo
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_make_skim 4 mc mc_skim.root sim.hipo
+```
+
+The systematic/profile drivers operate on skim ROOT files:
 
 ```bash
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data.root mc.root cut_toys.root --n-cut-toys=100 --n-bootstrap=200
@@ -164,6 +212,8 @@ Ana/Q2_Ana/Sigma_CM/budget_assembler.py \
   --out-prefix budget
 ```
 
+For a hipo budget without GCF toys, omit `--gcf-toys`.
+
 This writes:
 
 ```text
@@ -180,8 +230,8 @@ Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py sigmaCM.root --budget-json budget.json --out
 
 ## Convenience Wrapper
 
-`run_sigmaCM.py` is a convenience wrapper for skim ROOT inputs. It is not the
-main hipo workflow.
+`run_sigmaCM.py` is a convenience wrapper. It can run either skim ROOT inputs
+or hipo inputs.
 
 Quick skim nominal plus plots:
 
@@ -193,6 +243,12 @@ Full skim-based toys/profiles plus plots:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py data_skim.root sim_skim.root sigmacm_out --full
+```
+
+Full hipo-based toys/profiles plus plots:
+
+```bash
+Ana/Q2_Ana/Sigma_CM/run_sigmaCM.py --from-hipo --A 4 data.hipo sim.hipo sigmacm_out --full
 ```
 
 Export budget JSON/CSV/TeX only when wanted:

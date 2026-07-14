@@ -15,6 +15,7 @@ struct HipoLoadOptions {
 };
 
 Sample loadSkim(const std::string& path, bool requireMC);
+void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranches);
 Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
                 const Config& cfg, const HipoLoadOptions& options = {});
 bool hipoSupportAvailable();

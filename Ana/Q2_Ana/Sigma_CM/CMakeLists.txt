@@ -36,6 +36,9 @@ endif()
 add_executable(sigmacm_extract run_extract.cpp)
 target_link_libraries(sigmacm_extract PRIVATE sigmacm)
 
+add_executable(sigmacm_make_skim run_make_skim.cpp)
+target_link_libraries(sigmacm_make_skim PRIVATE sigmacm)
+
 foreach(app
   run_cut_toys
   run_gcf_toys

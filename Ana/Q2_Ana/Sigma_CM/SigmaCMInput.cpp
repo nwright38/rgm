@@ -202,6 +202,72 @@ Sample loadSkim(const std::string& path, bool requireMC) {
   return sample;
 }
 
+void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranches) {
+  TH1::AddDirectory(kFALSE);
+  std::unique_ptr<TFile> file(TFile::Open(path.c_str(), "RECREATE"));
+  if (!file || file->IsZombie()) throw std::runtime_error("Could not create skim ROOT file '" + path + "'");
+
+  TTree tree("srcTree", "Sigma_CM cached event skim");
+  Event e;
+  Bool_t hasRecoil = false;
+  Bool_t isMC = false;
+  tree.Branch("run", &e.run);
+  tree.Branch("event", &e.event);
+  tree.Branch("Q2", &e.Q2);
+  tree.Branch("xB", &e.xB);
+  tree.Branch("mMiss", &e.mMiss);
+  tree.Branch("kMiss", &e.kMiss);
+  tree.Branch("pMiss", &e.pMiss);
+  tree.Branch("pLead", &e.pLead);
+  tree.Branch("thetaLead", &e.thetaLead);
+  tree.Branch("leadRegion", &e.leadRegion);
+  tree.Branch("hasRecoil", &hasRecoil);
+  tree.Branch("pRec", &e.pRec);
+  tree.Branch("thetaRec", &e.thetaRec);
+  tree.Branch("pcmX", &e.pcmX);
+  tree.Branch("pcmY", &e.pcmY);
+  tree.Branch("pcmZ", &e.pcmZ);
+  tree.Branch("pRel", &e.pRel);
+  tree.Branch("pCM", &e.pCM);
+  if (writeMCBranches) {
+    tree.Branch("isMC", &isMC);
+    tree.Branch("genWeight", &e.genWeight);
+    tree.Branch("pcmX_truth", &e.pcmXTruth);
+    tree.Branch("pcmY_truth", &e.pcmYTruth);
+    tree.Branch("pcmZ_truth", &e.pcmZTruth);
+  }
+
+  for (const auto& event : sample.events) {
+    e = event;
+    hasRecoil = event.hasRecoil;
+    isMC = event.isMC;
+    tree.Fill();
+  }
+
+  TTree params("params", "Sigma_CM skim metadata");
+  double sigmaGen = sample.sigmaGen;
+  int fdLeadRegionValue = sample.fdLeadRegionValue;
+  int cdLeadRegionValue = sample.cdLeadRegionValue;
+  params.Branch("sigma_gen", &sigmaGen);
+  params.Branch("fdLeadRegionValue", &fdLeadRegionValue);
+  params.Branch("cdLeadRegionValue", &cdLeadRegionValue);
+  params.Branch("leadRegionFD", &fdLeadRegionValue);
+  params.Branch("leadRegionCD", &cdLeadRegionValue);
+  params.Fill();
+
+  const std::string metadata =
+      sample.metadataDump +
+      "\nsigma_gen=" + std::to_string(sample.sigmaGen) +
+      "\nfdLeadRegionValue=" + std::to_string(sample.fdLeadRegionValue) +
+      "\ncdLeadRegionValue=" + std::to_string(sample.cdLeadRegionValue) + "\n";
+  TNamed meta("sigmacm_skim_metadata", metadata.c_str());
+
+  tree.Write();
+  params.Write();
+  meta.Write();
+  file->Close();
+}
+
 }  // namespace sigmacm
 
 #ifdef SIGMACM_WITH_HIPO

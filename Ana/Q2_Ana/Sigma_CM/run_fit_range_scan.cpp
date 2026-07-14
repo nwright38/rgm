@@ -3,14 +3,60 @@
 #include "SigmaCMResultIO.h"
 #include "SigmaCMInput.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 using namespace sigmacm;
+
+namespace {
+bool takeFlag(std::vector<std::string>& args, const std::string& flag) {
+  for (auto it = args.begin(); it != args.end(); ++it) {
+    if (*it == flag) {
+      args.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string takeOption(std::vector<std::string>& args, const std::string& key) {
+  for (auto it = args.begin(); it != args.end();) {
+    if (*it == key) {
+      if (it + 1 == args.end()) throw std::runtime_error("Missing value after " + key);
+      std::string value = *(it + 1);
+      it = args.erase(it, it + 2);
+      return value;
+    }
+    const std::string prefix = key + "=";
+    if (it->rfind(prefix, 0) == 0) {
+      std::string value = it->substr(prefix.size());
+      args.erase(it);
+      return value;
+    }
+    ++it;
+  }
+  return "";
+}
+
+void usage(const char* program) {
+  std::cerr << "Usage:\n"
+            << "  " << program << " data.root mc.root out.root [options]\n"
+            << "  " << program << " --from-hipo A data.hipo sim.hipo out.root [options]\n"
+            << "Extra option: --xy-ranges=0.45,0.50,0.55 --beam-energy=v --max-events=N\n";
+}
+}
 
 int main(int argc, char** argv) {
   std::vector<std::string> pos;
   Config cfg = configFromArgs(argc, argv, 1, pos);
+  const bool fromHipo = takeFlag(pos, "--from-hipo");
+  HipoLoadOptions hipoOptions;
+  const std::string beamEnergy = takeOption(pos, "--beam-energy");
+  if (!beamEnergy.empty()) hipoOptions.beamEnergy = std::atof(beamEnergy.c_str());
+  const std::string maxEvents = takeOption(pos, "--max-events");
+  if (!maxEvents.empty()) hipoOptions.maxEvents = std::atoll(maxEvents.c_str());
   std::vector<double> xyRanges{0.45, 0.50, 0.55};
   for (auto it = pos.begin(); it != pos.end();) {
     if (it->rfind("--xy-ranges=", 0) == 0) {
@@ -21,14 +67,24 @@ int main(int argc, char** argv) {
       it = pos.erase(it);
     } else ++it;
   }
-  if (pos.size() != 3) {
-    printCommonUsage(argv[0]);
-    std::cerr << "Extra option: --xy-ranges=0.45,0.50,0.55\n";
+  if ((!fromHipo && pos.size() != 3) || (fromHipo && pos.size() != 4)) {
+    usage(argv[0]);
     return 2;
   }
   try {
-    Sample data = loadSkim(pos[0], false);
-    Sample mc = loadSkim(pos[1], true);
+    std::string outPath;
+    Sample data;
+    Sample mc;
+    if (fromHipo) {
+      hipoOptions.nucleusA = std::atoi(pos[0].c_str());
+      data = loadHipo({pos[1]}, false, cfg, hipoOptions);
+      mc = loadHipo({pos[2]}, true, cfg, hipoOptions);
+      outPath = pos[3];
+    } else {
+      data = loadSkim(pos[0], false);
+      mc = loadSkim(pos[1], true);
+      outPath = pos[2];
+    }
     cfg.fdLeadRegionValue = mc.fdLeadRegionValue;
     cfg.cdLeadRegionValue = mc.cdLeadRegionValue;
     std::vector<Result> results;
@@ -39,7 +95,7 @@ int main(int argc, char** argv) {
       c.fitZMax = 2.0 * rxy;
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, c));
     }
-    writeResultsTree(pos[2], results);
+    writeResultsTree(outPath, results);
   } catch (const std::exception& e) {
     std::cerr << "run_fit_range_scan failed: " << e.what() << "\n";
     return 1;

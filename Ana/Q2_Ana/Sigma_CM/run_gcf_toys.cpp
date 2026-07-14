@@ -11,7 +11,12 @@ int main(int argc, char** argv) {
   std::vector<std::string> pos;
   Config cfg = configFromArgs(argc, argv, 1, pos);
   for (auto it = pos.begin(); it != pos.end();) {
-    if (it->rfind("--n-toys=", 0) == 0) {
+    if (*it == "--from-hipo") {
+      std::cerr << "run_gcf_toys cannot read hipo directly because GCF toys require "
+                << "w_gcf_toy_* auxiliary weight branches. Use a skim ROOT file that "
+                << "contains those branches.\n";
+      return 2;
+    } else if (it->rfind("--n-toys=", 0) == 0) {
       std::cerr << "run_gcf_toys uses every w_gcf_toy_* branch in the MC file; ignoring "
                 << *it << "\n";
       it = pos.erase(it);

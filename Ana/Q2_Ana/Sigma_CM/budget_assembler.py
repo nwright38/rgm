@@ -50,7 +50,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--nominal", required=True)
     ap.add_argument("--cut-toys", required=True)
-    ap.add_argument("--gcf-toys", required=True)
+    ap.add_argument("--gcf-toys")
     ap.add_argument("--fit-range", required=True)
     ap.add_argument("--closure", required=True)
     ap.add_argument("--out-prefix", required=True)
@@ -59,7 +59,7 @@ def main():
 
     nominal = read(args.nominal)
     cut = read(args.cut_toys)
-    gcf = read(args.gcf_toys)
+    gcf = read(args.gcf_toys) if args.gcf_toys else None
     fit_range = read(args.fit_range)
     closure = read(args.closure)
 
@@ -68,7 +68,7 @@ def main():
         sources = {
             "statistical": first_stat(nominal)[d],
             "cut_toys_raw": width(cut[f"sigma{d}"]),
-            "gcf_toys": width(gcf[f"sigma{d}"]),
+            "gcf_toys": width(gcf[f"sigma{d}"]) if gcf is not None else 0.0,
             "fit_range_envelope": envelope(fit_range)[d],
             "closure_bias_uncorrected": float(np.max(np.abs(closure[f"sigma{d}"] - np.mean(closure[f"sigma{d}"])))),
         }
