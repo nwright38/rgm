@@ -101,6 +101,8 @@ int main(int argc, char** argv) {
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, toyCfg));
     }
     writeResultsTree(outPath, results);
+    std::cout << "Wrote " << outPath << " with " << results.size()
+              << " combined toy result rows\n";
   } catch (const std::exception& e) {
     std::cerr << "run_combined_toys failed: " << e.what() << "\n";
     return 1;

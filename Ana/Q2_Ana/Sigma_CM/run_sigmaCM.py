@@ -50,6 +50,12 @@ def run_python(script, args):
     run([sys.executable, helper(script), *args])
 
 
+def remove_stale(path):
+    path = Path(path)
+    if path.exists():
+        path.unlink()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("data")
@@ -112,6 +118,7 @@ def main():
         if args.from_hipo:
             print("Skipping GCF toys for hipo input: the hipo cache does not contain w_gcf_toy_* weights.")
         else:
+            remove_stale(gcf)
             run([exe(args.build_dir, "run_gcf_toys"), args.data, args.mc, gcf, *common])
         run([exe(args.build_dir, "run_combined_toys"), data_input, mc_input, combined, *common,
              f"--n-toys={args.n_toys}"])
@@ -129,12 +136,12 @@ def main():
             budget_cmd = ["--nominal", nominal, "--cut-toys", cut,
                           "--fit-range", ranges, "--closure", closure,
                           "--out-prefix", budget]
-            if not args.from_hipo:
+            if gcf.exists():
                 budget_cmd.extend(["--gcf-toys", gcf])
             run_python("budget_assembler.py", budget_cmd)
             budget_json = budget.with_suffix(".json")
         roots.extend([cut, combined, ranges, closure, *profiles])
-        if not args.from_hipo:
+        if gcf.exists():
             roots.append(gcf)
 
     if not args.skip_python:

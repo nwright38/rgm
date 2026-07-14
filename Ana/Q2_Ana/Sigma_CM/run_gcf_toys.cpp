@@ -33,6 +33,11 @@ int main(int argc, char** argv) {
     Sample mc = loadSkim(pos[1], true);
     cfg.fdLeadRegionValue = mc.fdLeadRegionValue;
     cfg.cdLeadRegionValue = mc.cdLeadRegionValue;
+    if (mc.auxWeightBranches.empty()) {
+      std::cout << "No w_gcf_toy_* branches found in " << pos[1]
+                << "; skipping GCF toys and not writing " << pos[2] << "\n";
+      return 0;
+    }
     std::vector<Result> results;
     for (const auto& branch : mc.auxWeightBranches) {
       Config toyCfg = cfg;
@@ -40,6 +45,8 @@ int main(int argc, char** argv) {
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, toyCfg));
     }
     writeResultsTree(pos[2], results);
+    std::cout << "Wrote " << pos[2] << " with " << results.size()
+              << " GCF toy result rows\n";
   } catch (const std::exception& e) {
     std::cerr << "run_gcf_toys failed: " << e.what() << "\n";
     return 1;

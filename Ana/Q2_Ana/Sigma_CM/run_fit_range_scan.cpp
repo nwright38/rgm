@@ -71,6 +71,10 @@ int main(int argc, char** argv) {
     usage(argv[0]);
     return 2;
   }
+  if (xyRanges.empty()) {
+    std::cerr << "run_fit_range_scan failed: --xy-ranges did not contain any values\n";
+    return 1;
+  }
   try {
     std::string outPath;
     Sample data;
@@ -96,6 +100,8 @@ int main(int argc, char** argv) {
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, c));
     }
     writeResultsTree(outPath, results);
+    std::cout << "Wrote " << outPath << " with " << results.size()
+              << " fit-range result rows\n";
   } catch (const std::exception& e) {
     std::cerr << "run_fit_range_scan failed: " << e.what() << "\n";
     return 1;

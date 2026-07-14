@@ -79,6 +79,9 @@ int main(int argc, char** argv) {
       if (i % 2 == 0) evenPool.push_back(mc.events[i]);
       else oddTemplates.push_back(mc.events[i]);
     }
+    if (evenPool.empty() || oddTemplates.empty()) {
+      throw std::runtime_error("Closure needs at least one even and one odd MC event after loading");
+    }
     std::vector<Result> results;
     std::mt19937_64 rng(cfg.seed);
     const double targets[] = {0.10, 0.14, 0.18, 0.22};
@@ -101,6 +104,8 @@ int main(int argc, char** argv) {
       results.push_back(r);
     }
     writeResultsTree(outPath, results);
+    std::cout << "Wrote " << outPath << " with " << results.size()
+              << " closure result rows\n";
   } catch (const std::exception& e) {
     std::cerr << "run_closure failed: " << e.what() << "\n";
     return 1;

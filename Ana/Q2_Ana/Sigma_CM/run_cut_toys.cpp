@@ -115,6 +115,8 @@ int main(int argc, char** argv) {
       results.push_back(extract(bootData, mc.events, mc.sigmaGen, bootCfg));
     }
     writeResultsTree(outPath, results);
+    std::cout << "Wrote " << outPath << " with " << results.size()
+              << " cut/bootstrap result rows\n";
   } catch (const std::exception& e) {
     std::cerr << "run_cut_toys failed: " << e.what() << "\n";
     return 1;
