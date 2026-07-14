@@ -41,10 +41,10 @@ PADDED_ID=$(printf "%05d" ${BKG_ID})
 BKGDFILE=/cache/clas12/rg-m/production/bkgfiles/tor-1.00_sol-1.00/Cx4_5986MeV/c_${PADDED_ID}.hipo
 
 #DON'T NEED TO TOUCH BELOW HERE UNLESS YOU NEED TO
-ROOTOUT=${OUTPATH}/rootfiles/Jul10
-LUNDOUT=${OUTPATH}/lundfiles/Jul10
-MCOUT=${OUTPATH}/mchipo/Jul10
-RECONOUT=${OUTPATH}/reconhipo/Jul10
+ROOTOUT=${OUTPATH}/rootfiles/Jul14
+LUNDOUT=${OUTPATH}/lundfiles/Jul14
+MCOUT=${OUTPATH}/mchipo/Jul14
+RECONOUT=${OUTPATH}/reconhipo/Jul14
 
 # SLURM_ARRAY_TASK_ID=1 #for testing, comment out for array job submission
 
