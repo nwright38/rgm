@@ -273,6 +273,39 @@ void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranch
 
   tree.Write();
   params.Write();
+  if (!sample.gcfToyParams.empty()) {
+    TTree gcfToyParams("gcfToyParams", "GCF toy randomized parameters");
+    std::string branchName;
+    double Cpp0, Cpn0, Cnn0, Cpn1, sigmaCM;
+    double P00, P01, P10, P11, P20, P21, P30, P31;
+    double TN, TNN;
+    gcfToyParams.Branch("branchName", &branchName);
+    gcfToyParams.Branch("Cpp0", &Cpp0);
+    gcfToyParams.Branch("Cpn0", &Cpn0);
+    gcfToyParams.Branch("Cnn0", &Cnn0);
+    gcfToyParams.Branch("Cpn1", &Cpn1);
+    gcfToyParams.Branch("sigmaCM", &sigmaCM);
+    gcfToyParams.Branch("P00", &P00);
+    gcfToyParams.Branch("P01", &P01);
+    gcfToyParams.Branch("P10", &P10);
+    gcfToyParams.Branch("P11", &P11);
+    gcfToyParams.Branch("P20", &P20);
+    gcfToyParams.Branch("P21", &P21);
+    gcfToyParams.Branch("P30", &P30);
+    gcfToyParams.Branch("P31", &P31);
+    gcfToyParams.Branch("TN", &TN);
+    gcfToyParams.Branch("TNN", &TNN);
+    for (const auto& p : sample.gcfToyParams) {
+      branchName = p.branchName;
+      Cpp0 = p.Cpp0; Cpn0 = p.Cpn0; Cnn0 = p.Cnn0; Cpn1 = p.Cpn1;
+      sigmaCM = p.sigmaCM;
+      P00 = p.P00; P01 = p.P01; P10 = p.P10; P11 = p.P11;
+      P20 = p.P20; P21 = p.P21; P30 = p.P30; P31 = p.P31;
+      TN = p.TN; TNN = p.TNN;
+      gcfToyParams.Fill();
+    }
+    gcfToyParams.Write();
+  }
   meta.Write();
   file->Close();
 }
@@ -445,6 +478,29 @@ bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
   return true;
 }
 
+#ifdef SIGMACM_WITH_GCF_TOYS
+GcfToyParams snapshotGcfToyParams(const std::string& branchName, const reweighter& w) {
+  GcfToyParams p;
+  p.branchName = branchName;
+  p.Cpp0 = w.get_Cpp0();
+  p.Cpn0 = w.get_Cpn0();
+  p.Cnn0 = w.get_Cnn0();
+  p.Cpn1 = w.get_Cpn1();
+  p.sigmaCM = w.get_sigma_cm_fin();
+  p.P00 = w.get_P(0, 0);
+  p.P01 = w.get_P(0, 1);
+  p.P10 = w.get_P(1, 0);
+  p.P11 = w.get_P(1, 1);
+  p.P20 = w.get_P(2, 0);
+  p.P21 = w.get_P(2, 1);
+  p.P30 = w.get_P(3, 0);
+  p.P31 = w.get_P(3, 1);
+  p.TN = w.get_TN();
+  p.TNN = w.get_TNN();
+  return p;
+}
+#endif
+
 }  // namespace
 
 Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
@@ -481,11 +537,13 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
     const int n = neutronNumber(options.nucleusA);
     for (int i = 0; i < options.nGcfToys; ++i) {
       reweighter w(options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
-      w.randomize_Config();
-      gcfToyWeights.push_back(w);
+      w.randomize_Config(false);
       std::ostringstream name;
       name << "w_gcf_toy_" << std::setw(3) << std::setfill('0') << i;
-      sample.auxWeightBranches.push_back(name.str());
+      const std::string branchName = name.str();
+      sample.auxWeightBranches.push_back(branchName);
+      sample.gcfToyParams.push_back(snapshotGcfToyParams(branchName, w));
+      gcfToyWeights.push_back(w);
     }
   }
 #else
@@ -516,6 +574,8 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
       << "gcf_nominal_potential=AV18\n"
       << "gcf_nominal_weight_applied=" << (requireMC ? 1 : 0) << "\n"
       << "gcf_toy_weight_mode=toy_over_nominal_ratio\n"
+      << "gcf_toy_transparency_randomized=0\n"
+      << "gcf_toy_params_tree=gcfToyParams\n"
       << "gcf_toy_branch_count=" << sample.auxWeightBranches.size() << "\n"
       << "gcf_toy_branches=" << auxList.str() << "\n"
       << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";

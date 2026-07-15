@@ -69,7 +69,7 @@ reweighter::~reweighter()
 {
 }
 
-void  reweighter::randomize_Config(){
+void  reweighter::randomize_Config(bool varyTransparency){
   TRandom3 * myRand = new TRandom3(0);
   double s_Cpp0=gcf_config_fin->get_d_Cpp0()/gcf_config_fin->get_Cpp0();
   double s_Cpn0=gcf_config_fin->get_d_Cpn0()/gcf_config_fin->get_Cpn0();
@@ -85,9 +85,20 @@ void  reweighter::randomize_Config(){
       P[j][k]*=myRand->Gaus(1.0,0.1*P[j][k]);
     }	
   }
-  TN*=myRand->Gaus(1.0,0.1);
-  TNN*=myRand->Gaus(1.0,0.1);
+  if (varyTransparency) {
+    TN*=myRand->Gaus(1.0,0.1);
+    TNN*=myRand->Gaus(1.0,0.1);
+  }
 }
+
+double reweighter::get_Cpp0() const { return gcf_config_fin->get_Cpp0(); }
+double reweighter::get_Cpn0() const { return gcf_config_fin->get_Cpn0(); }
+double reweighter::get_Cnn0() const { return gcf_config_fin->get_Cnn0(); }
+double reweighter::get_Cpn1() const { return gcf_config_fin->get_Cpn1(); }
+double reweighter::get_sigma_cm_fin() const { return sigma_cm_fin; }
+double reweighter::get_P(int j, int k) const { return P[j][k]; }
+double reweighter::get_TN() const { return TN; }
+double reweighter::get_TNN() const { return TNN; }
 
 
 double reweighter::get_weight_noT(clas12::mcparticle* mcInfo)

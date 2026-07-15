@@ -38,12 +38,32 @@ struct Event {
   std::uint64_t stableIndex = 0;
 };
 
+struct GcfToyParams {
+  std::string branchName;
+  double Cpp0 = 0.0;
+  double Cpn0 = 0.0;
+  double Cnn0 = 0.0;
+  double Cpn1 = 0.0;
+  double sigmaCM = 0.0;
+  double P00 = 0.0;
+  double P01 = 0.0;
+  double P10 = 0.0;
+  double P11 = 0.0;
+  double P20 = 0.0;
+  double P21 = 0.0;
+  double P30 = 0.0;
+  double P31 = 0.0;
+  double TN = 0.0;
+  double TNN = 0.0;
+};
+
 struct Sample {
   std::vector<Event> events;
   double sigmaGen = 0.0;
   int fdLeadRegionValue = 2000;
   int cdLeadRegionValue = 4000;
   std::vector<std::string> auxWeightBranches;
+  std::vector<GcfToyParams> gcfToyParams;
   std::string metadataDump;
 };
 

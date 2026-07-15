@@ -61,7 +61,25 @@ def read_skim(path):
         gcf = sorted(b for b in branches if b.startswith("w_gcf_toy_"))
         if not gcf:
             raise SystemExit(f"{path} contains no w_gcf_toy_* branches")
-        return tree.arrays(required + gcf, library="np"), gcf
+        params = None
+        if "gcfToyParams" in f:
+            params = f["gcfToyParams"].arrays(library="np")
+        return tree.arrays(required + gcf, library="np"), gcf, params
+
+
+def toy_param_lookup(params):
+    if params is None or "branchName" not in params:
+        return {}
+    out = {}
+    n = len(params["branchName"])
+    for i in range(n):
+        branch = text(params["branchName"][i])
+        out[branch] = {
+            key: float(params[key][i])
+            for key in params
+            if key != "branchName"
+        }
+    return out
 
 
 def config_for_row(gcf_rows, index):
@@ -143,9 +161,10 @@ def row_mask(gcf_rows):
     return mask
 
 
-def build_rows(mc, branches, gcf_rows):
+def build_rows(mc, branches, gcf_rows, toy_params=None):
     mask_rows = row_mask(gcf_rows)
     branch_set = set(branches)
+    toy_params = toy_params or {}
     rows = []
     nominal_cache = {}
     for i in np.where(mask_rows)[0]:
@@ -175,7 +194,7 @@ def build_rows(mc, branches, gcf_rows):
             continue
         reco_rms = weighted_rms(np.asarray(mc["pcmY"])[sel], total)
         truth_rms = weighted_rms(np.asarray(mc["pcmY_truth"])[sel], total)
-        rows.append({
+        row = {
             "branch": branch,
             "sigmaY": float(gcf_rows["sigmaY"][i]),
             "sigmaYErr": float(gcf_rows["sigmaYErrHigh"][i]) if "sigmaYErrHigh" in gcf_rows else float("nan"),
@@ -194,7 +213,10 @@ def build_rows(mc, branches, gcf_rows):
             "neff_frac": effective_entries(total) / cached["n_selected"] if cached["n_selected"] else 0.0,
             "pcmY_reco_rms_ratio": reco_rms / cached["pcmY_reco_nominal_rms"] if cached["pcmY_reco_nominal_rms"] > 0 else float("nan"),
             "pcmY_truth_rms_ratio": truth_rms / cached["pcmY_truth_nominal_rms"] if cached["pcmY_truth_nominal_rms"] > 0 else float("nan"),
-        })
+        }
+        for key, value in toy_params.get(branch, {}).items():
+            row[f"param_{key}"] = value
+        rows.append(row)
     return rows
 
 
@@ -239,6 +261,11 @@ def summary_page(pdf, rows, out_csv):
             f"{r['branch']:<20} {r['sigmaY']:.5f}  {r['aux_abs_p99']:.3g}  "
             f"{r['aux_abs_max']:.3g}  {r['neff_frac']:.3g}  {r['pcmY_truth_rms_ratio']:.3g}"
         )
+    param_keys = sorted(k for k in rows[0] if k.startswith("param_"))
+    if param_keys:
+        lines += ["", "GCF toy parameters found:", ", ".join(k[6:] for k in param_keys)]
+    else:
+        lines += ["", "No gcfToyParams tree found in MC skim."]
     lines += ["", f"CSV written to: {out_csv}"]
     plt.figure(figsize=(8.3, 6.2))
     plt.axis("off")
@@ -264,11 +291,11 @@ def main():
     args = ap.parse_args()
     require_modules()
 
-    mc, branches = read_skim(args.mc_skim)
+    mc, branches, params = read_skim(args.mc_skim)
     gcf_rows = read_tree(args.gcf_toys, "sigmaCM")
     if gcf_rows is None:
         raise SystemExit(f"{args.gcf_toys} is missing sigmaCM tree")
-    rows = build_rows(mc, branches, gcf_rows)
+    rows = build_rows(mc, branches, gcf_rows, toy_param_lookup(params))
     if not rows:
         raise SystemExit("No matching integrated GCF toy rows were found")
 
@@ -285,6 +312,22 @@ def main():
         scatter_page(pdf, rows, "pcmY_truth_rms_ratio", "truth pcmY weighted RMS / nominal")
         scatter_page(pdf, rows, "pcmY_reco_rms_ratio", "reco pcmY weighted RMS / nominal")
         scatter_page(pdf, rows, "aux_frac_gt5", "fraction of events with |toy/nominal weight| > 5")
+        param_labels = {
+            "param_sigmaCM": "randomized GCF sigma_CM",
+            "param_Cpp0": "Cpp0",
+            "param_Cpn0": "Cpn0",
+            "param_Cnn0": "Cnn0",
+            "param_Cpn1": "Cpn1",
+            "param_TN": "TN",
+            "param_TNN": "TNN",
+        }
+        p_keys = ["param_sigmaCM", "param_Cpp0", "param_Cpn0", "param_Cnn0", "param_Cpn1",
+                  "param_P00", "param_P01", "param_P10", "param_P11",
+                  "param_P20", "param_P21", "param_P30", "param_P31",
+                  "param_TN", "param_TNN"]
+        for key in p_keys:
+            if key in rows[0]:
+                scatter_page(pdf, rows, key, param_labels.get(key, key[6:]))
 
     print(f"Wrote {out_pdf}")
     print(f"Wrote {out_csv}")

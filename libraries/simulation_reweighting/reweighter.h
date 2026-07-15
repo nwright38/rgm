@@ -26,7 +26,15 @@ public:
   reweighter(double E, int Z, int N, ffModel thisMod, char * input_uType_fin, double sigmaCM);
   ~reweighter();
   
-  void randomize_Config();
+  void randomize_Config(bool varyTransparency = true);
+  double get_Cpp0() const;
+  double get_Cpn0() const;
+  double get_Cnn0() const;
+  double get_Cpn1() const;
+  double get_sigma_cm_fin() const;
+  double get_P(int j, int k) const;
+  double get_TN() const;
+  double get_TNN() const;
   double get_weight_noT(clas12::mcparticle* mcInfo);
   double get_weight_ep(clas12::mcparticle* mcInfo);
   double get_weight_epp(clas12::mcparticle* mcInfo);
@@ -55,4 +63,3 @@ private:
 };
 
 #endif
-
