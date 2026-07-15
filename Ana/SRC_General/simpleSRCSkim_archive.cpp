@@ -34,6 +34,33 @@ void Usage()
 bool inFD(int status){ return (abs(status) >= 2000 && abs(status) < 4000); }
 bool inCD(int status){ return (abs(status) >= 4000 && abs(status) < 8000); }
 
+void setElectronP4(TLorentzVector &p4, clas12::region_part_ptr electron, bool isMC)
+{
+  GetLorentzVector_ReconVector(p4, electron);
+  if(!isMC){
+    SetLorentzVector_ThetaCorrection(p4, electron);
+    SetLorentzVector_MomentumCorrection(p4, electron);
+  }
+  if(isMC){
+    SetLorentzVector_MomentumSimulationSmear(p4, electron);
+  }
+}
+
+void setProtonP4(TLorentzVector &p4, clas12::region_part_ptr proton, bool isMC)
+{
+  GetLorentzVector_ReconVector(p4, proton);
+  if(!isMC){
+    SetLorentzVector_ThetaCorrection(p4, proton);
+  }
+  SetLorentzVector_EnergyLossCorrection(p4, proton);
+  if(!isMC){
+    SetLorentzVector_MomentumCorrection(p4, proton);
+  }
+  if(isMC){
+    SetLorentzVector_MomentumSimulationSmear(p4, proton);
+  }
+}
+
 int main(int argc, char **argv)
 {
   if(argc < 4){ Usage(); return -1; }
@@ -285,7 +312,7 @@ int main(int argc, char **argv)
 
     // ---- electron kinematics ----
     eP4.SetXYZM(0., 0., 0., me);
-    GetLorentzVector_Corrected(eP4, electrons[0], 0);
+    setElectronP4(eP4, electrons[0], isMC);
     if(eP4.Vect().Mag() == 0.) continue;
 
     TVector3 eP3 = eP4.Vect();
@@ -330,7 +357,7 @@ int main(int argc, char **argv)
     {
       if(nFilled >= MAXP) break;
 
-      GetLorentzVector_Corrected(leadP4, protons[pr], 0);
+      setProtonP4(leadP4, protons[pr], isMC);
       TVector3 pLead3 = leadP4.Vect();
 
       missP4 = targP4 + beamP4 - eP4 - leadP4;
