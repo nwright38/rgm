@@ -52,6 +52,13 @@ def savefig(out, name):
     plt.close()
 
 
+def remove_stale_scan_plots(out, stem):
+    for suffix in ("sigma_vs_fit_window", "chi2ndf_vs_fit_window", "z_window_vs_fit_window"):
+        path = out / f"{stem}_{suffix}.pdf"
+        if path.exists():
+            path.unlink()
+
+
 def _as_text(value):
     if isinstance(value, bytes):
         return value.decode("utf-8")
@@ -153,22 +160,29 @@ def plot_integrated_summary(arr, stem, out, sys):
 
 def plot_fit_range_scan(arr, stem, out):
     if "cutRangeXY" not in arr or "chi2" not in arr or "ndf" not in arr:
+        remove_stale_scan_plots(out, stem)
         return
     if len(arr.get("sigmaX", [])) < 2:
+        remove_stale_scan_plots(out, stem)
         return
     if "q2BinIndex" in arr:
         mask = np.asarray(arr["q2BinIndex"]) < 0
     else:
         mask = np.ones(len(arr["sigmaX"]), dtype=bool)
     if np.count_nonzero(mask) < 2:
+        remove_stale_scan_plots(out, stem)
         return
 
     x = np.asarray(arr["cutRangeXY"], dtype=float)[mask]
     finite = np.isfinite(x)
     if np.count_nonzero(finite) < 2:
+        remove_stale_scan_plots(out, stem)
         return
     indices = np.where(mask)[0][finite]
     x = x[finite]
+    if np.unique(np.round(x, decimals=8)).size < 2:
+        remove_stale_scan_plots(out, stem)
+        return
     order = np.argsort(x)
     indices = indices[order]
     x = x[order]
