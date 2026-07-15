@@ -27,6 +27,7 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   double thetaCDLower, pRecLower;
   double cutRangeXY, fitZMin, fitZMax;
   double sigmaInit, sigmaStep, sigmaMin, sigmaMax;
+  double closureInjectedSigma;
   int binsX, binsY, binsZ, fdLeadRegionValue, cdLeadRegionValue, requirePcmLtPrel;
   std::string configJson, auxWeightBranch, status;
 
@@ -53,6 +54,7 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   tree.Branch("effectiveMCEntries", &effectiveMCEntries);
   tree.Branch("converged", &converged);
   tree.Branch("status", &status);
+  tree.Branch("closureInjectedSigma", &closureInjectedSigma);
   tree.Branch("configJson", &configJson);
   tree.Branch("auxWeightBranch", &auxWeightBranch);
   tree.Branch("seed", &seed);
@@ -110,6 +112,7 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
     chi2X = r.projectionChi2[0]; chi2Y = r.projectionChi2[1]; chi2Z = r.projectionChi2[2];
     nEventsData = r.nEventsData; effectiveMCEntries = r.effectiveMCEntries;
     converged = r.converged ? 1 : 0; status = r.status;
+    closureInjectedSigma = r.closureInjectedSigma;
     configJson = toJson(r.config); auxWeightBranch = r.config.auxWeightBranch;
     seed = r.config.seed; leadMode = static_cast<int>(r.config.leadMode);
     q2BinIndex = r.config.integratedQ2 ? -1 : r.config.q2BinIndex;

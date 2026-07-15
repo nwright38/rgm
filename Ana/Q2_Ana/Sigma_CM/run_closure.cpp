@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
       c.useBootstrapWeights = true;
       c.seed = cfg.seed + static_cast<std::uint64_t>(target * 1000.0);
       Result r = extract(pseudo, oddTemplates, mc.sigmaGen, c);
+      r.closureInjectedSigma = target;
       r.status += "; closure injected sigma=" + std::to_string(target) +
                   "; split=even entries pseudo-data, odd entries templates";
       results.push_back(r);

@@ -4,6 +4,7 @@
 #include "SigmaCMEvent.h"
 
 #include <array>
+#include <limits>
 #include <vector>
 
 namespace sigmacm {
@@ -40,6 +41,7 @@ struct Result {
   double effectiveMCEntries = 0.0;
   bool converged = false;
   std::string status;
+  double closureInjectedSigma = std::numeric_limits<double>::quiet_NaN();
   int profileAxis = -1;
   std::vector<ProfilePoint> profile;
 };

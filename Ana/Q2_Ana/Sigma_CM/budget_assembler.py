@@ -142,6 +142,8 @@ def main():
     ap.add_argument("--gcf-toys")
     ap.add_argument("--fit-range", required=True)
     ap.add_argument("--closure", required=True)
+    ap.add_argument("--exclude-closure", action="store_true",
+                    help="Do not include closure bias in total systematic; still report it")
     ap.add_argument("--out-prefix", required=True)
     args = ap.parse_args()
     require_budget_modules()
@@ -165,18 +167,19 @@ def main():
             "gcf_toys": width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0,
             "fit_range_envelope": fit_range_env[d],
             "closure_bias_uncorrected": closure[d],
+            "closure_used_in_total": 0.0 if args.exclude_closure else closure[d],
         }
         syst = np.sqrt(
             sources["cut_toys_stat_subtracted"] ** 2
             + sources["gcf_toys"] ** 2
             + sources["fit_range_envelope"] ** 2
-            + sources["closure_bias_uncorrected"] ** 2
+            + sources["closure_used_in_total"] ** 2
         )
         systematics_only = {
             "cut_toys_stat_subtracted": sources["cut_toys_stat_subtracted"],
             "gcf_toys": sources["gcf_toys"],
             "fit_range_envelope": sources["fit_range_envelope"],
-            "closure_bias_uncorrected": sources["closure_bias_uncorrected"],
+            "closure_used_in_total": sources["closure_used_in_total"],
         }
         dominant = max(systematics_only, key=systematics_only.get)
         rows.append({"direction": d, **sources,
@@ -208,6 +211,7 @@ def main():
             f"cuts(raw/sub)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}, "
             f"boot={row['data_bootstrap']:.5f}, gcf={row['gcf_toys']:.5f}, "
             f"range={row['fit_range_envelope']:.5f}, closure={row['closure_bias_uncorrected']:.5f}, "
+            f"closure_used={row['closure_used_in_total']:.5f}, "
             f"sys={row['total_systematic']:.5f}, dominant={row['dominant_systematic']}"
         )
     warnings = []
