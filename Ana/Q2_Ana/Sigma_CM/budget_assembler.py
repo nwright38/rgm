@@ -185,6 +185,10 @@ def main():
                     help="Do not include fit-range spread in total systematic; still report it")
     ap.add_argument("--exclude-closure", action="store_true",
                     help="Do not include closure bias in total systematic; still report it")
+    ap.add_argument("--use-stat-subtracted-cuts", action="store_true",
+                    help=("Use sqrt(cut_toys_raw^2 - data_bootstrap^2) in the total. "
+                          "Default is the raw cut-toy spread because the subtraction "
+                          "assumes cut and bootstrap spreads are orthogonal."))
     ap.add_argument("--out-prefix", required=True)
     args = ap.parse_args()
     require_budget_modules()
@@ -204,6 +208,7 @@ def main():
         gcf_width = width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0
         stat_total = first_stat(nominal)[d]
         stat_data = bootstrap[d]
+        cut_used = cut_sub[d] if args.use_stat_subtracted_cuts else cut_raw[d]
         sources = {
             "statistical": stat_total,
             "statistical_total": stat_total,
@@ -212,7 +217,11 @@ def main():
             "cut_toys_raw": cut_raw[d],
             "data_bootstrap": bootstrap[d],
             "cut_toys_stat_subtracted": cut_sub[d],
-            "cut_toys_used_in_total": 0.0 if args.exclude_cuts else cut_sub[d],
+            "cut_toys_used_in_total": 0.0 if args.exclude_cuts else cut_used,
+            "cut_toys_total_policy": "excluded" if args.exclude_cuts else (
+                "stat_subtracted_orthogonality_assumption"
+                if args.use_stat_subtracted_cuts else "raw_correlated_default"
+            ),
             "gcf_toys": gcf_width,
             "gcf_used_in_total": 0.0 if args.exclude_gcf else gcf_width,
             "fit_range_envelope_raw": fit_range_env[d],
@@ -222,11 +231,17 @@ def main():
             "closure_bias_uncorrected": closure[d],
             "closure_used_in_total": 0.0 if args.exclude_closure else closure[d],
         }
-        syst = np.sqrt(
+        syst_quadrature = np.sqrt(
             sources["cut_toys_used_in_total"] ** 2
             + sources["gcf_used_in_total"] ** 2
             + sources["fit_range_used_in_total"] ** 2
             + sources["closure_used_in_total"] ** 2
+        )
+        syst_correlated = (
+            sources["cut_toys_used_in_total"]
+            + sources["gcf_used_in_total"]
+            + sources["fit_range_used_in_total"]
+            + sources["closure_used_in_total"]
         )
         systematics_only = {
             "cut_toys_used_in_total": sources["cut_toys_used_in_total"],
@@ -237,7 +252,9 @@ def main():
         dominant = max(systematics_only, key=systematics_only.get)
         rows.append({"direction": d, **sources,
                      "dominant_systematic": dominant,
-                     "total_systematic": float(syst)})
+                     "total_systematic_quadrature_independence_approx": float(syst_quadrature),
+                     "total_systematic": float(syst_correlated),
+                     "systematic_combination_model": "fully_correlated_linear_sum"})
 
     out = Path(args.out_prefix)
     out.with_suffix(".json").write_text(json.dumps(rows, indent=2))
@@ -247,12 +264,13 @@ def main():
         for row in rows:
             fp.write(",".join(str(row[k]) for k in keys) + "\n")
     with out.with_suffix(".tex").open("w") as fp:
-        fp.write("\\begin{tabular}{lrrrrr}\\hline\n")
-        fp.write("Direction & Stat. & Cuts & GCF & Range & Total sys.\\\\\\hline\n")
+        fp.write("\\begin{tabular}{lrrrrrr}\\hline\n")
+        fp.write("Direction & Stat. & Cuts & GCF & Range & Closure & Total sys.\\\\\\hline\n")
         for row in rows:
             fp.write(
                 f"{row['direction']} & {row['statistical']:.4f} & {row['cut_toys_used_in_total']:.4f} & "
                 f"{row['gcf_used_in_total']:.4f} & {row['fit_range_used_in_total']:.4f} & "
+                f"{row['closure_used_in_total']:.4f} & "
                 f"{row['total_systematic']:.4f}\\\\\n"
             )
         fp.write("\\hline\\end{tabular}\n")
@@ -269,8 +287,12 @@ def main():
             f"range(raw/used)={row['fit_range_envelope_raw']:.5f}/{row['fit_range_used_in_total']:.5f}, "
             f"closure={row['closure_bias_uncorrected']:.5f}, "
             f"closure_used={row['closure_used_in_total']:.5f}, "
-            f"sys={row['total_systematic']:.5f}, dominant={row['dominant_systematic']}"
+            f"sys(correlated)={row['total_systematic']:.5f}, "
+            f"sys(quadrature approx)={row['total_systematic_quadrature_independence_approx']:.5f}, "
+            f"dominant={row['dominant_systematic']}"
         )
+    print("Combination model: fully correlated linear sum by default.")
+    print("Cut-toy total policy: raw spread unless --use-stat-subtracted-cuts is supplied.")
     warnings = []
     warnings.extend(bound_warnings(fit_range, "fit_range"))
     warnings.extend(bound_warnings(closure_raw, "closure"))

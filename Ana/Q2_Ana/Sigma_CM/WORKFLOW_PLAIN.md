@@ -400,15 +400,16 @@ closure bias estimate
 total systematic
 ```
 
-The current total systematic is a quadrature sum:
+The headline `total_systematic` is a conservative fully correlated sum:
 
 ```text
-total systematic =
-sqrt(cut^2 + gcf^2 + fit_range^2 + closure^2)
+total systematic = cut + gcf + fit_range + closure
 ```
 
-This assumes those sources are independent enough to combine in quadrature.
-That is a physics/statistics choice, not a law of nature.
+The JSON also keeps `total_systematic_quadrature_independence_approx` for
+comparison. By default the cut term uses the raw cut-toy spread; the older
+bootstrap-subtracted cut term is still reported and can be selected explicitly
+with `--use-stat-subtracted-cuts`.
 
 ## What The Python Plots Do
 
@@ -424,8 +425,10 @@ toy distributions, only when enough toy entries exist
 profile chi2 plots, only when profile output exists
 ```
 
-If you pass a budget JSON, the sigma plots can show stat+systematic bands.
-Without a budget JSON, they show stat-only errors.
+If you pass a budget JSON, the integrated sigma plot shows stat+systematic
+bands. Q2 plots stay stat-only by default because the budget is integrated-only.
+Use `--show-integrated-sys-on-q2` only when you explicitly want the old
+presentation choice of painting the integrated systematic onto every Q2 point.
 
 ## Which Output Should I Look At First?
 

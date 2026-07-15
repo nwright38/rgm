@@ -256,11 +256,19 @@ budget.csv
 budget.tex
 ```
 
+The headline `total_systematic` uses a conservative correlated sum of the
+included systematic components. The old quadrature combination is still written
+as `total_systematic_quadrature_independence_approx`, and the bootstrap-
+subtracted cut spread is still reported separately.
+
 To include stat+sys bands in Python plots, pass the exported JSON:
 
 ```bash
 Ana/Q2_Ana/Sigma_CM/plot_sigmaCM.py sigmaCM.root --budget-json budget.json --out-dir plots
 ```
+
+With a budget JSON, integrated plots show stat+sys bands. Q2 plots remain
+stat-only unless you also pass `--show-integrated-sys-on-q2`.
 
 ## Convenience Wrapper
 

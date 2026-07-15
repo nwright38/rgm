@@ -196,7 +196,7 @@ def plot_budget_sources(rows, out, nominal_sigmas):
     savefig(out, "budget_uncertainty_sources")
 
 
-def plot_sigma_vs_q2(arr, stem, out, sys):
+def plot_sigma_vs_q2(arr, stem, out, sys, show_integrated_sys):
     if "q2BinIndex" not in arr:
         return
     mask = np.asarray(arr["q2BinIndex"]) >= 0
@@ -215,7 +215,7 @@ def plot_sigma_vs_q2(arr, stem, out, sys):
     for d in DIRECTIONS:
         y = np.asarray(arr[f"sigma{d}"])[mask_indices][order]
         stat = np.asarray(arr[f"sigma{d}ErrHigh"])[mask_indices][order]
-        if sys is not None:
+        if sys is not None and show_integrated_sys:
             total = np.sqrt(stat * stat + sys.get(d, 0.0) ** 2)
             plt.fill_between(x, y - total, y + total, color=colors[d], alpha=0.13, linewidth=0)
         plt.errorbar(x, y, yerr=stat, marker="o", linestyle="-", color=colors[d], label=f"{d} stat")
@@ -223,7 +223,7 @@ def plot_sigma_vs_q2(arr, stem, out, sys):
     plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
     plt.title(f"{stem}: sigma vs Q2")
     plt.legend(frameon=False, ncol=3)
-    suffix = "stat_and_total" if sys is not None else "stat"
+    suffix = "stat_and_integrated_total" if sys is not None and show_integrated_sys else "stat"
     savefig(out, f"{stem}_sigma_vs_q2_{suffix}")
 
 
@@ -344,6 +344,9 @@ def main():
     ap.add_argument("root_files", nargs="+", help="Nominal, toy, profile, or scan result ROOT files")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--budget-json", help="JSON written by budget_assembler.py")
+    ap.add_argument("--show-integrated-sys-on-q2", action="store_true",
+                    help=("Draw integrated budget systematics on Q2-binned plots. "
+                          "By default Q2 plots stay stat-only because the budget is integrated-only."))
     args = ap.parse_args()
     require_plot_modules()
 
@@ -353,6 +356,8 @@ def main():
     sys = systematic_lookup(args.budget_json)
     nominal_sigmas = nominal_sigmas_from_roots(args.root_files) if budget_rows else {}
     plot_budget_sources(budget_rows, out, nominal_sigmas)
+    if args.budget_json and not args.show_integrated_sys_on_q2:
+        print("Q2 plots are stat-only: the supplied budget is integrated-only.")
 
     for root in args.root_files:
         arr = read_tree(root, "sigmaCM")
@@ -360,7 +365,7 @@ def main():
             continue
         stem = Path(root).stem
         plot_integrated_summary(arr, stem, out, sys)
-        plot_sigma_vs_q2(arr, stem, out, sys)
+        plot_sigma_vs_q2(arr, stem, out, sys, args.show_integrated_sys_on_q2)
         plot_fit_range_scan(arr, stem, out)
         plot_toy_distributions(arr, stem, out)
         plot_profiles(root, stem, out)
