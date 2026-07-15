@@ -83,6 +83,24 @@ def envelope(arr):
     }
 
 
+def bound_warnings(arr, label):
+    mask = integrated_mask(arr)
+    if not np.any(mask):
+        return []
+    warnings = []
+    for d in DIRECTIONS:
+        vals = np.asarray(arr[f"sigma{d}"], dtype=float)[mask]
+        mins = np.asarray(arr.get("sigmaMin", np.full(len(mask), np.nan)), dtype=float)[mask]
+        maxs = np.asarray(arr.get("sigmaMax", np.full(len(mask), np.nan)), dtype=float)[mask]
+        if vals.size and np.any(np.isfinite(mins)) and np.any(np.isfinite(maxs)):
+            near_min = np.isclose(vals, mins, rtol=0.0, atol=1e-5)
+            near_max = np.isclose(vals, maxs, rtol=0.0, atol=1e-5)
+            n_bound = int(np.count_nonzero(near_min | near_max))
+            if n_bound:
+                warnings.append(f"{label}: {n_bound} integrated sigma{d} fits are at/near Minuit bounds")
+    return warnings
+
+
 def closure_injected(arr):
     if "closureInjectedSigma" in arr:
         return np.asarray(arr["closureInjectedSigma"], dtype=float)
@@ -132,9 +150,9 @@ def main():
     cut = read(args.cut_toys)
     gcf = read(args.gcf_toys) if args.gcf_toys else None
     fit_range = read(args.fit_range)
-    closure = read(args.closure)
+    closure_raw = read(args.closure)
     cut_raw, bootstrap, cut_sub = cut_and_bootstrap_widths(cut)
-    closure = closure_bias(closure)
+    closure = closure_bias(closure_raw)
     fit_range_env = envelope(fit_range)
 
     rows = []
@@ -154,7 +172,16 @@ def main():
             + sources["fit_range_envelope"] ** 2
             + sources["closure_bias_uncorrected"] ** 2
         )
-        rows.append({"direction": d, **sources, "total_systematic": float(syst)})
+        systematics_only = {
+            "cut_toys_stat_subtracted": sources["cut_toys_stat_subtracted"],
+            "gcf_toys": sources["gcf_toys"],
+            "fit_range_envelope": sources["fit_range_envelope"],
+            "closure_bias_uncorrected": sources["closure_bias_uncorrected"],
+        }
+        dominant = max(systematics_only, key=systematics_only.get)
+        rows.append({"direction": d, **sources,
+                     "dominant_systematic": dominant,
+                     "total_systematic": float(syst)})
 
     out = Path(args.out_prefix)
     out.with_suffix(".json").write_text(json.dumps(rows, indent=2))
@@ -173,6 +200,23 @@ def main():
                 f"{row['total_systematic']:.4f}\\\\\n"
             )
         fp.write("\\hline\\end{tabular}\n")
+
+    print("Sigma_CM budget summary")
+    for row in rows:
+        print(
+            f"  {row['direction']}: stat={row['statistical']:.5f}, "
+            f"cuts(raw/sub)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}, "
+            f"boot={row['data_bootstrap']:.5f}, gcf={row['gcf_toys']:.5f}, "
+            f"range={row['fit_range_envelope']:.5f}, closure={row['closure_bias_uncorrected']:.5f}, "
+            f"sys={row['total_systematic']:.5f}, dominant={row['dominant_systematic']}"
+        )
+    warnings = []
+    warnings.extend(bound_warnings(fit_range, "fit_range"))
+    warnings.extend(bound_warnings(closure_raw, "closure"))
+    if warnings:
+        print("Warnings:")
+        for warning in warnings:
+            print(f"  {warning}")
 
 
 if __name__ == "__main__":

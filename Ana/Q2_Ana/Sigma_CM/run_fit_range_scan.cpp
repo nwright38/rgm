@@ -4,7 +4,9 @@
 #include "SigmaCMInput.h"
 
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
+#include <utility>
 #include <sstream>
 #include <stdexcept>
 
@@ -44,7 +46,12 @@ void usage(const char* program) {
   std::cerr << "Usage:\n"
             << "  " << program << " data.root mc.root out.root [options]\n"
             << "  " << program << " --from-hipo A data.hipo sim.hipo out.root [options]\n"
-            << "Extra option: --xy-ranges=0.45,0.50,0.55 --beam-energy=v --max-events=N\n";
+            << "Extra option: --xy-ranges=0.45,0.50,0.55 --z-ranges=lo:hi,lo:hi "
+            << "--beam-energy=v --max-events=N\n";
+}
+
+bool defaultZWindow(const Config& cfg) {
+  return std::abs(cfg.fitZMin - (-0.5)) < 1e-12 && std::abs(cfg.fitZMax - 1.0) < 1e-12;
 }
 }
 
@@ -58,12 +65,26 @@ int main(int argc, char** argv) {
   const std::string maxEvents = takeOption(pos, "--max-events");
   if (!maxEvents.empty()) hipoOptions.maxEvents = std::atoll(maxEvents.c_str());
   std::vector<double> xyRanges{0.45, 0.50, 0.55};
+  std::vector<std::pair<double, double>> zRanges;
   for (auto it = pos.begin(); it != pos.end();) {
     if (it->rfind("--xy-ranges=", 0) == 0) {
       xyRanges.clear();
       std::stringstream ss(it->substr(12));
       std::string item;
       while (std::getline(ss, item, ',')) xyRanges.push_back(std::atof(item.c_str()));
+      it = pos.erase(it);
+    } else if (it->rfind("--z-ranges=", 0) == 0) {
+      zRanges.clear();
+      std::stringstream ss(it->substr(11));
+      std::string item;
+      while (std::getline(ss, item, ',')) {
+        const auto colon = item.find(':');
+        if (colon == std::string::npos) {
+          throw std::runtime_error("--z-ranges entries must be lo:hi pairs");
+        }
+        zRanges.emplace_back(std::atof(item.substr(0, colon).c_str()),
+                             std::atof(item.substr(colon + 1).c_str()));
+      }
       it = pos.erase(it);
     } else ++it;
   }
@@ -73,6 +94,11 @@ int main(int argc, char** argv) {
   }
   if (xyRanges.empty()) {
     std::cerr << "run_fit_range_scan failed: --xy-ranges did not contain any values\n";
+    return 1;
+  }
+  if (!zRanges.empty() && zRanges.size() != xyRanges.size()) {
+    std::cerr << "run_fit_range_scan failed: --z-ranges must contain the same number "
+              << "of entries as --xy-ranges\n";
     return 1;
   }
   try {
@@ -92,11 +118,18 @@ int main(int argc, char** argv) {
     cfg.fdLeadRegionValue = mc.fdLeadRegionValue;
     cfg.cdLeadRegionValue = mc.cdLeadRegionValue;
     std::vector<Result> results;
-    for (double rxy : xyRanges) {
+    const bool keepExplicitZWindow = zRanges.empty() && !defaultZWindow(cfg);
+    for (size_t i = 0; i < xyRanges.size(); ++i) {
+      const double rxy = xyRanges[i];
       Config c = cfg;
       c.cutRangeXY = rxy;
-      c.fitZMin = -rxy;
-      c.fitZMax = 2.0 * rxy;
+      if (!zRanges.empty()) {
+        c.fitZMin = zRanges[i].first;
+        c.fitZMax = zRanges[i].second;
+      } else if (!keepExplicitZWindow) {
+        c.fitZMin = -rxy;
+        c.fitZMax = 2.0 * rxy;
+      }
       results.push_back(extract(data.events, mc.events, mc.sigmaGen, c));
     }
     writeResultsTree(outPath, results);
