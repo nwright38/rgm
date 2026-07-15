@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -83,6 +84,24 @@ int main(int argc, char **argv)
   Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
   Float_t b_theta_PrecQ;  // angle between recoil momentum and q
 
+  // truth-level MC quantities, named to mirror reco branches
+  Float_t b_xB_truth, b_Q2_truth, b_omega_truth;
+  Float_t b_eP_truth, b_eTheta_truth, b_ePhi_truth;
+  Float_t b_qP_truth, b_qTheta_truth, b_qPhi_truth;
+  Float_t b_leadP_truth, b_leadTheta_truth, b_leadPhi_truth;
+  Float_t b_pMiss_truth, b_pMissTheta_truth, b_pMissPhi_truth;
+  Float_t b_mMiss_truth;
+  Float_t b_kMiss_truth;
+  Float_t b_EMiss_truth;
+  Float_t b_theta_PmQ_truth;
+  Float_t b_theta_PleadQ_truth;
+  Float_t b_pRel_truth, b_pRelTheta_truth, b_pRelPhi_truth;
+  Float_t b_pCM_truth, b_pCMx_truth, b_pCMy_truth, b_pCMz_truth;
+  Float_t b_E2miss_truth;
+  Float_t b_recP_truth, b_recTheta_truth, b_recPhi_truth;
+  Float_t b_theta_PmPrec_truth;
+  Float_t b_theta_PrecQ_truth;
+
   srcTree->Branch("weight",      &b_weight,      "weight/F");
   srcTree->Branch("weight_ep",   &b_weight_ep,   "weight_ep/F");
   srcTree->Branch("weight_epp",  &b_weight_epp,  "weight_epp/F");
@@ -134,6 +153,47 @@ int main(int argc, char **argv)
   srcTree->Branch("recPhi",      &b_recPhi,      "recPhi/F");
   srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
   srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
+
+  srcTree->Branch("xB_truth",          &b_xB_truth,          "xB_truth/F");
+  srcTree->Branch("Q2_truth",          &b_Q2_truth,          "Q2_truth/F");
+  srcTree->Branch("omega_truth",       &b_omega_truth,       "omega_truth/F");
+
+  srcTree->Branch("eP_truth",          &b_eP_truth,          "eP_truth/F");
+  srcTree->Branch("eTheta_truth",      &b_eTheta_truth,      "eTheta_truth/F");
+  srcTree->Branch("ePhi_truth",        &b_ePhi_truth,        "ePhi_truth/F");
+
+  srcTree->Branch("qP_truth",          &b_qP_truth,          "qP_truth/F");
+  srcTree->Branch("qTheta_truth",      &b_qTheta_truth,      "qTheta_truth/F");
+  srcTree->Branch("qPhi_truth",        &b_qPhi_truth,        "qPhi_truth/F");
+
+  srcTree->Branch("leadP_truth",       &b_leadP_truth,       "leadP_truth/F");
+  srcTree->Branch("leadTheta_truth",   &b_leadTheta_truth,   "leadTheta_truth/F");
+  srcTree->Branch("leadPhi_truth",     &b_leadPhi_truth,     "leadPhi_truth/F");
+
+  srcTree->Branch("pMiss_truth",       &b_pMiss_truth,       "pMiss_truth/F");
+  srcTree->Branch("pMissTheta_truth",  &b_pMissTheta_truth,  "pMissTheta_truth/F");
+  srcTree->Branch("pMissPhi_truth",    &b_pMissPhi_truth,    "pMissPhi_truth/F");
+
+  srcTree->Branch("mMiss_truth",       &b_mMiss_truth,       "mMiss_truth/F");
+  srcTree->Branch("kMiss_truth",       &b_kMiss_truth,       "kMiss_truth/F");
+  srcTree->Branch("EMiss_truth",       &b_EMiss_truth,       "EMiss_truth/F");
+  srcTree->Branch("theta_PmQ_truth",   &b_theta_PmQ_truth,   "theta_PmQ_truth/F");
+  srcTree->Branch("theta_PleadQ_truth",&b_theta_PleadQ_truth,"theta_PleadQ_truth/F");
+
+  srcTree->Branch("pRel_truth",        &b_pRel_truth,        "pRel_truth/F");
+  srcTree->Branch("pRelTheta_truth",   &b_pRelTheta_truth,   "pRelTheta_truth/F");
+  srcTree->Branch("pRelPhi_truth",     &b_pRelPhi_truth,     "pRelPhi_truth/F");
+  srcTree->Branch("pCM_truth",         &b_pCM_truth,         "pCM_truth/F");
+  srcTree->Branch("pCMx_truth",        &b_pCMx_truth,        "pCMx_truth/F");
+  srcTree->Branch("pCMy_truth",        &b_pCMy_truth,        "pCMy_truth/F");
+  srcTree->Branch("pCMz_truth",        &b_pCMz_truth,        "pCMz_truth/F");
+  srcTree->Branch("E2miss_truth",      &b_E2miss_truth,      "E2miss_truth/F");
+
+  srcTree->Branch("recP_truth",        &b_recP_truth,        "recP_truth/F");
+  srcTree->Branch("recTheta_truth",    &b_recTheta_truth,    "recTheta_truth/F");
+  srcTree->Branch("recPhi_truth",      &b_recPhi_truth,      "recPhi_truth/F");
+  srcTree->Branch("theta_PmPrec_truth",&b_theta_PmPrec_truth,"theta_PmPrec_truth/F");
+  srcTree->Branch("theta_PrecQ_truth", &b_theta_PrecQ_truth, "theta_PrecQ_truth/F");
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
@@ -198,6 +258,21 @@ int main(int argc, char **argv)
     b_theta_PmPrec = -9.f;
     b_theta_PrecQ  = -9.f;
     b_goodLead = false;
+
+    b_xB_truth = -9.f;  b_Q2_truth = -9.f;  b_omega_truth = -9.f;
+    b_eP_truth = -9.f;  b_eTheta_truth = -9.f;  b_ePhi_truth = -9.f;
+    b_qP_truth = -9.f;  b_qTheta_truth = -9.f;  b_qPhi_truth = -9.f;
+    b_leadP_truth = -9.f;  b_leadTheta_truth = -9.f;  b_leadPhi_truth = -9.f;
+    b_pMiss_truth = -9.f;  b_pMissTheta_truth = -9.f;  b_pMissPhi_truth = -9.f;
+    b_mMiss_truth = -9.f;  b_kMiss_truth = -9.f;  b_EMiss_truth = -9.f;
+    b_theta_PmQ_truth = -9.f;
+    b_theta_PleadQ_truth = -9.f;
+    b_pRel_truth = -9.f;   b_pRelTheta_truth = -9.f;   b_pRelPhi_truth = -9.f;
+    b_pCM_truth = -9.f;    b_pCMx_truth = -9.f;        b_pCMy_truth = -9.f;    b_pCMz_truth = -9.f;
+    b_E2miss_truth = -9.f;
+    b_recP_truth = -9.f;   b_recTheta_truth = -9.f;    b_recPhi_truth = -9.f;
+    b_theta_PmPrec_truth = -9.f;
+    b_theta_PrecQ_truth  = -9.f;
 
     clasAna.Run(c12);
 
@@ -384,6 +459,100 @@ int main(int argc, char **argv)
         b_theta_PrecQ  = recoil_p3.Angle(qP3);
 
         break;  // one recoil per event
+      }
+    }
+
+    if(isMC)
+    {
+      auto mcInfo = c12->mcparts();
+      if(mcInfo && mcInfo->getRows() >= 2)
+      {
+        TVector3 e_truth(mcInfo->getPx(0), mcInfo->getPy(0), mcInfo->getPz(0));
+        TVector3 lead_truth(mcInfo->getPx(1), mcInfo->getPy(1), mcInfo->getPz(1));
+        TVector3 q_truth = p_beam - e_truth;
+
+        double omega_truth = Ebeam - sqrt(e_truth.Mag2() + me*me);
+        double Q2_truth = q_truth.Mag2() - omega_truth * omega_truth;
+        double xB_truth = (omega_truth != 0.) ? Q2_truth / (2. * mP * omega_truth) : -9.;
+
+        TLorentzVector eP4_truth;
+        eP4_truth.SetVectM(e_truth, me);
+        TLorentzVector leadP4_truth;
+        leadP4_truth.SetVectM(lead_truth, mP);
+        TLorentzVector q4_truth(q_truth, omega_truth);
+        TLorentzVector missP4_truth = targP4 + beamP4 - eP4_truth - leadP4_truth;
+        TVector3 pMiss_truth = lead_truth - q_truth;
+
+        TLorentzVector miss_LC_truth = leadP4_truth - q4_truth;
+        TVector3 u_ZQ_truth = q4_truth.Vect().Unit();
+        double pmm_ZQ_truth = miss_LC_truth.E() - miss_LC_truth.Vect().Dot(u_ZQ_truth);
+        double pmp_ZQ_truth = miss_LC_truth.Vect().Perp(u_ZQ_truth);
+        double kmiss_denom_truth = pmm_ZQ_truth * (2*mP - pmm_ZQ_truth);
+        double kMiss_truth = -9.;
+        if(kmiss_denom_truth != 0.){
+          double kmiss_arg_truth = mP*mP*((pmp_ZQ_truth*pmp_ZQ_truth + mP*mP)/kmiss_denom_truth) - mP*mP;
+          kMiss_truth = (kmiss_arg_truth >= 0.) ? sqrt(kmiss_arg_truth) : -9.;
+        }
+        double EMiss_truth = sqrt(lead_truth.Mag2() + mP*mP) - omega_truth;
+
+        b_eP_truth     = e_truth.Mag();
+        b_eTheta_truth = e_truth.Theta();
+        b_ePhi_truth   = e_truth.Phi();
+
+        b_qP_truth     = q_truth.Mag();
+        b_qTheta_truth = q_truth.Theta();
+        b_qPhi_truth   = q_truth.Phi();
+
+        b_Q2_truth    = Q2_truth;
+        b_xB_truth    = xB_truth;
+        b_omega_truth = omega_truth;
+
+        b_leadP_truth     = lead_truth.Mag();
+        b_leadTheta_truth = lead_truth.Theta();
+        b_leadPhi_truth   = lead_truth.Phi();
+
+        b_pMiss_truth      = pMiss_truth.Mag();
+        b_pMissTheta_truth = pMiss_truth.Theta();
+        b_pMissPhi_truth   = pMiss_truth.Phi();
+        b_mMiss_truth      = missP4_truth.M();
+        b_kMiss_truth      = kMiss_truth;
+        b_EMiss_truth      = EMiss_truth;
+        b_theta_PmQ_truth  = pMiss_truth.Angle(q_truth);
+        b_theta_PleadQ_truth = lead_truth.Angle(q_truth);
+
+        if(mcInfo->getRows() >= 3)
+        {
+          TVector3 rec_truth(mcInfo->getPx(2), mcInfo->getPy(2), mcInfo->getPz(2));
+          TVector3 pRel_truth = (pMiss_truth - rec_truth) * 0.5;
+          TVector3 pCM_truth = pMiss_truth + rec_truth;
+
+          TVector3 vz_truth = pMiss_truth.Unit();
+          TVector3 vy_truth = pMiss_truth.Cross(q_truth).Unit();
+          TVector3 vx_truth = vz_truth.Cross(vy_truth).Unit();
+
+          b_pRel_truth      = pRel_truth.Mag();
+          b_pRelTheta_truth = pRel_truth.Theta();
+          b_pRelPhi_truth   = pRel_truth.Phi();
+
+          b_pCM_truth  = pCM_truth.Mag();
+          b_pCMx_truth = pCM_truth.Dot(vx_truth);
+          b_pCMy_truth = pCM_truth.Dot(vy_truth);
+          b_pCMz_truth = pCM_truth.Dot(vz_truth);
+
+          TLorentzVector recP4_truth;
+          recP4_truth.SetVectM(rec_truth, mP);
+          double TP_truth = leadP4_truth.E() - leadP4_truth.M();
+          double TP2_truth = recP4_truth.E() - recP4_truth.M();
+          TLorentzVector miss_Am2_truth = q4_truth + nucleusP4 - leadP4_truth - recP4_truth;
+          double TB2_truth = miss_Am2_truth.E() - miss_Am2_truth.M();
+          b_E2miss_truth = q4_truth.E() - TP_truth - TP2_truth - TB2_truth;
+
+          b_recP_truth     = rec_truth.Mag();
+          b_recTheta_truth = rec_truth.Theta();
+          b_recPhi_truth   = rec_truth.Phi();
+          b_theta_PmPrec_truth = pMiss_truth.Angle(rec_truth);
+          b_theta_PrecQ_truth  = rec_truth.Angle(q_truth);
+        }
       }
     }
 
