@@ -59,6 +59,7 @@ std::string toJson(const Config& c) {
      << ",\"sharedScale\":" << (c.sharedScale ? "true" : "false")
      << ",\"statOnly\":" << (c.statOnly ? "true" : "false")
      << ",\"seed\":" << c.seed
+     << ",\"useBootstrapWeights\":" << (c.useBootstrapWeights ? "true" : "false")
      << ",\"q2Edges\":[";
   for (size_t i = 0; i < c.q2Edges.size(); ++i) {
     if (i) os << ",";
