@@ -126,7 +126,7 @@ def plot_toy_distributions(arr, stem, out):
         if values.size < MIN_TOY_ENTRIES:
             continue
         plt.figure(figsize=(6.2, 4.4))
-        plt.hist(values, bins=50, histtype="stepfilled", alpha=0.65, color="#4477aa")
+        plt.hist(values, bins=100, histtype="stepfilled", alpha=0.65, color="#4477aa")
         plt.axvline(np.mean(values), color="#cc6677", lw=1.8)
         plt.xlabel(rf"$\hat{{\sigma}}_{{CM,{d}}}$ [GeV/c]")
         plt.ylabel("Toy fits")
