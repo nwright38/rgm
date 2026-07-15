@@ -468,6 +468,13 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
 
 #ifdef SIGMACM_WITH_GCF_TOYS
   std::vector<reweighter> gcfToyWeights;
+  std::unique_ptr<reweighter> nominalGcfWeight;
+  if (requireMC) {
+    const int z = protonNumber(options.nucleusA);
+    const int n = neutronNumber(options.nucleusA);
+    nominalGcfWeight = std::make_unique<reweighter>(
+        options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
+  }
   if (requireMC && options.nGcfToys > 0) {
     gcfToyWeights.reserve(static_cast<size_t>(options.nGcfToys));
     const int z = protonNumber(options.nucleusA);
@@ -502,13 +509,16 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
        << "beam_energy=" << options.beamEnergy << "\n"
        << "nucleus_A=" << options.nucleusA << "\n"
        << "nucleus_Z=" << protonNumber(options.nucleusA) << "\n"
-       << "nucleus_N=" << neutronNumber(options.nucleusA) << "\n"
-       << "target_mass_4He=" << helium4Mass() << "\n"
-       << "smearing_rng_seed=" << cfg.seed << "\n"
-       << "momentum_corrections=skim_ep_explicit_recon_data_corrections_mc_smearing\n"
-       << "gcf_toy_branch_count=" << sample.auxWeightBranches.size() << "\n"
-       << "gcf_toy_branches=" << auxList.str() << "\n"
-       << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";
+      << "nucleus_N=" << neutronNumber(options.nucleusA) << "\n"
+      << "target_mass_4He=" << helium4Mass() << "\n"
+      << "smearing_rng_seed=" << cfg.seed << "\n"
+      << "momentum_corrections=skim_ep_explicit_recon_data_corrections_mc_smearing\n"
+      << "gcf_nominal_potential=AV18\n"
+      << "gcf_nominal_weight_applied=" << (requireMC ? 1 : 0) << "\n"
+      << "gcf_toy_weight_mode=toy_over_nominal_ratio\n"
+      << "gcf_toy_branch_count=" << sample.auxWeightBranches.size() << "\n"
+      << "gcf_toy_branches=" << auxList.str() << "\n"
+      << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";
   sample.metadataDump = meta.str();
 
   long long scanned = 0;
@@ -518,10 +528,18 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
     event.stableIndex = static_cast<std::uint64_t>(scanned);
     if (fillHipoEvent(c12, clasAna, requireMC, options.beamEnergy, event)) {
 #ifdef SIGMACM_WITH_GCF_TOYS
-      if (requireMC && !gcfToyWeights.empty()) {
+      if (requireMC && nominalGcfWeight) {
         auto* mcInfo = c12->mcparts();
+        const double nominal = nominalGcfWeight->get_weight_epp(mcInfo);
+        if (!std::isfinite(nominal) || nominal == 0.0) {
+          ++scanned;
+          continue;
+        }
+        event.genWeight *= nominal;
         for (size_t i = 0; i < gcfToyWeights.size(); ++i) {
-          event.auxWeights[sample.auxWeightBranches[i]] = gcfToyWeights[i].get_weight_epp(mcInfo);
+          const double toy = gcfToyWeights[i].get_weight_epp(mcInfo);
+          event.auxWeights[sample.auxWeightBranches[i]] =
+              std::isfinite(toy) ? toy / nominal : 1.0;
         }
       }
 #endif
