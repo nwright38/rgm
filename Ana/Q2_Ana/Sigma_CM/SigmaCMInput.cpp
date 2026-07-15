@@ -489,6 +489,11 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
 #endif
 
   std::ostringstream meta;
+  std::ostringstream auxList;
+  for (size_t i = 0; i < sample.auxWeightBranches.size(); ++i) {
+    if (i) auxList << ",";
+    auxList << sample.auxWeightBranches[i];
+  }
   meta << "sigma_gen=0.2\n"
        << "leadRegionFD=" << sample.fdLeadRegionValue << "\n"
        << "leadRegionCD=" << sample.cdLeadRegionValue << "\n"
@@ -501,6 +506,8 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
        << "target_mass_4He=" << helium4Mass() << "\n"
        << "smearing_rng_seed=" << cfg.seed << "\n"
        << "momentum_corrections=skim_ep_explicit_recon_data_corrections_mc_smearing\n"
+       << "gcf_toy_branch_count=" << sample.auxWeightBranches.size() << "\n"
+       << "gcf_toy_branches=" << auxList.str() << "\n"
        << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";
   sample.metadataDump = meta.str();
 

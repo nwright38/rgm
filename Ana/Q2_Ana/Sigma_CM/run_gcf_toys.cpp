@@ -35,7 +35,11 @@ int main(int argc, char** argv) {
     cfg.cdLeadRegionValue = mc.cdLeadRegionValue;
     if (mc.auxWeightBranches.empty()) {
       std::cout << "No w_gcf_toy_* branches found in " << pos[1]
-                << "; skipping GCF toys and not writing " << pos[2] << "\n";
+                << "; skipping GCF toys and not writing " << pos[2] << "\n"
+                << "Make the MC skim with, for example:\n"
+                << "  sigmacm_make_skim A mc mc_skim.root sim.hipo --gcf-toys=100\n"
+                << "If you already passed --gcf-toys, rebuild from the full repository "
+                << "so SIGMACM_WITH_GCF_TOYS is enabled.\n";
       return 0;
     }
     std::vector<Result> results;

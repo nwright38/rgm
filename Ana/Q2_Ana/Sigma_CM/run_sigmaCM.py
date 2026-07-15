@@ -74,6 +74,10 @@ def main():
     ap.add_argument("--cut-range-xy", help="Nominal X/Y fit half-window, e.g. 0.55")
     ap.add_argument("--fit-z-min", help="Nominal Z fit lower edge")
     ap.add_argument("--fit-z-max", help="Nominal Z fit upper edge")
+    ap.add_argument("--sigma-min", help="Minuit lower bound for sigma_CM")
+    ap.add_argument("--sigma-max", help="Minuit upper bound for sigma_CM")
+    ap.add_argument("--sigma-init", help="Initial Minuit value for sigma_CM")
+    ap.add_argument("--sigma-step", help="Initial Minuit step for sigma_CM")
     ap.add_argument("--xy-ranges", default="0.45,0.50,0.55",
                     help="Comma-separated X/Y half-windows for fit-range scan")
     ap.add_argument("--full", action="store_true", help="Run systematic toys/scans too")
@@ -98,6 +102,14 @@ def main():
         common.append(f"--fit-z-min={args.fit_z_min}")
     if args.fit_z_max:
         common.append(f"--fit-z-max={args.fit_z_max}")
+    if args.sigma_min:
+        common.append(f"--sigma-min={args.sigma_min}")
+    if args.sigma_max:
+        common.append(f"--sigma-max={args.sigma_max}")
+    if args.sigma_init:
+        common.append(f"--sigma-init={args.sigma_init}")
+    if args.sigma_step:
+        common.append(f"--sigma-step={args.sigma_step}")
     hipo_common = []
     if args.from_hipo:
         hipo_common.extend(["--beam-energy", args.beam_energy])

@@ -33,7 +33,10 @@ std::string takeOption(std::vector<std::string>& args, const std::string& key) {
 void usage(const char* program) {
   std::cerr << "Usage:\n"
             << "  " << program << " A data|mc out.root input.hipo [more.hipo ...] "
-            << "[--beam-energy=v] [--max-events=N] [--gcf-toys=N]\n";
+            << "[--beam-energy=v] [--max-events=N] [--gcf-toys=N]\n"
+            << "Notes:\n"
+            << "  --gcf-toys=N only applies to mc skims and writes w_gcf_toy_* branches.\n"
+            << "  It requires a full repository build with the reweighter target available.\n";
 }
 
 }  // namespace
@@ -64,6 +67,15 @@ int main(int argc, char** argv) {
     writeSkim(outPath, sample, isMC);
     std::cout << "Wrote " << outPath << " with " << sample.events.size()
               << " cached events\n";
+    if (isMC) {
+      std::cout << "MC skim contains " << sample.auxWeightBranches.size()
+                << " w_gcf_toy_* auxiliary weight branches\n";
+      if (hipoOptions.nGcfToys > 0 && sample.auxWeightBranches.empty()) {
+        std::cout << "Requested --gcf-toys=" << hipoOptions.nGcfToys
+                  << ", but no toy branches were written. Check that this was built "
+                  << "from the full repository with SIGMACM_WITH_GCF_TOYS enabled.\n";
+      }
+    }
   } catch (const std::exception& e) {
     std::cerr << "sigmacm_make_skim failed: " << e.what() << "\n";
     return 1;
