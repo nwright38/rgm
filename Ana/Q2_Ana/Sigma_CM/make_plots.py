@@ -46,6 +46,12 @@ def systematic_lookup(path):
     return {row["direction"]: float(row.get("total_systematic", 0.0)) for row in rows}
 
 
+def read_budget(path):
+    if not path:
+        return None
+    return json.loads(Path(path).read_text())
+
+
 def savefig(out, name):
     plt.tight_layout()
     plt.savefig(out / f"{name}.pdf")
@@ -99,6 +105,52 @@ def plot_toy_distributions(arr, stem, out):
         plt.ylabel("Toy fits")
         plt.title(f"{stem}: sigma-hat toys, {d}")
         savefig(out, f"{stem}_sigma{d}_toy_distribution")
+
+
+def plot_budget_sources(rows, out):
+    if not rows:
+        return
+    by_direction = {row["direction"]: row for row in rows}
+    directions = [d for d in DIRECTIONS if d in by_direction]
+    if not directions:
+        return
+
+    source_keys = [
+        ("statistical", "stat"),
+        ("cut_toys_stat_subtracted", "cuts"),
+        ("gcf_toys", "GCF"),
+        ("fit_range_used_in_total", "fit range"),
+        ("closure_used_in_total", "closure"),
+        ("total_systematic", "sys total"),
+    ]
+    values = np.array([
+        [float(by_direction[d].get(key, 0.0)) for key, _ in source_keys]
+        for d in directions
+    ])
+
+    x = np.arange(len(directions))
+    width = min(0.12, 0.75 / max(len(source_keys), 1))
+    offsets = (np.arange(len(source_keys)) - 0.5 * (len(source_keys) - 1)) * width
+    colors = ["#222222", "#66c2a5", "#fc8d62", "#8da0cb", "#a6d854", "#999999"]
+
+    plt.figure(figsize=(7.2, 4.5))
+    for i, (_, label) in enumerate(source_keys):
+        plt.bar(x + offsets[i], values[:, i], width=width, label=label,
+                color=colors[i], alpha=0.88)
+
+    if any("fit_range_envelope_raw" in by_direction[d] for d in directions):
+        raw = np.array([
+            float(by_direction[d].get("fit_range_envelope_raw", np.nan))
+            for d in directions
+        ])
+        plt.scatter(x + offsets[3], raw, marker="_", s=160, linewidths=2.0,
+                    color="#4c4c4c", label="fit range raw envelope")
+
+    plt.xticks(x, directions)
+    plt.ylabel(r"Uncertainty on $\sigma_{CM}$ [GeV/c]")
+    plt.title("uncertainty source budget")
+    plt.legend(frameon=False, ncol=3)
+    savefig(out, "budget_uncertainty_sources")
 
 
 def plot_sigma_vs_q2(arr, stem, out, sys):
@@ -254,7 +306,9 @@ def main():
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    budget_rows = read_budget(args.budget_json)
     sys = systematic_lookup(args.budget_json)
+    plot_budget_sources(budget_rows, out)
 
     for root in args.root_files:
         arr = read_tree(root, "sigmaCM")
