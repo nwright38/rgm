@@ -93,6 +93,32 @@ def q2_bin_centers(arr, mask):
     return 0.5 * (np.asarray(arr["q2Lower"])[mask] + np.asarray(arr["q2Upper"])[mask])
 
 
+def integrated_sigmas(arr):
+    if arr is None or len(arr.get("sigmaX", [])) == 0:
+        return {}
+    use = 0
+    if "q2BinIndex" in arr:
+        integrated = np.where(np.asarray(arr["q2BinIndex"]) < 0)[0]
+        if integrated.size:
+            use = int(integrated[0])
+    out = {}
+    for d in DIRECTIONS:
+        value = float(arr[f"sigma{d}"][use])
+        if np.isfinite(value) and value != 0.0:
+            out[d] = value
+    return out
+
+
+def nominal_sigmas_from_roots(root_files):
+    preferred = [p for p in root_files if Path(p).stem == "nominal"]
+    for root in preferred + list(root_files):
+        arr = read_tree(root, "sigmaCM")
+        values = integrated_sigmas(arr)
+        if values:
+            return values
+    return {}
+
+
 def plot_toy_distributions(arr, stem, out):
     for d in DIRECTIONS:
         values = np.asarray(arr[f"sigma{d}"], dtype=float)
@@ -107,26 +133,37 @@ def plot_toy_distributions(arr, stem, out):
         savefig(out, f"{stem}_sigma{d}_toy_distribution")
 
 
-def plot_budget_sources(rows, out):
+def plot_budget_sources(rows, out, nominal_sigmas):
     if not rows:
         return
     by_direction = {row["direction"]: row for row in rows}
     directions = [d for d in DIRECTIONS if d in by_direction]
+    if nominal_sigmas:
+        directions = [d for d in directions if d in nominal_sigmas]
     if not directions:
         return
 
     source_keys = [
-        ("statistical", "stat"),
-        ("cut_toys_stat_subtracted", "cuts"),
-        ("gcf_toys", "GCF"),
-        ("fit_range_used_in_total", "fit range"),
-        ("closure_used_in_total", "closure"),
-        ("total_systematic", "sys total"),
+        (("statistical",), "stat"),
+        (("cut_toys_used_in_total", "cut_toys_stat_subtracted"), "cuts"),
+        (("gcf_used_in_total", "gcf_toys"), "GCF"),
+        (("fit_range_used_in_total", "fit_range_envelope"), "fit range"),
+        (("closure_used_in_total",), "closure"),
+        (("total_systematic",), "sys total"),
     ]
+    def source_value(row, keys):
+        for key in keys:
+            if key in row:
+                return float(row.get(key, 0.0))
+        return 0.0
+
     values = np.array([
-        [float(by_direction[d].get(key, 0.0)) for key, _ in source_keys]
+        [source_value(by_direction[d], keys) for keys, _ in source_keys]
         for d in directions
     ])
+    if nominal_sigmas:
+        denominators = np.array([abs(nominal_sigmas[d]) for d in directions], dtype=float)
+        values = 100.0 * values / denominators[:, np.newaxis]
 
     x = np.arange(len(directions))
     width = min(0.12, 0.75 / max(len(source_keys), 1))
@@ -143,11 +180,16 @@ def plot_budget_sources(rows, out):
             float(by_direction[d].get("fit_range_envelope_raw", np.nan))
             for d in directions
         ])
+        if nominal_sigmas:
+            raw = 100.0 * raw / np.array([abs(nominal_sigmas[d]) for d in directions], dtype=float)
         plt.scatter(x + offsets[3], raw, marker="_", s=160, linewidths=2.0,
                     color="#4c4c4c", label="fit range raw envelope")
 
     plt.xticks(x, directions)
-    plt.ylabel(r"Uncertainty on $\sigma_{CM}$ [GeV/c]")
+    if nominal_sigmas:
+        plt.ylabel(r"Relative uncertainty on $\sigma_{CM}$ [%]")
+    else:
+        plt.ylabel(r"Uncertainty on $\sigma_{CM}$ [GeV/c]")
     plt.title("uncertainty source budget")
     plt.legend(frameon=False, ncol=3)
     savefig(out, "budget_uncertainty_sources")
@@ -308,7 +350,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     budget_rows = read_budget(args.budget_json)
     sys = systematic_lookup(args.budget_json)
-    plot_budget_sources(budget_rows, out)
+    nominal_sigmas = nominal_sigmas_from_roots(args.root_files) if budget_rows else {}
+    plot_budget_sources(budget_rows, out, nominal_sigmas)
 
     for root in args.root_files:
         arr = read_tree(root, "sigmaCM")

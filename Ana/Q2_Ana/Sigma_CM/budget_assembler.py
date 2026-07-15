@@ -173,6 +173,12 @@ def main():
     ap.add_argument("--gcf-toys")
     ap.add_argument("--fit-range", required=True)
     ap.add_argument("--closure", required=True)
+    ap.add_argument("--exclude-cuts", action="store_true",
+                    help="Do not include stat-subtracted cut toys in total systematic; still report them")
+    ap.add_argument("--exclude-gcf", action="store_true",
+                    help="Do not include GCF toys in total systematic; still report them")
+    ap.add_argument("--exclude-fit-range", action="store_true",
+                    help="Do not include fit-range spread in total systematic; still report it")
     ap.add_argument("--exclude-closure", action="store_true",
                     help="Do not include closure bias in total systematic; still report it")
     ap.add_argument("--out-prefix", required=True)
@@ -191,28 +197,31 @@ def main():
 
     rows = []
     for d in DIRECTIONS:
+        gcf_width = width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0
         sources = {
             "statistical": first_stat(nominal)[d],
             "cut_toys_raw": cut_raw[d],
             "data_bootstrap": bootstrap[d],
             "cut_toys_stat_subtracted": cut_sub[d],
-            "gcf_toys": width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0,
+            "cut_toys_used_in_total": 0.0 if args.exclude_cuts else cut_sub[d],
+            "gcf_toys": gcf_width,
+            "gcf_used_in_total": 0.0 if args.exclude_gcf else gcf_width,
             "fit_range_envelope_raw": fit_range_env[d],
             "fit_range_weighted_spread": fit_range_weighted[d],
-            "fit_range_used_in_total": fit_range_weighted[d],
+            "fit_range_used_in_total": 0.0 if args.exclude_fit_range else fit_range_weighted[d],
             "fit_range_envelope": fit_range_weighted[d],
             "closure_bias_uncorrected": closure[d],
             "closure_used_in_total": 0.0 if args.exclude_closure else closure[d],
         }
         syst = np.sqrt(
-            sources["cut_toys_stat_subtracted"] ** 2
-            + sources["gcf_toys"] ** 2
+            sources["cut_toys_used_in_total"] ** 2
+            + sources["gcf_used_in_total"] ** 2
             + sources["fit_range_used_in_total"] ** 2
             + sources["closure_used_in_total"] ** 2
         )
         systematics_only = {
-            "cut_toys_stat_subtracted": sources["cut_toys_stat_subtracted"],
-            "gcf_toys": sources["gcf_toys"],
+            "cut_toys_used_in_total": sources["cut_toys_used_in_total"],
+            "gcf_used_in_total": sources["gcf_used_in_total"],
             "fit_range_used_in_total": sources["fit_range_used_in_total"],
             "closure_used_in_total": sources["closure_used_in_total"],
         }
@@ -233,8 +242,8 @@ def main():
         fp.write("Direction & Stat. & Cuts & GCF & Range & Total sys.\\\\\\hline\n")
         for row in rows:
             fp.write(
-                f"{row['direction']} & {row['statistical']:.4f} & {row['cut_toys_raw']:.4f} & "
-                f"{row['gcf_toys']:.4f} & {row['fit_range_used_in_total']:.4f} & "
+                f"{row['direction']} & {row['statistical']:.4f} & {row['cut_toys_used_in_total']:.4f} & "
+                f"{row['gcf_used_in_total']:.4f} & {row['fit_range_used_in_total']:.4f} & "
                 f"{row['total_systematic']:.4f}\\\\\n"
             )
         fp.write("\\hline\\end{tabular}\n")
@@ -243,8 +252,10 @@ def main():
     for row in rows:
         print(
             f"  {row['direction']}: stat={row['statistical']:.5f}, "
-            f"cuts(raw/sub)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}, "
-            f"boot={row['data_bootstrap']:.5f}, gcf={row['gcf_toys']:.5f}, "
+            f"cuts(raw/sub/used)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}/"
+            f"{row['cut_toys_used_in_total']:.5f}, "
+            f"boot={row['data_bootstrap']:.5f}, gcf(raw/used)={row['gcf_toys']:.5f}/"
+            f"{row['gcf_used_in_total']:.5f}, "
             f"range(raw/used)={row['fit_range_envelope_raw']:.5f}/{row['fit_range_used_in_total']:.5f}, "
             f"closure={row['closure_bias_uncorrected']:.5f}, "
             f"closure_used={row['closure_used_in_total']:.5f}, "
