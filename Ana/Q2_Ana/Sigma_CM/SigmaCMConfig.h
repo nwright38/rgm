@@ -37,12 +37,12 @@ struct Config {
   double histYMin = -0.55;
   double histYMax = 0.55;
   int binsZ = 24;
-  double histZMin = -0.5;
-  double histZMax = 1.0;
+  double histZMin = -0.1;
+  double histZMax = 1.5;
 
   double cutRangeXY = 0.2;
-  double fitZMin = -0.5;
-  double fitZMax = 1.0;
+  double fitZMin = -0.1;
+  double fitZMax = 1.5;
 
   double sigmaInit = 0.16;
   double sigmaStep = 0.003;

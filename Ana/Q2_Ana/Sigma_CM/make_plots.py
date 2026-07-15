@@ -28,7 +28,8 @@ def require_plot_modules():
     uproot = uproot_module
 
 
-DIRECTIONS = ("X", "Y", "Z")
+# DIRECTIONS = ("X", "Y", "Z")
+DIRECTIONS = ("X", "Y")
 MIN_TOY_ENTRIES = 25
 
 

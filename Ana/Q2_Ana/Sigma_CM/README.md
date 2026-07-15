@@ -127,13 +127,13 @@ T chi2 compares bins from 0 to sqrt(2)*cutRangeXY
 For the nominal fit, set:
 
 ```bash
---cut-range-xy=0.55 --fit-z-min=-0.5 --fit-z-max=1.0
+--cut-range-xy=0.25 --fit-z-min=-0.5 --fit-z-max=1.0
 ```
 
 For the optional fit-range scan, set:
 
 ```bash
---xy-ranges=0.40,0.45,0.50,0.55,0.60
+--xy-ranges=.15,.2,.25,.3,.35,0.40,0.45
 ```
 
 The scan varies the X/Y half-window and keeps the configured Z window fixed.
