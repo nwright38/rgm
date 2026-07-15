@@ -318,6 +318,31 @@ int neutronNumber(int a) {
   return a / 2;
 }
 
+void setElectronP4LikeSkimEp(TLorentzVector& p4, clas12::region_part_ptr electron, bool isMC) {
+  GetLorentzVector_ReconVector(p4, electron);
+  if (!isMC) {
+    SetLorentzVector_ThetaCorrection(p4, electron);
+    SetLorentzVector_MomentumCorrection(p4, electron);
+  }
+  if (isMC) {
+    SetLorentzVector_MomentumSimulationSmear(p4, electron);
+  }
+}
+
+void setProtonP4LikeSkimEp(TLorentzVector& p4, clas12::region_part_ptr proton, bool isMC) {
+  GetLorentzVector_ReconVector(p4, proton);
+  if (!isMC) {
+    SetLorentzVector_ThetaCorrection(p4, proton);
+  }
+  SetLorentzVector_EnergyLossCorrection(p4, proton);
+  if (!isMC) {
+    SetLorentzVector_MomentumCorrection(p4, proton);
+  }
+  if (isMC) {
+    SetLorentzVector_MomentumSimulationSmear(p4, proton);
+  }
+}
+
 bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
                    clas12ana& clasAna,
                    bool isMC,
@@ -337,7 +362,7 @@ bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
   auto electrons = clasAna.getByPid(11);
   if (electrons.size() != 1) return false;
 
-  GetLorentzVector_Corrected(electron, electrons[0], isMC);
+  setElectronP4LikeSkimEp(electron, electrons[0], isMC);
   TLorentzVector q = beam - electron;
   const double q2 = -q.M2();
   const double omega = q.E();
@@ -349,7 +374,7 @@ bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
   auto recoil = clasAna.getRecoilSRC();
   if (lead.size() != 1) return false;
 
-  GetLorentzVector_Corrected(leadP4, lead[0], isMC);
+  setProtonP4LikeSkimEp(leadP4, lead[0], isMC);
   TLorentzVector miss = q + deuteron - leadP4;
   const double mmiss2 = miss.M2();
   if (mmiss2 < 0.0) return false;
@@ -378,7 +403,7 @@ bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
   out.genWeight = isMC ? c12->mcevent()->getWeight() : 1.0;
 
   if (recoil.size() == 1) {
-    GetLorentzVector_Corrected(recoilP4, recoil[0], isMC);
+    setProtonP4LikeSkimEp(recoilP4, recoil[0], isMC);
     TVector3 vRec = recoilP4.Vect();
     TVector3 vRel = (missNeg - vRec) * 0.5;
     TVector3 vCM = missNeg + vRec;
@@ -423,7 +448,7 @@ bool fillHipoEvent(const std::unique_ptr<clas12::clas12reader>& c12,
 }  // namespace
 
 Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
-                const Config&, const HipoLoadOptions& options) {
+                const Config& cfg, const HipoLoadOptions& options) {
   if (paths.empty()) throw std::runtime_error("No hipo input files were provided");
 
   clas12root::HipoChain chain;
@@ -435,6 +460,7 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
   auto& c12 = chain.C12ref();
 
   clas12ana clasAna;
+  thisRand->SetSeed(static_cast<UInt_t>(cfg.seed));
   Sample sample;
   sample.sigmaGen = 0.2;
   sample.fdLeadRegionValue = static_cast<int>(clas12::FD);
@@ -473,6 +499,8 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
        << "nucleus_Z=" << protonNumber(options.nucleusA) << "\n"
        << "nucleus_N=" << neutronNumber(options.nucleusA) << "\n"
        << "target_mass_4He=" << helium4Mass() << "\n"
+       << "smearing_rng_seed=" << cfg.seed << "\n"
+       << "momentum_corrections=skim_ep_explicit_recon_data_corrections_mc_smearing\n"
        << "n_gcf_toys=" << (requireMC ? options.nGcfToys : 0) << "\n";
   sample.metadataDump = meta.str();
 
