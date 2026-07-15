@@ -93,6 +93,10 @@ def first_stat(nominal):
     return {d: float(nominal[f"sigma{d}ErrHigh"][idx]) for d in DIRECTIONS}
 
 
+def split_stat(total, data):
+    return float(np.sqrt(max(total * total - data * data, 0.0)))
+
+
 def envelope(arr):
     mask = integrated_mask(arr)
     return {
@@ -198,8 +202,13 @@ def main():
     rows = []
     for d in DIRECTIONS:
         gcf_width = width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0
+        stat_total = first_stat(nominal)[d]
+        stat_data = bootstrap[d]
         sources = {
-            "statistical": first_stat(nominal)[d],
+            "statistical": stat_total,
+            "statistical_total": stat_total,
+            "statistical_data": stat_data,
+            "statistical_mc_estimated": split_stat(stat_total, stat_data),
             "cut_toys_raw": cut_raw[d],
             "data_bootstrap": bootstrap[d],
             "cut_toys_stat_subtracted": cut_sub[d],
@@ -252,6 +261,7 @@ def main():
     for row in rows:
         print(
             f"  {row['direction']}: stat={row['statistical']:.5f}, "
+            f"stat(data/mc_est)={row['statistical_data']:.5f}/{row['statistical_mc_estimated']:.5f}, "
             f"cuts(raw/sub/used)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}/"
             f"{row['cut_toys_used_in_total']:.5f}, "
             f"boot={row['data_bootstrap']:.5f}, gcf(raw/used)={row['gcf_toys']:.5f}/"

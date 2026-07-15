@@ -144,7 +144,8 @@ def plot_budget_sources(rows, out, nominal_sigmas):
         return
 
     source_keys = [
-        (("statistical",), "stat"),
+        (("statistical_data", "data_bootstrap"), "data stat"),
+        (("statistical_mc_estimated",), "MC stat"),
         (("cut_toys_used_in_total", "cut_toys_stat_subtracted"), "cuts"),
         (("gcf_used_in_total", "gcf_toys"), "GCF"),
         (("fit_range_used_in_total", "fit_range_envelope"), "fit range"),
@@ -168,7 +169,7 @@ def plot_budget_sources(rows, out, nominal_sigmas):
     x = np.arange(len(directions))
     width = min(0.12, 0.75 / max(len(source_keys), 1))
     offsets = (np.arange(len(source_keys)) - 0.5 * (len(source_keys) - 1)) * width
-    colors = ["#222222", "#66c2a5", "#fc8d62", "#8da0cb", "#a6d854", "#999999"]
+    colors = ["#222222", "#777777", "#66c2a5", "#fc8d62", "#8da0cb", "#a6d854", "#999999"]
 
     plt.figure(figsize=(7.2, 4.5))
     for i, (_, label) in enumerate(source_keys):
@@ -182,7 +183,7 @@ def plot_budget_sources(rows, out, nominal_sigmas):
         ])
         if nominal_sigmas:
             raw = 100.0 * raw / np.array([abs(nominal_sigmas[d]) for d in directions], dtype=float)
-        plt.scatter(x + offsets[3], raw, marker="_", s=160, linewidths=2.0,
+        plt.scatter(x + offsets[4], raw, marker="_", s=160, linewidths=2.0,
                     color="#4c4c4c", label="fit range raw envelope")
 
     plt.xticks(x, directions)
