@@ -365,7 +365,7 @@ int main(int argc, char** argv) {
       wepp = original_weight * newWeight.get_weight_epp(c12->mcparts());
     }
 
-    EventKinematics ek = computeEventKinematics(c12, clasAna, false, ctr);
+    EventKinematics ek = computeEventKinematics(c12, clasAna, isMC, ctr);
     if (isMC && q2Reweight.enabled()) {
       const double q2Weight = q2Reweight.weight(ek.qSq);
       wep *= q2Weight;

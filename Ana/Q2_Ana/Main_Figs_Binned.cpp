@@ -108,6 +108,31 @@ bool parseLeadMode(const string& s, LeadMode& mode) {
   return false;
 }
 
+void setElectronP4LikeSkimEp(TLorentzVector& p4, clas12::region_part_ptr electron, bool isMC) {
+  GetLorentzVector_ReconVector(p4, electron);
+  if (!isMC) {
+    SetLorentzVector_ThetaCorrection(p4, electron);
+    SetLorentzVector_MomentumCorrection(p4, electron);
+  }
+  if (isMC) {
+    SetLorentzVector_MomentumSimulationSmear(p4, electron);
+  }
+}
+
+void setProtonP4LikeSkimEp(TLorentzVector& p4, clas12::region_part_ptr proton, bool isMC) {
+  GetLorentzVector_ReconVector(p4, proton);
+  if (!isMC) {
+    SetLorentzVector_ThetaCorrection(p4, proton);
+  }
+  SetLorentzVector_EnergyLossCorrection(p4, proton);
+  if (!isMC) {
+    SetLorentzVector_MomentumCorrection(p4, proton);
+  }
+  if (isMC) {
+    SetLorentzVector_MomentumSimulationSmear(p4, proton);
+  }
+}
+
 // Same kinematic calculation as runEvent() in Main_Figs_Sys_Err.cpp, just
 // returning one struct instead of writing through 14 reference parameters
 // (the original 19-parameter-by-reference signature is the easiest place to
@@ -131,7 +156,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   auto electrons = clasAna.getByPid(11);
   if (electrons.size() != 1) return ek;
 
-  GetLorentzVector_Corrected(el, electrons[0], isMC);
+  setElectronP4LikeSkimEp(el, electrons[0], isMC);
   TLorentzVector q = beam - el;
   double Q2 = -q.M2();
   double omega = q.E();
@@ -142,7 +167,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   auto recoil = clasAna.getRecoilSRC();
 
   if (lead.size() != 1) return ek;
-  GetLorentzVector_Corrected(lead_ptr, lead[0], isMC);
+  setProtonP4LikeSkimEp(lead_ptr, lead[0], isMC);
   if (lead[0]->getRegion() != FD && lead[0]->getRegion() != CD) return ek;
 
   TLorentzVector miss = q + deut_ptr - lead_ptr;
@@ -190,7 +215,7 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
   ek.thPLeadQ = lead_ptr.Vect().Angle(q.Vect()) * 180 / M_PI;
 
   if (!rec) return ek;
-  GetLorentzVector_Corrected(recoil_ptr, recoil[0], isMC);
+  setProtonP4LikeSkimEp(recoil_ptr, recoil[0], isMC);
 
   double TP2 = recoil_ptr.E() - recoil_ptr.M();
   TLorentzVector miss_Am2 = q + nucleus_ptr - lead_ptr - recoil_ptr;
@@ -655,7 +680,7 @@ int main(int argc, char** argv) {
       wepp = original_weight * newWeight.get_weight_epp(c12->mcparts());
     }
 
-    EventKinematics ek = computeEventKinematics(c12, clasAna, false, ctr);
+    EventKinematics ek = computeEventKinematics(c12, clasAna, isMC, ctr);
     if (isMC && q2Reweight.enabled()) {
       const double q2Weight = q2Reweight.weight(ek.qSq);
       wep *= q2Weight;
