@@ -69,7 +69,7 @@ reweighter::~reweighter()
 {
 }
 
-void  reweighter::randomize_Config(bool varyTransparency){
+void  reweighter::randomize_Config(bool varyTransparency, bool varySigmaCM){
   TRandom3 * myRand = new TRandom3(0);
   double s_Cpp0=gcf_config_fin->get_d_Cpp0()/gcf_config_fin->get_Cpp0();
   double s_Cpn0=gcf_config_fin->get_d_Cpn0()/gcf_config_fin->get_Cpn0();
@@ -79,7 +79,9 @@ void  reweighter::randomize_Config(bool varyTransparency){
   gcf_config_fin->set_Cpn0(gcf_config_fin->get_Cpn0()*myRand->Gaus(1.0,s_Cpn0));
   gcf_config_fin->set_Cnn0(gcf_config_fin->get_Cnn0()*myRand->Gaus(1.0,s_Cnn0));
   gcf_config_fin->set_Cpn1(gcf_config_fin->get_Cpn1()*myRand->Gaus(1.0,s_Cpn1));
-  sigma_cm_fin*=myRand->Gaus(1.0,0.07);
+  if (varySigmaCM) {
+    sigma_cm_fin*=myRand->Gaus(1.0,0.07);
+  }
   for(int j = 0; j < 4; j++){
     for(int k = 0; k < 2; k++){
       P[j][k]*=myRand->Gaus(1.0,0.1*P[j][k]);

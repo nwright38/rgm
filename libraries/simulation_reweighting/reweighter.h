@@ -26,7 +26,7 @@ public:
   reweighter(double E, int Z, int N, ffModel thisMod, char * input_uType_fin, double sigmaCM);
   ~reweighter();
   
-  void randomize_Config(bool varyTransparency = true);
+  void randomize_Config(bool varyTransparency = true, bool varySigmaCM = true);
   double get_Cpp0() const;
   double get_Cpn0() const;
   double get_Cnn0() const;

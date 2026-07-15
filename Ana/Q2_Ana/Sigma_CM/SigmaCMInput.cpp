@@ -537,7 +537,7 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
     const int n = neutronNumber(options.nucleusA);
     for (int i = 0; i < options.nGcfToys; ++i) {
       reweighter w(options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
-      w.randomize_Config(false);
+      w.randomize_Config(false, false);
       std::ostringstream name;
       name << "w_gcf_toy_" << std::setw(3) << std::setfill('0') << i;
       const std::string branchName = name.str();
@@ -575,6 +575,7 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
       << "gcf_nominal_weight_applied=" << (requireMC ? 1 : 0) << "\n"
       << "gcf_toy_weight_mode=toy_over_nominal_ratio\n"
       << "gcf_toy_transparency_randomized=0\n"
+      << "gcf_toy_sigma_cm_randomized=0\n"
       << "gcf_toy_params_tree=gcfToyParams\n"
       << "gcf_toy_branch_count=" << sample.auxWeightBranches.size() << "\n"
       << "gcf_toy_branches=" << auxList.str() << "\n"
