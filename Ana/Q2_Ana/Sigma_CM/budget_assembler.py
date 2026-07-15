@@ -39,6 +39,26 @@ def width(values):
     return float(np.std(values, ddof=1)) if values.size > 1 else 0.0
 
 
+def weighted_spread(values, errors):
+    values = np.asarray(values, dtype=float)
+    errors = np.asarray(errors, dtype=float)
+    value_mask = np.isfinite(values)
+    if np.count_nonzero(value_mask) < 2:
+        return 0.0
+    vals = values[value_mask]
+    if errors.size != values.size:
+        return width(vals)
+    errs_all = errors[value_mask]
+    err_mask = np.isfinite(errs_all) & (errs_all > 0.0)
+    if np.count_nonzero(err_mask) < 2:
+        return width(vals)
+    vals = vals[err_mask]
+    errs = errs_all[err_mask]
+    weights = 1.0 / np.square(errs)
+    mean = np.average(vals, weights=weights)
+    return float(np.sqrt(np.average(np.square(vals - mean), weights=weights)))
+
+
 def text(value):
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
@@ -79,6 +99,17 @@ def envelope(arr):
         d: 0.5 * float(np.max(np.asarray(arr[f"sigma{d}"])[mask]) -
                        np.min(np.asarray(arr[f"sigma{d}"])[mask]))
         if np.any(mask) else 0.0
+        for d in DIRECTIONS
+    }
+
+
+def fit_range_spreads(arr):
+    mask = integrated_mask(arr)
+    return {
+        d: weighted_spread(
+            np.asarray(arr[f"sigma{d}"], dtype=float)[mask],
+            np.asarray(arr[f"sigma{d}ErrHigh"], dtype=float)[mask],
+        ) if np.any(mask) else 0.0
         for d in DIRECTIONS
     }
 
@@ -156,6 +187,7 @@ def main():
     cut_raw, bootstrap, cut_sub = cut_and_bootstrap_widths(cut)
     closure = closure_bias(closure_raw)
     fit_range_env = envelope(fit_range)
+    fit_range_weighted = fit_range_spreads(fit_range)
 
     rows = []
     for d in DIRECTIONS:
@@ -165,20 +197,23 @@ def main():
             "data_bootstrap": bootstrap[d],
             "cut_toys_stat_subtracted": cut_sub[d],
             "gcf_toys": width(np.asarray(gcf[f"sigma{d}"])[integrated_mask(gcf)]) if gcf is not None else 0.0,
-            "fit_range_envelope": fit_range_env[d],
+            "fit_range_envelope_raw": fit_range_env[d],
+            "fit_range_weighted_spread": fit_range_weighted[d],
+            "fit_range_used_in_total": fit_range_weighted[d],
+            "fit_range_envelope": fit_range_weighted[d],
             "closure_bias_uncorrected": closure[d],
             "closure_used_in_total": 0.0 if args.exclude_closure else closure[d],
         }
         syst = np.sqrt(
             sources["cut_toys_stat_subtracted"] ** 2
             + sources["gcf_toys"] ** 2
-            + sources["fit_range_envelope"] ** 2
+            + sources["fit_range_used_in_total"] ** 2
             + sources["closure_used_in_total"] ** 2
         )
         systematics_only = {
             "cut_toys_stat_subtracted": sources["cut_toys_stat_subtracted"],
             "gcf_toys": sources["gcf_toys"],
-            "fit_range_envelope": sources["fit_range_envelope"],
+            "fit_range_used_in_total": sources["fit_range_used_in_total"],
             "closure_used_in_total": sources["closure_used_in_total"],
         }
         dominant = max(systematics_only, key=systematics_only.get)
@@ -199,7 +234,7 @@ def main():
         for row in rows:
             fp.write(
                 f"{row['direction']} & {row['statistical']:.4f} & {row['cut_toys_raw']:.4f} & "
-                f"{row['gcf_toys']:.4f} & {row['fit_range_envelope']:.4f} & "
+                f"{row['gcf_toys']:.4f} & {row['fit_range_used_in_total']:.4f} & "
                 f"{row['total_systematic']:.4f}\\\\\n"
             )
         fp.write("\\hline\\end{tabular}\n")
@@ -210,7 +245,8 @@ def main():
             f"  {row['direction']}: stat={row['statistical']:.5f}, "
             f"cuts(raw/sub)={row['cut_toys_raw']:.5f}/{row['cut_toys_stat_subtracted']:.5f}, "
             f"boot={row['data_bootstrap']:.5f}, gcf={row['gcf_toys']:.5f}, "
-            f"range={row['fit_range_envelope']:.5f}, closure={row['closure_bias_uncorrected']:.5f}, "
+            f"range(raw/used)={row['fit_range_envelope_raw']:.5f}/{row['fit_range_used_in_total']:.5f}, "
+            f"closure={row['closure_bias_uncorrected']:.5f}, "
             f"closure_used={row['closure_used_in_total']:.5f}, "
             f"sys={row['total_systematic']:.5f}, dominant={row['dominant_systematic']}"
         )
