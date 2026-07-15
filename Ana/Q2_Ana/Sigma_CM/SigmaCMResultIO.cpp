@@ -26,6 +26,7 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   double pLeadLower, thetaFDUpper;
   double thetaCDLower, pRecLower;
   double cutRangeXY, fitZMin, fitZMax;
+  double sigmaInit, sigmaStep, sigmaMin, sigmaMax;
   int binsX, binsY, binsZ, fdLeadRegionValue, cdLeadRegionValue, requirePcmLtPrel;
   std::string configJson, auxWeightBranch, status;
 
@@ -75,6 +76,10 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
   tree.Branch("cutRangeXY", &cutRangeXY);
   tree.Branch("fitZMin", &fitZMin);
   tree.Branch("fitZMax", &fitZMax);
+  tree.Branch("sigmaInit", &sigmaInit);
+  tree.Branch("sigmaStep", &sigmaStep);
+  tree.Branch("sigmaMin", &sigmaMin);
+  tree.Branch("sigmaMax", &sigmaMax);
   tree.Branch("binsX", &binsX);
   tree.Branch("binsY", &binsY);
   tree.Branch("binsZ", &binsZ);
@@ -123,6 +128,8 @@ void writeResultsTree(const std::string& path, const std::vector<Result>& result
     thetaFDUpper = r.config.thetaFDUpper; thetaCDLower = r.config.thetaCDLower;
     pRecLower = r.config.pRecLower; requirePcmLtPrel = r.config.requirePcmLtPrel ? 1 : 0;
     cutRangeXY = r.config.cutRangeXY; fitZMin = r.config.fitZMin; fitZMax = r.config.fitZMax;
+    sigmaInit = r.config.sigmaInit; sigmaStep = r.config.sigmaStep;
+    sigmaMin = r.config.sigmaMin; sigmaMax = r.config.sigmaMax;
     binsX = r.config.binsX; binsY = r.config.binsY; binsZ = r.config.binsZ;
     fdLeadRegionValue = r.config.fdLeadRegionValue; cdLeadRegionValue = r.config.cdLeadRegionValue;
     tree.Fill();

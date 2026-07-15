@@ -44,6 +44,11 @@ struct Config {
   double fitZMin = -0.5;
   double fitZMax = 1.0;
 
+  double sigmaInit = 0.16;
+  double sigmaStep = 0.003;
+  double sigmaMin = 0.04;
+  double sigmaMax = 0.40;
+
   std::string auxWeightBranch;
   bool sharedScale = true;
   bool statOnly = true;

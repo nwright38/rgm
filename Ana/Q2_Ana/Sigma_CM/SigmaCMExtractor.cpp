@@ -198,7 +198,8 @@ Result minimizeModel(const Chi2Model& model, const Config& cfg, bool fixedAxis =
   for (int a = 0; a < 3; ++a) {
     if (fixedAxis && a == fixedAxisIndex) continue;
     const char* name = (a == 0) ? "sigmaX" : (a == 1) ? "sigmaY" : "sigmaZ";
-    minimizer->SetLimitedVariable(pi++, name, 0.16, 0.003, 0.04, 0.40);
+    minimizer->SetLimitedVariable(pi++, name, cfg.sigmaInit, cfg.sigmaStep,
+                                  cfg.sigmaMin, cfg.sigmaMax);
   }
   const int firstScaleIndex = pi;
   if (cfg.sharedScale) {

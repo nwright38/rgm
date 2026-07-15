@@ -51,6 +51,10 @@ std::string toJson(const Config& c) {
      << ",\"cutRangeXY\":" << c.cutRangeXY
      << ",\"fitZMin\":" << c.fitZMin
      << ",\"fitZMax\":" << c.fitZMax
+     << ",\"sigmaInit\":" << c.sigmaInit
+     << ",\"sigmaStep\":" << c.sigmaStep
+     << ",\"sigmaMin\":" << c.sigmaMin
+     << ",\"sigmaMax\":" << c.sigmaMax
      << ",\"auxWeightBranch\":\"" << c.auxWeightBranch << "\""
      << ",\"sharedScale\":" << (c.sharedScale ? "true" : "false")
      << ",\"statOnly\":" << (c.statOnly ? "true" : "false")
@@ -102,6 +106,10 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
     else if (arg.rfind("--cut-range-xy=", 0) == 0) cfg.cutRangeXY = valueAfterEquals(arg);
     else if (arg.rfind("--fit-z-min=", 0) == 0) cfg.fitZMin = valueAfterEquals(arg);
     else if (arg.rfind("--fit-z-max=", 0) == 0) cfg.fitZMax = valueAfterEquals(arg);
+    else if (arg.rfind("--sigma-init=", 0) == 0) cfg.sigmaInit = valueAfterEquals(arg);
+    else if (arg.rfind("--sigma-step=", 0) == 0) cfg.sigmaStep = valueAfterEquals(arg);
+    else if (arg.rfind("--sigma-min=", 0) == 0) cfg.sigmaMin = valueAfterEquals(arg);
+    else if (arg.rfind("--sigma-max=", 0) == 0) cfg.sigmaMax = valueAfterEquals(arg);
     else positional.push_back(arg);
   }
   return cfg;
@@ -110,7 +118,8 @@ Config configFromArgs(int argc, char** argv, int startIndex, std::vector<std::st
 void printCommonUsage(const char* program) {
   std::cerr << "Usage: " << program << " <data.root> <mc.root> <out.root> [options]\n"
             << "Common options: --lead-mode FD|CD|BOTH --q2-bin N --aux-weight name --seed N\n"
-            << "  --independent-scales --pcm-lt-prel --cut-range-xy=v --fit-z-min=v --fit-z-max=v\n";
+            << "  --independent-scales --pcm-lt-prel --cut-range-xy=v --fit-z-min=v --fit-z-max=v\n"
+            << "  --sigma-min=v --sigma-max=v --sigma-init=v --sigma-step=v\n";
 }
 
 }  // namespace sigmacm
