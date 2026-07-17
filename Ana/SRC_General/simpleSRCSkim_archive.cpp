@@ -253,7 +253,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam,2,2,kelly,"AV18",.15);
+  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
 
   int ctr = 0;
   while(chain.Next())
@@ -365,6 +365,9 @@ int main(int argc, char **argv)
       setProtonP4(leadP4, protons[pr], isMC);
       TVector3 pLead3 = leadP4.Vect();
 
+      pLead3.SetMag(pLead3.Mag() - .03); // apply 1% momentum scale correction to lead proton
+      leadP4.SetVectM(pLead3, mP);
+
       missP4 = targP4 + beamP4 - eP4 - leadP4;
       TLorentzVector lead_miss_p4 = leadP4 - (beamP4 - eP4);
 
@@ -444,6 +447,9 @@ int main(int argc, char **argv)
       for(int j = 0; j < nFilled; j++)
       {
         if(j == leadIdx) continue;
+
+        cand_p3[j].SetMag(cand_p3[j].Mag() - .03); // apply nA potential correction 
+        
         if(cand_p3[j].Mag() < 0.3) continue;   // recoil momentum cut
 
         // Optional recoil angular cut — looser than lead, accept both FD and CD.
