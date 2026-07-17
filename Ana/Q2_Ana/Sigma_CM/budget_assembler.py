@@ -294,6 +294,9 @@ def main():
     print("Combination model: fully correlated linear sum by default.")
     print("Cut-toy total policy: raw spread unless --use-stat-subtracted-cuts is supplied.")
     warnings = []
+    warnings.extend(bound_warnings(cut, "cut_toys"))
+    if gcf is not None:
+        warnings.extend(bound_warnings(gcf, "gcf_toys"))
     warnings.extend(bound_warnings(fit_range, "fit_range"))
     warnings.extend(bound_warnings(closure_raw, "closure"))
     if warnings:

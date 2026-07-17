@@ -253,6 +253,58 @@ def plot_integrated_summary(arr, stem, out, sys):
     savefig(out, f"{stem}_integrated_sigma_{suffix}")
 
 
+def remove_integrated_total(out, stem):
+    path = out / f"{stem}_integrated_sigma_stat_and_total.pdf"
+    if path.exists():
+        path.unlink()
+
+
+def plot_closure_response(arr, stem, out):
+    if arr is None or "closureInjectedSigma" not in arr:
+        return
+    injected = np.asarray(arr["closureInjectedSigma"], dtype=float)
+    mask = np.isfinite(injected)
+    if "q2BinIndex" in arr:
+        mask &= np.asarray(arr["q2BinIndex"]) < 0
+    if "converged" in arr:
+        mask &= np.asarray(arr["converged"], dtype=bool)
+    if np.count_nonzero(mask) < 2:
+        return
+
+    x = injected[mask]
+    order = np.argsort(x)
+    x = x[order]
+    colors = {"X": "#4477aa", "Y": "#228833", "Z": "#cc6677"}
+
+    plt.figure(figsize=(6.2, 5.0))
+    lo = float(np.nanmin(x))
+    hi = float(np.nanmax(x))
+    for d in DIRECTIONS:
+        y = np.asarray(arr[f"sigma{d}"], dtype=float)[mask][order]
+        err = np.asarray(arr[f"sigma{d}ErrHigh"], dtype=float)[mask][order]
+        plt.errorbar(x, y, yerr=err, marker="o", linestyle="-", color=colors[d], label=d)
+        lo = min(lo, float(np.nanmin(y)))
+        hi = max(hi, float(np.nanmax(y)))
+    pad = 0.05 * max(hi - lo, 1.0e-6)
+    plt.plot([lo - pad, hi + pad], [lo - pad, hi + pad], color="#555555", lw=1.2, ls="--", label="ideal")
+    plt.xlabel(r"Injected $\sigma_{CM}$ [GeV/c]")
+    plt.ylabel(r"Extracted $\sigma_{CM}$ [GeV/c]")
+    plt.title(f"{stem}: closure response")
+    plt.legend(frameon=False, ncol=2)
+    savefig(out, f"{stem}_closure_injected_vs_extracted")
+
+    plt.figure(figsize=(6.2, 4.4))
+    for d in DIRECTIONS:
+        y = np.asarray(arr[f"sigma{d}"], dtype=float)[mask][order]
+        plt.plot(x, y - x, marker="o", linestyle="-", color=colors[d], label=d)
+    plt.axhline(0.0, color="#555555", lw=1.2, ls="--")
+    plt.xlabel(r"Injected $\sigma_{CM}$ [GeV/c]")
+    plt.ylabel(r"Extracted - injected [GeV/c]")
+    plt.title(f"{stem}: closure bias")
+    plt.legend(frameon=False, ncol=3)
+    savefig(out, f"{stem}_closure_bias_vs_injected")
+
+
 def plot_fit_range_scan(arr, stem, out):
     if "cutRangeXY" not in arr or "chi2" not in arr or "ndf" not in arr:
         remove_stale_scan_plots(out, stem)
@@ -359,15 +411,22 @@ def main():
     if args.budget_json and not args.show_integrated_sys_on_q2:
         print("Q2 plots are stat-only: the supplied budget is integrated-only.")
 
+    stems = [Path(root).stem for root in args.root_files]
+    nominal_total_stem = next((stem for stem in stems if "nominal" in stem), stems[0] if stems else "")
     for root in args.root_files:
         arr = read_tree(root, "sigmaCM")
         if arr is None:
             continue
         stem = Path(root).stem
-        plot_integrated_summary(arr, stem, out, sys)
+        if sys is None or stem != nominal_total_stem:
+            remove_integrated_total(out, stem)
+            plot_integrated_summary(arr, stem, out, None)
+        else:
+            plot_integrated_summary(arr, stem, out, sys)
         plot_sigma_vs_q2(arr, stem, out, sys, args.show_integrated_sys_on_q2)
         plot_fit_range_scan(arr, stem, out)
         plot_toy_distributions(arr, stem, out)
+        plot_closure_response(arr, stem, out)
         plot_profiles(root, stem, out)
 
 
