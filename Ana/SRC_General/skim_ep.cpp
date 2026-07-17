@@ -111,13 +111,14 @@ int main(int argc, char ** argv)
   long n_ep_written  = 0;
   long n_epp_written = 0;
 
+  int acc_counter = 0;
   while(chain.Next())
     {
       counter++;
       if((counter % 100000) == 0){
 	cerr << "\n" << counter << " completed";
       }
-      if(isMC && counter > 10000000) break;
+      if(isMC && acc_counter > 10000000) break;
   //     if((counter % 100000) == 0){
 	// cerr << ".";
   //     }
@@ -188,6 +189,7 @@ int main(int argc, char ** argv)
       else      { n_ep_written++;  }
 
       chain.WriteEvent();
+      acc_counter++;
     }
 
   cerr << "\n\nDone.\n";
