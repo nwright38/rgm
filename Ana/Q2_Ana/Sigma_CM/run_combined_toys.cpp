@@ -95,6 +95,7 @@ int main(int argc, char** argv) {
       toyCfg.kMissLower = g(cfg.kMissLower, 0.03);
       toyCfg.pLeadLower = g(cfg.pLeadLower, 0.03);
       toyCfg.thetaFDUpper = g(cfg.thetaFDUpper, 1.0);
+      toyCfg.thetaCDLower = g(cfg.thetaCDLower, 1.0);
       toyCfg.pRecLower = g(cfg.pRecLower, 0.045);
       if (!mc.auxWeightBranches.empty()) toyCfg.auxWeightBranch = mc.auxWeightBranches[branchPick(rng)];
       toyCfg.seed = cfg.seed + i;

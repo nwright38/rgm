@@ -21,6 +21,7 @@ Config varied(Config cfg, std::mt19937_64& rng) {
   cfg.kMissLower = g(cfg.kMissLower, 0.03);
   cfg.pLeadLower = g(cfg.pLeadLower, 0.03);
   cfg.thetaFDUpper = g(cfg.thetaFDUpper, 1.0);
+  cfg.thetaCDLower = g(cfg.thetaCDLower, 1.0);
   cfg.pRecLower = g(cfg.pRecLower, 0.045);
   return cfg;
 }

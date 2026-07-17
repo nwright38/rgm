@@ -71,6 +71,10 @@ def main():
     ap.add_argument("--cache-dir",
                     help="Directory for hipo-to-skim caches; default is OUT_PREFIX_cache")
     ap.add_argument("--seed", default="17")
+    ap.add_argument("--lead-mode", choices=["FD", "CD", "BOTH", "fd", "cd", "both"],
+                    help="Use only forward-detector leads, central-detector leads, or both")
+    ap.add_argument("--theta-fd-upper", help="Upper thetaLead cut in degrees for FD leads")
+    ap.add_argument("--theta-cd-lower", help="Lower thetaLead cut in degrees for CD leads")
     ap.add_argument("--cut-range-xy", help="Nominal X/Y fit half-window, e.g. 0.55")
     ap.add_argument("--fit-z-min", help="Nominal Z fit lower edge")
     ap.add_argument("--fit-z-max", help="Nominal Z fit upper edge")
@@ -96,6 +100,12 @@ def main():
     prefix = Path(args.out_prefix)
     plot_dir = prefix.parent / f"{prefix.name}_plots"
     common = ["--seed", args.seed]
+    if args.lead_mode:
+        common.append(f"--lead-mode={args.lead_mode.upper()}")
+    if args.theta_fd_upper:
+        common.append(f"--theta-fd-upper={args.theta_fd_upper}")
+    if args.theta_cd_lower:
+        common.append(f"--theta-cd-lower={args.theta_cd_lower}")
     if args.cut_range_xy:
         common.append(f"--cut-range-xy={args.cut_range_xy}")
     if args.fit_z_min:
