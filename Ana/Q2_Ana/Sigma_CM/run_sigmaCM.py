@@ -84,6 +84,8 @@ def main():
     ap.add_argument("--sigma-step", help="Initial Minuit step for sigma_CM")
     ap.add_argument("--xy-ranges", default="0.45,0.50,0.55",
                     help="Comma-separated X/Y half-windows for fit-range scan")
+    ap.add_argument("--couple-z-to-xy", action="store_true",
+                    help="In fit-range scan, set Z window to [-w, 2w] for each X/Y half-window")
     ap.add_argument("--full", action="store_true", help="Run systematic toys/scans too")
     ap.add_argument("--profiles", action="store_true",
                     help="Also run diagnostic profile scans for X/Y/Z")
@@ -157,8 +159,11 @@ def main():
         run([exe(args.build_dir, "run_gcf_toys"), data_input, mc_input, gcf, *common])
         run([exe(args.build_dir, "run_combined_toys"), data_input, mc_input, combined, *common,
              f"--n-toys={args.n_toys}"])
-        run([exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges,
-             *common, f"--xy-ranges={args.xy_ranges}"])
+        fit_range_cmd = [exe(args.build_dir, "run_fit_range_scan"), data_input, mc_input, ranges,
+                         *common, f"--xy-ranges={args.xy_ranges}"]
+        if args.couple_z_to_xy:
+            fit_range_cmd.append("--couple-z-to-xy")
+        run(fit_range_cmd)
         run([exe(args.build_dir, "run_closure"), mc_input, closure, *common])
         if args.profiles:
             for axis in range(3):

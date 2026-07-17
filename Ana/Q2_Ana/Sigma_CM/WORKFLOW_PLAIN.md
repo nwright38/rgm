@@ -318,7 +318,9 @@ By default the scan tries X/Y half-windows:
 0.45, 0.50, 0.55 GeV/c
 ```
 
-For each X/Y half-window `w`, the Z window is set to:
+By default, the Z window stays at the configured `fitZMin`/`fitZMax` while the
+X/Y half-window changes. If `--couple-z-to-xy` is passed, each X/Y half-window
+`w` also sets the Z window to:
 
 ```text
 [-w, 2w]

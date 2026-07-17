@@ -4,7 +4,6 @@
 #include "SigmaCMInput.h"
 
 #include <cstdlib>
-#include <cmath>
 #include <iostream>
 #include <utility>
 #include <sstream>
@@ -47,11 +46,7 @@ void usage(const char* program) {
             << "  " << program << " data.root mc.root out.root [options]\n"
             << "  " << program << " --from-hipo A data.hipo sim.hipo out.root [options]\n"
             << "Extra option: --xy-ranges=0.45,0.50,0.55 --z-ranges=lo:hi,lo:hi "
-            << "--beam-energy=v --max-events=N\n";
-}
-
-bool defaultZWindow(const Config& cfg) {
-  return std::abs(cfg.fitZMin - (-0.5)) < 1e-12 && std::abs(cfg.fitZMax - 1.0) < 1e-12;
+            << "--couple-z-to-xy --beam-energy=v --max-events=N\n";
 }
 }
 
@@ -59,6 +54,7 @@ int main(int argc, char** argv) {
   std::vector<std::string> pos;
   Config cfg = configFromArgs(argc, argv, 1, pos);
   const bool fromHipo = takeFlag(pos, "--from-hipo");
+  const bool coupleZToXY = takeFlag(pos, "--couple-z-to-xy");
   HipoLoadOptions hipoOptions;
   const std::string beamEnergy = takeOption(pos, "--beam-energy");
   if (!beamEnergy.empty()) hipoOptions.beamEnergy = std::atof(beamEnergy.c_str());
@@ -118,7 +114,6 @@ int main(int argc, char** argv) {
     cfg.fdLeadRegionValue = mc.fdLeadRegionValue;
     cfg.cdLeadRegionValue = mc.cdLeadRegionValue;
     std::vector<Result> results;
-    const bool keepExplicitZWindow = zRanges.empty() && !defaultZWindow(cfg);
     for (size_t i = 0; i < xyRanges.size(); ++i) {
       const double rxy = xyRanges[i];
       Config c = cfg;
@@ -126,7 +121,7 @@ int main(int argc, char** argv) {
       if (!zRanges.empty()) {
         c.fitZMin = zRanges[i].first;
         c.fitZMax = zRanges[i].second;
-      } else if (!keepExplicitZWindow) {
+      } else if (coupleZToXY) {
         c.fitZMin = -rxy;
         c.fitZMax = 2.0 * rxy;
       }

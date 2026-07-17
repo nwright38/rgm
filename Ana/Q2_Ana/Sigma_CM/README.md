@@ -108,6 +108,7 @@ listed at the end of this README.
 --fit-z-min=-0.5             lower chi2 range for Z
 --fit-z-max=1.0              upper chi2 range for Z
 --xy-ranges=0.45,0.50,0.55  wrapper: fit-window scan values for --full
+--couple-z-to-xy             wrapper/scan: set Z window to [-w,2w] for each X/Y scan point
 --beam-energy=5.98636        hipo mode beam energy
 --max-events=N               quick test run over first N hipo events
 --n-gcf-toys=N               wrapper: GCF toy branches in hipo MC cache during --full
@@ -134,6 +135,10 @@ For the optional fit-range scan, set:
 ```bash
 --xy-ranges=0.40,0.45,0.50,0.55,0.60
 ```
+
+The scan varies the X/Y half-window and keeps the configured Z window fixed.
+Pass `--couple-z-to-xy` only if you intentionally want the older behavior where
+each X/Y half-window `w` also sets `fitZMin=-w` and `fitZMax=2w`.
 
 The fit-range scan writes `fit_ranges.root`. Python plotting turns that into
 diagnostic PDFs such as:
