@@ -97,6 +97,8 @@ def main():
     ap.add_argument("--n-bootstrap", default="200")
     ap.add_argument("--n-gcf-toys", type=int, default=100,
                     help="Number of GCF toy weight branches to write in hipo MC caches during --full")
+    ap.add_argument("--closure-targets", default="0.10,0.14,0.18,0.22",
+                    help="Comma-separated injected sigma_CM values for closure")
     args = ap.parse_args()
 
     prefix = Path(args.out_prefix)
@@ -164,7 +166,8 @@ def main():
         if args.couple_z_to_xy:
             fit_range_cmd.append("--couple-z-to-xy")
         run(fit_range_cmd)
-        run([exe(args.build_dir, "run_closure"), mc_input, closure, *common])
+        run([exe(args.build_dir, "run_closure"), mc_input, closure, *common,
+             f"--closure-targets={args.closure_targets}"])
         if args.profiles:
             for axis in range(3):
                 prof = prefix.with_suffix(f".profile_axis{axis}.root")

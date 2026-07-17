@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 
 using namespace sigmacm;
@@ -44,7 +45,26 @@ void usage(const char* program) {
   std::cerr << "Usage:\n"
             << "  " << program << " mc.root out.root [options]\n"
             << "  " << program << " --from-hipo A sim.hipo out.root [options]\n"
-            << "Extra options: --beam-energy=v --max-events=N\n";
+            << "Extra options: --closure-targets=0.10,0.14,0.18,0.22 "
+            << "--beam-energy=v --max-events=N\n";
+}
+
+std::vector<double> parseTargets(const std::string& text) {
+  std::vector<double> targets;
+  std::stringstream ss(text);
+  std::string item;
+  while (std::getline(ss, item, ',')) {
+    if (item.empty()) continue;
+    const double target = std::atof(item.c_str());
+    if (target <= 0.0) {
+      throw std::runtime_error("--closure-targets entries must be positive sigma values");
+    }
+    targets.push_back(target);
+  }
+  if (targets.empty()) {
+    throw std::runtime_error("--closure-targets did not contain any values");
+  }
+  return targets;
 }
 }
 
@@ -57,6 +77,9 @@ int main(int argc, char** argv) {
   if (!beamEnergy.empty()) hipoOptions.beamEnergy = std::atof(beamEnergy.c_str());
   const std::string maxEvents = takeOption(pos, "--max-events");
   if (!maxEvents.empty()) hipoOptions.maxEvents = std::atoll(maxEvents.c_str());
+  std::vector<double> targets{0.10, 0.14, 0.18, 0.22};
+  const std::string closureTargets = takeOption(pos, "--closure-targets");
+  if (!closureTargets.empty()) targets = parseTargets(closureTargets);
   if ((!fromHipo && pos.size() != 2) || (fromHipo && pos.size() != 3)) {
     usage(argv[0]);
     return 2;
@@ -84,7 +107,6 @@ int main(int argc, char** argv) {
     }
     std::vector<Result> results;
     std::mt19937_64 rng(cfg.seed);
-    const double targets[] = {0.10, 0.14, 0.18, 0.22};
     for (double target : targets) {
       auto pseudo = evenPool;
       double sumW = 0.0;

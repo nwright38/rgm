@@ -276,21 +276,38 @@ def plot_closure_response(arr, stem, out):
     x = x[order]
     colors = {"X": "#4477aa", "Y": "#228833", "Z": "#cc6677"}
 
-    plt.figure(figsize=(6.2, 5.0))
+    fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.8), sharex=True, sharey=True)
     lo = float(np.nanmin(x))
     hi = float(np.nanmax(x))
+    values_by_direction = {}
+    errors_by_direction = {}
+    finite_by_direction = {}
     for d in DIRECTIONS:
         y = np.asarray(arr[f"sigma{d}"], dtype=float)[mask][order]
         err = np.asarray(arr[f"sigma{d}ErrHigh"], dtype=float)[mask][order]
-        plt.errorbar(x, y, yerr=err, marker="o", linestyle="-", color=colors[d], label=d)
-        lo = min(lo, float(np.nanmin(y)))
-        hi = max(hi, float(np.nanmax(y)))
+        finite_d = np.isfinite(x) & np.isfinite(y)
+        values_by_direction[d] = y
+        errors_by_direction[d] = err
+        finite_by_direction[d] = finite_d
+        if np.any(finite_d):
+            lo = min(lo, float(np.nanmin(y[finite_d])))
+            hi = max(hi, float(np.nanmax(y[finite_d])))
     pad = 0.05 * max(hi - lo, 1.0e-6)
-    plt.plot([lo - pad, hi + pad], [lo - pad, hi + pad], color="#555555", lw=1.2, ls="--", label="ideal")
-    plt.xlabel(r"Injected $\sigma_{CM}$ [GeV/c]")
-    plt.ylabel(r"Extracted $\sigma_{CM}$ [GeV/c]")
-    plt.title(f"{stem}: closure response")
-    plt.legend(frameon=False, ncol=2)
+    line_min = lo - pad
+    line_max = hi + pad
+    for ax, d in zip(axes, DIRECTIONS):
+        finite_d = finite_by_direction[d]
+        ax.errorbar(x[finite_d], values_by_direction[d][finite_d],
+                    yerr=errors_by_direction[d][finite_d],
+                    marker="o", linestyle="-", color=colors[d], label=d)
+        ax.plot([line_min, line_max], [line_min, line_max],
+                color="#555555", lw=1.2, ls="--", label="ideal")
+        ax.set_title(d)
+        ax.set_xlabel(r"Injected $\sigma_{CM}$")
+        ax.set_xlim(line_min, line_max)
+        ax.set_ylim(line_min, line_max)
+    axes[0].set_ylabel(r"Extracted $\sigma_{CM}$ [GeV/c]")
+    fig.suptitle(f"{stem}: closure response")
     savefig(out, f"{stem}_closure_injected_vs_extracted")
 
     plt.figure(figsize=(6.2, 4.4))
