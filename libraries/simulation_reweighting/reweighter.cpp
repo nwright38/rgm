@@ -1,5 +1,7 @@
 #include "reweighter.h"
 
+#include <cmath>
+
 reweighter::reweighter(double E, int Z, int N, ffModel thisMod, char * input_uType_fin)
 {
   Ebeam = E;
@@ -105,6 +107,8 @@ double reweighter::get_TNN() const { return TNN; }
 
 double reweighter::get_weight_noT(clas12::mcparticle* mcInfo)
 {
+  if(!mcInfo || mcInfo->getRows() < 3) return 0.;
+
   double den = 1;
   double num = 1;
 
@@ -165,6 +169,7 @@ double reweighter::get_weight_noT(clas12::mcparticle* mcInfo)
   sig_S += CS_config_fin->sigma_eN(Ebeam,ve,vlead,(leadCodeX==pCode))*gcf_config_fin->get_S(vrel.Mag(),leadCodeX,recCode)*P_LX_R;
   num *= sig_S;
 
+  if(!std::isfinite(num) || !std::isfinite(den) || den == 0.) return 0.;
   return num/den;
 }
 

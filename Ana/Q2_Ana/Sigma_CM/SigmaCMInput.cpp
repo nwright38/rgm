@@ -1,4 +1,5 @@
 #include "SigmaCMInput.h"
+#include "SigmaCMExtractor.h"
 
 #include <TFile.h>
 #include <TH1.h>
@@ -331,6 +332,7 @@ void writeSkim(const std::string& path, const Sample& sample, bool writeMCBranch
 namespace sigmacm {
 namespace {
 
+constexpr double kNominalGcfSigmaCM = 0.15;
 constexpr double kMassD = 1.8756;
 constexpr double kMassElectron = 0.000511;
 constexpr double kAtomicMassUnit = 0.9314941024;
@@ -529,14 +531,14 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
     const int z = protonNumber(options.nucleusA);
     const int n = neutronNumber(options.nucleusA);
     nominalGcfWeight = std::make_unique<reweighter>(
-        options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
+        options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), kNominalGcfSigmaCM);
   }
   if (requireMC && options.nGcfToys > 0) {
     gcfToyWeights.reserve(static_cast<size_t>(options.nGcfToys));
     const int z = protonNumber(options.nucleusA);
     const int n = neutronNumber(options.nucleusA);
     for (int i = 0; i < options.nGcfToys; ++i) {
-      reweighter w(options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), 0.15);
+      reweighter w(options.beamEnergy, z, n, kelly, const_cast<char*>("AV18"), kNominalGcfSigmaCM);
       w.randomize_Config(false, false);
       std::ostringstream name;
       name << "w_gcf_toy_" << std::setw(3) << std::setfill('0') << i;
@@ -573,6 +575,8 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
       << "momentum_corrections=skim_ep_explicit_recon_data_corrections_mc_smearing\n"
       << "gcf_nominal_potential=AV18\n"
       << "gcf_nominal_weight_applied=" << (requireMC ? 1 : 0) << "\n"
+      << "gcf_nominal_sigma_cm_factor_removed=" << (requireMC ? 1 : 0) << "\n"
+      << "gcf_nominal_sigma_cm=" << kNominalGcfSigmaCM << "\n"
       << "gcf_toy_weight_mode=toy_over_nominal_ratio\n"
       << "gcf_toy_transparency_randomized=0\n"
       << "gcf_toy_sigma_cm_randomized=0\n"
@@ -596,7 +600,15 @@ Sample loadHipo(const std::vector<std::string>& paths, bool requireMC,
           ++scanned;
           continue;
         }
-        event.genWeight *= nominal;
+        const double nominalSigma =
+            gaussianRatio(event.pcmXTruth, kNominalGcfSigmaCM, sample.sigmaGen) *
+            gaussianRatio(event.pcmYTruth, kNominalGcfSigmaCM, sample.sigmaGen) *
+            gaussianRatio(event.pcmZTruth, kNominalGcfSigmaCM, sample.sigmaGen);
+        if (!std::isfinite(nominalSigma) || nominalSigma == 0.0) {
+          ++scanned;
+          continue;
+        }
+        event.genWeight *= nominal / nominalSigma;
         for (size_t i = 0; i < gcfToyWeights.size(); ++i) {
           const double toy = gcfToyWeights[i].get_weight_epp(mcInfo);
           event.auxWeights[sample.auxWeightBranches[i]] =

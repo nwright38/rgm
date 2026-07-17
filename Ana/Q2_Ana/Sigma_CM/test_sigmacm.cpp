@@ -59,6 +59,9 @@ int main() {
   e.genWeight = 2.75;
   const double w = eventWeight(e, sigmaGen, sigmaGen, sigmaGen, sigmaGen, "");
   assert(std::abs(w - e.genWeight) < 1e-14);
+  e.auxWeights["toy"] = 1.25;
+  const double wAux = eventWeight(e, sigmaGen, sigmaGen, sigmaGen, sigmaGen, "toy");
+  assert(std::abs(wAux - 1.25 * e.genWeight) < 1e-14);
 
   Config cfg;
   cfg.fdLeadRegionValue = 2000;
