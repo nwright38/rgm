@@ -360,6 +360,7 @@ def plot_fit_range_scan(arr, stem, out):
         plt.errorbar(x, y, yerr=err, marker="o", linestyle="-", color=colors[d], label=d)
     plt.xlabel(r"X/Y fit half-window [GeV/c]")
     plt.ylabel(r"$\sigma_{CM}$ [GeV/c]")
+    plt.ylim(.1,.2)
     plt.title(f"{stem}: sigma vs fit window")
     plt.legend(frameon=False, ncol=3)
     savefig(out, f"{stem}_sigma_vs_fit_window")

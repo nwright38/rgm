@@ -18,7 +18,7 @@ struct Config {
   double kMissLower = 0.3;
   double pLeadLower = 1.0;
   double thetaFDUpper = 37.0;
-  double thetaCDLower = 45.0;
+  double thetaCDLower = 46.0;
   double pRecLower = 0.3;
   bool requirePcmLtPrel = false;
 

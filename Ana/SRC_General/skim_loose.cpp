@@ -118,7 +118,7 @@ int main(int argc, char ** argv)
       if((counter % 100000) == 0){
 	cerr << "\n" << counter << " completed";
       }
-      if(isMC && acc_counter > 10000000) break;
+    //  if(isMC && acc_counter > 10000000) break;
   //     if((counter % 100000) == 0){
 	// cerr << ".";
   //     }
@@ -138,59 +138,14 @@ int main(int argc, char ** argv)
       }
       if(isMC){SetLorentzVector_MomentumSimulationSmear(el,electrons[0]);}
 
-
       TLorentzVector q = beam - el;
       double Q2  = -q.M2();
       double xB  = Q2 / (2 * mass_p * (beam.E() - el.E()));
 
-      if(xB < 1.2){continue;}
-      if(Q2 < 1.5){continue;}
-      if(Q2 > 5){continue;}
-
-      // --- Find lead (and recoil) SRC candidates ---
-      clasAna.getLeadRecoilSRC(beam,deut_ptr,el);
-      auto lead   = clasAna.getLeadSRC();
-      auto recoil = clasAna.getRecoilSRC();
-
-      if(lead.size() != 1){continue;}
-
-      // --- Lead proton 4-vector + corrections ---
-      GetLorentzVector_ReconVector(lead_ptr,lead[0]);
-      if(!isMC){SetLorentzVector_ThetaCorrection(lead_ptr,lead[0]);}
-      SetLorentzVector_EnergyLossCorrection(lead_ptr,lead[0]);
-      if(!isMC){SetLorentzVector_MomentumCorrection(lead_ptr,lead[0]);}
-      if(isMC){SetLorentzVector_MomentumSimulationSmear(lead_ptr,protons[0]);}
-
-      TLorentzVector miss = q + deut_ptr - lead_ptr;
-      double mmiss = sqrt(miss.M2());
-      double mom_lead = lead_ptr.P();
-      double theta_lead = lead_ptr.Theta() * 180 / M_PI;
-
-      TLorentzVector miss_LC = lead_ptr - q;
-      TVector3 u_ZQ = q.Vect().Unit();
-      double pmm_ZQ = miss_LC.E() - miss_LC.Vect().Dot(u_ZQ);
-      double pmp_ZQ = miss_LC.Vect().Perp(u_ZQ);
-      double kmiss_ZQ = sqrt(mass_p*mass_p*((pmp_ZQ*pmp_ZQ + mass_p*mass_p)/(pmm_ZQ*(2*mass_p - pmm_ZQ))) - mass_p*mass_p);
-
-      if(mom_lead < 1.0){continue;}
-      if(kmiss_ZQ < 0.3){continue;}
-      if(mmiss < 0.65){continue;}
-      if(mmiss > 1.1){continue;}
-      
-  //    if(theta_lead > 37){continue;}
-
-      // Only keep FD-region leads (matches the analysis code's treatment;
-      // CD-region leads are dropped there too).
-    //  if(lead[0]->getRegion() != FD){continue;}
-
-      // Tag (logged only, not written into the hipo file) for whether
-      // this event also has a reconstructed recoil -> e'pp.
-      bool is_epp = (recoil.size() == 1);
-      if(is_epp){ n_epp_written++; }
-      else      { n_ep_written++;  }
+      if(xB < 1.1){continue;}
+      if(Q2 < 1.){continue;}
 
       chain.WriteEvent();
-      acc_counter++;
     }
 
   cerr << "\n\nDone.\n";
