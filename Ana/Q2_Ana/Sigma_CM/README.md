@@ -236,7 +236,7 @@ The systematic/profile drivers operate on skim ROOT files:
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data.root mc.root gcf_toys.root
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data.root mc.root combined_toys.root --n-toys=100
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data.root mc.root fit_ranges.root
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root --closure-targets=0.10,0.14,0.18,0.22
 ```
 
 Budget sidecars are opt-in. They are not written by default:

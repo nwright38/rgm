@@ -351,6 +351,12 @@ Does chi2/ndf improve or worsen as I change the fit window?
 Closure uses MC to make pseudo-data with known injected widths, then fits it
 back.
 
+Choose the injected widths with:
+
+```text
+--closure-targets=0.10,0.14,0.18,0.22
+```
+
 Physics/statistics meaning:
 
 ```text

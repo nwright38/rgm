@@ -88,6 +88,7 @@ int main(int argc, char **argv)
 
   // lead proton (first candidate passing all SRC lead cuts)
   Float_t b_leadP, b_leadTheta, b_leadPhi;
+  Float_t b_leadBeta, b_leadToF;
   Float_t b_leadVz;
   Float_t b_pMiss, b_pMissTheta, b_pMissPhi;
   Float_t b_mMiss;
@@ -150,6 +151,8 @@ int main(int argc, char **argv)
   srcTree->Branch("leadP",       &b_leadP,       "leadP/F");
   srcTree->Branch("leadTheta",   &b_leadTheta,   "leadTheta/F");
   srcTree->Branch("leadPhi",     &b_leadPhi,     "leadPhi/F");
+  srcTree->Branch("leadBeta",    &b_leadBeta,    "leadBeta/F");
+  srcTree->Branch("leadToF",     &b_leadToF,     "leadToF/F");
   srcTree->Branch("leadVz",      &b_leadVz,      "leadVz/F");
 
   srcTree->Branch("pMiss",       &b_pMiss,       "pMiss/F");
@@ -274,7 +277,8 @@ int main(int argc, char **argv)
     b_singleGoodLead = false;
     b_recP       = -9.f;  b_recTheta = -9.f;  b_recPhi = -9.f;
 
-    b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;  b_leadVz = -99.f;
+    b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;
+    b_leadBeta = -9.f;  b_leadToF = -9.f;  b_leadVz = -99.f;
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
@@ -348,6 +352,7 @@ int main(int argc, char **argv)
     // ---- pass 1: compute kinematics for every proton candidate ----
     int nFilled = 0;
     vector<TVector3> cand_p3;
+    vector<float>    cand_beta, cand_tof;
     vector<float>    cand_vz;
     vector<TVector3> cand_pMissV;
     vector<float>    cand_mMiss, cand_kMiss, cand_EMiss, cand_theta_PmQ;
@@ -384,6 +389,8 @@ int main(int argc, char **argv)
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
       cand_p3.push_back(pLead3);
+      cand_beta.push_back(protons[pr]->par()->getBeta());
+      cand_tof.push_back(protons[pr]->getTime() - c12->event()->getStartTime());
       cand_vz.push_back(protons[pr]->par()->getVz());
       cand_pMissV.push_back(pMissV);
       cand_mMiss.push_back(missP4.M());
@@ -411,6 +418,8 @@ int main(int argc, char **argv)
       b_leadP       = cand_p3[leadIdx].Mag();
       b_leadTheta   = cand_p3[leadIdx].Theta();
       b_leadPhi     = cand_p3[leadIdx].Phi();
+      b_leadBeta    = cand_beta[leadIdx];
+      b_leadToF     = cand_tof[leadIdx];
       b_leadVz      = cand_vz[leadIdx];
 
       b_pMiss       = cand_pMissV[leadIdx].Mag();
