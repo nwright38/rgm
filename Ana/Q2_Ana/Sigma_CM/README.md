@@ -232,11 +232,19 @@ If you only want to make the reusable hipo cache:
 The systematic/profile drivers operate on skim ROOT files:
 
 ```bash
+<<<<<<< HEAD
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data.root mc.root cut_toys.root --n-cut-toys=100 --n-bootstrap=200
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data.root mc.root gcf_toys.root
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data.root mc.root combined_toys.root --n-toys=100
 ./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data.root mc.root fit_ranges.root
-./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc.root closure.root --closure-targets=0.10,0.14,0.18,0.22
+=======
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_cut_toys data_skim.root mc_skim.root cut_toys.root --n-cut-toys=100 --n-bootstrap=200
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_gcf_toys data_skim.root mc_skim.root gcf_toys.root
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_combined_toys data_skim.root mc_skim.root combined_toys.root --n-toys=100
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_fit_range_scan data_skim.root mc_skim.root fit_ranges.root
+./build/Ana/Q2_Ana/Sigma_CM/sigmacm_run_closure mc_skim.root closure.root
+>>>>>>> 793aec3 (d)
 ```
 
 Budget sidecars are opt-in. They are not written by default:
