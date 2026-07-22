@@ -1,13 +1,14 @@
 void drawSigCMres(){
 
     double FIT_RANGE_SIG[2] = {-.2,.2};
-    double FIT_RANGE_RES[2] = {-.07,.07};
+    double FIT_RANGE_RES[2] = {-.08,.08};
 
     TCut cdCut = "leadTheta*180./TMath::Pi() > 45.";
     TCut fdCut = "leadTheta*180./TMath::Pi() < 37.";
-    TCut weight = "weight_epp";
 
-    TCut currCut = weight*fdCut;
+    TCut weight = "weight_epp*(recTheta*180./TMath::Pi() > 45.)";
+
+    TCut currCut = weight*cdCut;
 
     TFile *simFile = new TFile("~/data/RGM_DATA/c12_sim_skim.root");
     TFile *dataFile = new TFile("~/data/RGM_DATA/c12_src_skim.root");
@@ -30,6 +31,10 @@ void drawSigCMres(){
     TF1 *fit_y = new TF1("fit_y", "gaus", FIT_RANGE_SIG[0], FIT_RANGE_SIG[1]);
 
 
+    res_x->SetStats(0);
+    res_y->SetStats(0);
+    pcm_x->SetStats(0);
+    pcm_y->SetStats(0);
 
     simTree->Project("res_x", "pCMx-pCMx_truth", currCut);
     simTree->Project("res_y", "pCMy-pCMy_truth", currCut);
@@ -91,11 +96,13 @@ void drawSigCMres(){
     text.DrawLatex(0.18, 0.82, Form("#sigma_{res,y} = %.3f #pm %.3f", res_y_sigma, res_y_sigma_err));
     c->cd(3);
     pcm_x->Draw();
+    pcm_x->GetYaxis()->SetRangeUser(0, 1.2*pcm_x->GetMaximum());
     fit_x->Draw("same");
     text.DrawLatex(0.18, 0.82, Form("#sigma_{fit,x} = %.3f #pm %.3f", sig_x_sigma, sig_x_sigma_err));
     text.DrawLatex(0.18, 0.74, Form("#sigma_{extr,x} = %.3f #pm %.3f", extr_x_sigma, extr_x_sigma_err));
     c->cd(4);
     pcm_y->Draw();
+    pcm_y->GetYaxis()->SetRangeUser(0, 1.2*pcm_y->GetMaximum());
     fit_y->Draw("same");
     text.DrawLatex(0.18, 0.82, Form("#sigma_{fit,y} = %.3f #pm %.3f", sig_y_sigma, sig_y_sigma_err));
     text.DrawLatex(0.18, 0.74, Form("#sigma_{extr,y} = %.3f #pm %.3f", extr_y_sigma, extr_y_sigma_err));

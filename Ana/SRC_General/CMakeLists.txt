@@ -1,4 +1,4 @@
-foreach (fname skim_ep.cpp simpleSRCSkim_archive.cpp bandDISSkim.cpp flatSRCSkim.cpp skim_loose.cpp)
+foreach (fname skim_ep.cpp simpleSRCSkim_archive.cpp bandDISSkim.cpp flatSRCSkim.cpp skim_loose.cpp skim_deeppim.cpp)
   string (REPLACE ".cpp" "" fnameExe ${fname})
   add_executable(${fnameExe} ${fname})
   target_link_libraries(${fnameExe} ${ROOT_LIBRARIES} -lEG -lClas12Banks PkgConfig::hipo4 -lClas12Root -L${CLAS12ROOT}/lib -L${CLAS12ROOT}/ccdb/lib -lTMVA NeutronVeto EventCut Clas12Ana Clas12Debug reweighter)
