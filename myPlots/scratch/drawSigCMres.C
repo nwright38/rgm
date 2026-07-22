@@ -7,10 +7,10 @@ void drawSigCMres(){
     TCut fdCut = "leadTheta*180./TMath::Pi() < 37.";
     TCut weight = "weight_epp";
 
-    TCut currCut = weight*cdCut;
+    TCut currCut = weight*fdCut;
 
     TFile *simFile = new TFile("~/data/RGM_DATA/c12_sim_skim.root");
-    TFile *dataFile = new TFile("~/data/RGM_DATA/c12_sim_skim.root");
+    TFile *dataFile = new TFile("~/data/RGM_DATA/c12_src_skim.root");
 
     TTree *simTree = (TTree*)simFile->Get("srcTree"); 
     TTree *dataTree = (TTree*)dataFile->Get("srcTree");
@@ -28,6 +28,8 @@ void drawSigCMres(){
 
     TF1 *fit_x = new TF1("fit_x", "gaus", FIT_RANGE_SIG[0], FIT_RANGE_SIG[1]);
     TF1 *fit_y = new TF1("fit_y", "gaus", FIT_RANGE_SIG[0], FIT_RANGE_SIG[1]);
+
+
 
     simTree->Project("res_x", "pCMx-pCMx_truth", currCut);
     simTree->Project("res_y", "pCMy-pCMy_truth", currCut);

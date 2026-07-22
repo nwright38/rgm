@@ -110,6 +110,7 @@ int main(int argc, char **argv)
   // recoil kinematics (filled when a recoil is found)
   Float_t b_recP, b_recTheta, b_recPhi;
   Float_t b_recBeta, b_recToF;
+  Float_t b_theta_PleadPrec; // angle between lead and recoil momentum
   Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
   Float_t b_theta_PrecQ;  // angle between recoil momentum and q
 
@@ -184,6 +185,7 @@ int main(int argc, char **argv)
   srcTree->Branch("recPhi",      &b_recPhi,      "recPhi/F");
   srcTree->Branch("recBeta",     &b_recBeta,     "recBeta/F");
   srcTree->Branch("recToF",      &b_recToF,      "recToF/F");
+  srcTree->Branch("theta_PleadPrec",&b_theta_PleadPrec,"theta_PleadPrec/F");
   srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
   srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
 
@@ -290,6 +292,7 @@ int main(int argc, char **argv)
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_theta_PmQ = -9.f;
     b_theta_PleadQ = -9.f;
+    b_theta_PleadPrec = -9.f;
     b_theta_PmPrec = -9.f;
     b_theta_PrecQ  = -9.f;
     b_goodLead = false;
@@ -503,6 +506,7 @@ int main(int argc, char **argv)
         b_recToF   = cand_tof[j];
 
         // additional angles
+        b_theta_PleadPrec = lead_p3.Angle(recoil_p3);
         b_theta_PmPrec = miss_neg.Angle(recoil_p3);
         b_theta_PrecQ  = recoil_p3.Angle(qP3);
 
