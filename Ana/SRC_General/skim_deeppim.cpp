@@ -64,7 +64,7 @@ int main(int argc, char **argv)
   double Ebeam = atof(argv[2]);
 
   TFile *outFile = new TFile(argv[3], "RECREATE");
-  TTree *tree = new TTree("deeppim", "d(e,e'pp pi-) missing-system skim");
+  TTree *tree = new TTree("tree", "p(e,e'p) missing-system skim");
 
   Int_t b_run = -9;
   Long64_t b_event = -9;
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
   clas12ana clasAna;
 
   TLorentzVector beam(0., 0., Ebeam, Ebeam);
-  TLorentzVector target(0., 0., 0., mD);
+  TLorentzVector target(0., 0., 0., mP);
   TLorentzVector el;
   TLorentzVector pim;
   TLorentzVector p1;
@@ -204,6 +204,8 @@ int main(int argc, char **argv)
     }
     nRead++;
 
+   if(nWritten > 100000) break;
+
     clasAna.Run(c12);
     auto electrons = clasAna.getByPid(11);
     auto protons = clasAna.getByPid(2212);
@@ -214,8 +216,8 @@ int main(int argc, char **argv)
     b_nPiMinus = static_cast<int>(piminus.size());
 
     if(electrons.size() != 1){ continue; }
-    if(protons.size() < 2){ continue; }
-    if(piminus.empty()){ continue; }
+    if(protons.size() != 1){ continue; }
+  //  if(piminus.empty()){ continue; }
     nTopology++;
 
     setCorrectedP4(el, electrons[0], me, isMC);
@@ -227,9 +229,9 @@ int main(int argc, char **argv)
     if(b_omega <= 0.){ continue; }
     b_xB = b_Q2 / (2. * mP * b_omega);
 
-    if(b_xB < 1.2){ continue; }
-    if(b_Q2 < 1.5){ continue; }
-    if(b_Q2 > 5.0){ continue; }
+    // if(b_xB < 1.2){ continue; }
+    // if(b_Q2 < 1.5){ continue; }
+    // if(b_Q2 > 5.0){ continue; }
 
     b_run = c12->runconfig()->getRun();
     b_event = c12->runconfig()->getEvent();
@@ -238,12 +240,12 @@ int main(int argc, char **argv)
                          b_eP, b_eTheta, b_ePhi, b_ePx, b_ePy, b_ePz,
                          b_eE, b_eVz, b_eStatus, b_eRegion);
 
-    for(int ipim = 0; ipim < static_cast<int>(piminus.size()); ipim++){
-      setCorrectedP4(pim, piminus[ipim], mPi, isMC);
-      fillParticleBranches(pim, piminus[ipim],
-                           b_pimP, b_pimTheta, b_pimPhi, b_pimPx, b_pimPy, b_pimPz,
-                           b_pimE, b_pimVz, b_pimStatus, b_pimRegion);
-      b_pimIndex = ipim;
+    // for(int ipim = 0; ipim < static_cast<int>(piminus.size()); ipim++){
+    //   setCorrectedP4(pim, piminus[ipim], mPi, isMC);
+    //   fillParticleBranches(pim, piminus[ipim],
+    //                        b_pimP, b_pimTheta, b_pimPhi, b_pimPx, b_pimPy, b_pimPz,
+    //                        b_pimE, b_pimVz, b_pimStatus, b_pimRegion);
+    //   b_pimIndex = ipim;
 
       for(int ip1 = 0; ip1 < static_cast<int>(protons.size()); ip1++){
         setCorrectedP4(p1, protons[ip1], mP, isMC);
@@ -252,14 +254,14 @@ int main(int argc, char **argv)
                              b_p1E, b_p1Vz, b_p1Status, b_p1Region);
         b_p1Index = ip1;
 
-        for(int ip2 = ip1 + 1; ip2 < static_cast<int>(protons.size()); ip2++){
-          setCorrectedP4(p2, protons[ip2], mP, isMC);
-          fillParticleBranches(p2, protons[ip2],
-                               b_p2P, b_p2Theta, b_p2Phi, b_p2Px, b_p2Py, b_p2Pz,
-                               b_p2E, b_p2Vz, b_p2Status, b_p2Region);
-          b_p2Index = ip2;
+        // for(int ip2 = ip1 + 1; ip2 < static_cast<int>(protons.size()); ip2++){
+        //   setCorrectedP4(p2, protons[ip2], mP, isMC);
+        //   fillParticleBranches(p2, protons[ip2],
+        //                        b_p2P, b_p2Theta, b_p2Phi, b_p2Px, b_p2Py, b_p2Pz,
+        //                        b_p2E, b_p2Vz, b_p2Status, b_p2Region);
+        //   b_p2Index = ip2;
 
-          TLorentzVector miss = beam + target - el - p1 - p2 - pim;
+          TLorentzVector miss = beam + target - el - p1; // - p2 - pim;
           b_mMiss = miss.M();
           b_mMiss2 = miss.M2();
           b_pMiss = miss.P();
@@ -271,9 +273,9 @@ int main(int argc, char **argv)
 
           tree->Fill();
           nWritten++;
-        }
+        //}
       }
-    }
+    //}
   }
 
   outFile->cd();
