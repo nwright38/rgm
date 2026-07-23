@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -10,6 +12,7 @@
 #include <TLorentzVector.h>
 #include <TNamed.h>
 #include <TTree.h>
+#include <TVector3.h>
 
 #include "Corrections.h"
 #include "HipoChain.h"
@@ -24,10 +27,80 @@ const double mPi = 0.13957039;
 const double me = 0.000511;
 const double rad2deg = 180. / M_PI;
 
+struct TopologyConfig {
+  string name;
+  int id = 0;
+  int minProtons = 2;
+  int minPiMinus = 1;
+  bool useP2 = true;
+  bool usePiMinus = true;
+  double targetMass = mD;
+  string targetName = "deuterium";
+};
+
+struct ParticleBranches {
+  Double_t p = -9.;
+  Double_t theta = -9.;
+  Double_t phi = -9.;
+  Double_t px = -9.;
+  Double_t py = -9.;
+  Double_t pz = -9.;
+  Double_t energy = -9.;
+  Double_t vz = -99.;
+  Int_t status = -9;
+  Int_t region = -9;
+
+  void reset()
+  {
+    p = theta = phi = px = py = pz = energy = -9.;
+    vz = -99.;
+    status = -9;
+    region = -9;
+  }
+
+  void book(TTree *tree, const string &prefix)
+  {
+    tree->Branch((prefix + "P").c_str(), &p, (prefix + "P/D").c_str());
+    tree->Branch((prefix + "Theta").c_str(), &theta, (prefix + "Theta/D").c_str());
+    tree->Branch((prefix + "Phi").c_str(), &phi, (prefix + "Phi/D").c_str());
+    tree->Branch((prefix + "Px").c_str(), &px, (prefix + "Px/D").c_str());
+    tree->Branch((prefix + "Py").c_str(), &py, (prefix + "Py/D").c_str());
+    tree->Branch((prefix + "Pz").c_str(), &pz, (prefix + "Pz/D").c_str());
+    tree->Branch((prefix + "E").c_str(), &energy, (prefix + "E/D").c_str());
+    tree->Branch((prefix + "Vz").c_str(), &vz, (prefix + "Vz/D").c_str());
+    tree->Branch((prefix + "Status").c_str(), &status, (prefix + "Status/I").c_str());
+    tree->Branch((prefix + "Region").c_str(), &region, (prefix + "Region/I").c_str());
+  }
+
+  void fill(TLorentzVector const &p4, clas12::region_part_ptr part)
+  {
+    p = p4.P();
+    theta = p4.Theta() * rad2deg;
+    phi = p4.Phi() * rad2deg;
+    px = p4.Px();
+    py = p4.Py();
+    pz = p4.Pz();
+    energy = p4.E();
+    vz = part->par()->getVz();
+    status = part->getStatus();
+    region = static_cast<int>(part->getRegion());
+  }
+};
+
+struct CorrectedParticle {
+  int index = -1;
+  clas12::region_part_ptr part;
+  TLorentzVector p4;
+};
+
 void Usage()
 {
-  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> <output.root> <input.hipo> [more hipo...] [--beam Ebeam]\n"
-       << "Default Ebeam is 5.98636 GeV, matching SRC_General/skim_ep.cpp.\n";
+  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> <output.root> <input.hipo> [more hipo...] [options]\n"
+       << "Options:\n"
+       << "  --topology deeppim|eppim|epp|ep   default: deeppim\n"
+       << "  --target deuterium|hydrogen       default: topology-dependent\n"
+       << "  --beam Ebeam                      default: 5.98636 GeV\n"
+       << "  --max-rows N                      optional quick-test row limit\n";
 }
 
 void setCorrectedP4(TLorentzVector &p4, clas12::region_part_ptr part, double mass, bool isMC)
@@ -36,23 +109,107 @@ void setCorrectedP4(TLorentzVector &p4, clas12::region_part_ptr part, double mas
   GetLorentzVector_Corrected(p4, part, isMC);
 }
 
-void fillParticleBranches(TLorentzVector const &p4,
-                          clas12::region_part_ptr part,
-                          Double_t &p, Double_t &theta, Double_t &phi,
-                          Double_t &px, Double_t &py, Double_t &pz,
-                          Double_t &energy, Double_t &vz,
-                          Int_t &status, Int_t &region)
+TopologyConfig makeTopology(string name)
 {
-  p = p4.P();
-  theta = p4.Theta() * rad2deg;
-  phi = p4.Phi() * rad2deg;
-  px = p4.Px();
-  py = p4.Py();
-  pz = p4.Pz();
-  energy = p4.E();
-  vz = part->par()->getVz();
-  status = part->getStatus();
-  region = static_cast<int>(part->getRegion());
+  transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return tolower(c); });
+
+  TopologyConfig cfg;
+  cfg.name = name;
+
+  if(name == "ep" || name == "h_elastic" || name == "hydrogen_elastic"){
+    cfg.id = 1;
+    cfg.name = "ep";
+    cfg.minProtons = 1;
+    cfg.minPiMinus = 0;
+    cfg.useP2 = false;
+    cfg.usePiMinus = false;
+    cfg.targetMass = mP;
+    cfg.targetName = "hydrogen";
+  }
+  else if(name == "epp"){
+    cfg.id = 2;
+    cfg.minProtons = 2;
+    cfg.minPiMinus = 0;
+    cfg.useP2 = true;
+    cfg.usePiMinus = false;
+    cfg.targetMass = mD;
+    cfg.targetName = "deuterium";
+  }
+  else if(name == "eppim"){
+    cfg.id = 3;
+    cfg.minProtons = 1;
+    cfg.minPiMinus = 1;
+    cfg.useP2 = false;
+    cfg.usePiMinus = true;
+    cfg.targetMass = mD;
+    cfg.targetName = "deuterium";
+  }
+  else if(name == "deeppim" || name == "epppim"){
+    cfg.id = 4;
+    cfg.name = "deeppim";
+    cfg.minProtons = 2;
+    cfg.minPiMinus = 1;
+    cfg.useP2 = true;
+    cfg.usePiMinus = true;
+    cfg.targetMass = mD;
+    cfg.targetName = "deuterium";
+  }
+  else{
+    cerr << "Unknown topology '" << name << "'.\n";
+    Usage();
+    exit(-1);
+  }
+
+  return cfg;
+}
+
+void applyTargetOverride(TopologyConfig &cfg, string target)
+{
+  transform(target.begin(), target.end(), target.begin(), [](unsigned char c){ return tolower(c); });
+  if(target == "hydrogen" || target == "h" || target == "proton"){
+    cfg.targetMass = mP;
+    cfg.targetName = "hydrogen";
+  }
+  else if(target == "deuterium" || target == "d" || target == "deuteron"){
+    cfg.targetMass = mD;
+    cfg.targetName = "deuterium";
+  }
+  else{
+    cerr << "Unknown target '" << target << "'.\n";
+    Usage();
+    exit(-1);
+  }
+}
+
+void fillRotatedMissingBranches(TVector3 const &miss,
+                                TVector3 const &leadMinusQ,
+                                TVector3 const &q,
+                                Double_t &pxMissRot,
+                                Double_t &pyMissRot,
+                                Double_t &pzMissRot,
+                                Double_t &pMissRot,
+                                Double_t &thetaMissRot,
+                                Double_t &phiMissRot)
+{
+  pxMissRot = pyMissRot = pzMissRot = -9.;
+  pMissRot = thetaMissRot = phiMissRot = -9.;
+
+  TVector3 yRaw = leadMinusQ.Cross(q);
+  if(miss.Mag() <= 0. || leadMinusQ.Mag() <= 0. || q.Mag() <= 0. || yRaw.Mag() <= 0.){
+    return;
+  }
+
+  TVector3 vz = leadMinusQ.Unit();
+  TVector3 vy = yRaw.Unit();
+  TVector3 vx = vz.Cross(vy).Unit();
+  TVector3 missRot(miss.Dot(vx), miss.Dot(vy), miss.Dot(vz));
+
+  pxMissRot = missRot.X();
+  pyMissRot = missRot.Y();
+  pzMissRot = missRot.Z();
+  pMissRot = missRot.Mag();
+  thetaMissRot = missRot.Theta() * rad2deg;
+  phiMissRot = missRot.Phi() * rad2deg;
 }
 
 int main(int argc, char **argv)
@@ -64,16 +221,28 @@ int main(int argc, char **argv)
 
   bool isMC = (atoi(argv[1]) == 1);
   double Ebeam = 5.98636;
+  long long maxRows = -1;
+  string topologyName = "deeppim";
+  string targetOverride;
   vector<string> inputFiles;
 
   for(int k = 3; k < argc; k++){
     string arg = argv[k];
     if(arg == "--beam"){
-      if(k + 1 >= argc){
-        Usage();
-        return -1;
-      }
+      if(k + 1 >= argc){ Usage(); return -1; }
       Ebeam = atof(argv[++k]);
+    }
+    else if(arg == "--topology"){
+      if(k + 1 >= argc){ Usage(); return -1; }
+      topologyName = argv[++k];
+    }
+    else if(arg == "--target"){
+      if(k + 1 >= argc){ Usage(); return -1; }
+      targetOverride = argv[++k];
+    }
+    else if(arg == "--max-rows"){
+      if(k + 1 >= argc){ Usage(); return -1; }
+      maxRows = atoll(argv[++k]);
     }
     else{
       inputFiles.push_back(arg);
@@ -85,23 +254,37 @@ int main(int argc, char **argv)
     return -1;
   }
 
+  TopologyConfig topology = makeTopology(topologyName);
+  if(!targetOverride.empty()){
+    applyTargetOverride(topology, targetOverride);
+  }
+
   TFile *outFile = new TFile(argv[2], "RECREATE");
-  TTree *tree = new TTree("deeppim", "d(e,e'pp pi-) missing-system skim");
+  TTree *tree = new TTree("deeppim", "Configurable e-scattering missing-system skim");
 
   Int_t b_run = -9;
   Long64_t b_event = -9;
   Bool_t b_isMC = isMC;
   Float_t b_weight = 1.f;
+  Int_t b_topologyId = topology.id;
+  Double_t b_targetMass = topology.targetMass;
   Int_t b_nElectrons = 0;
   Int_t b_nProtons = 0;
   Int_t b_nPiMinus = 0;
   Int_t b_p1Index = -1;
   Int_t b_p2Index = -1;
   Int_t b_pimIndex = -1;
+  Int_t b_leadProtonIndex_rot = -1;
 
   Double_t b_Q2 = -9.;
   Double_t b_xB = -9.;
   Double_t b_omega = -9.;
+  Double_t b_qP = -9.;
+  Double_t b_qTheta = -9.;
+  Double_t b_qPhi = -9.;
+  Double_t b_qPx = -9.;
+  Double_t b_qPy = -9.;
+  Double_t b_qPz = -9.;
 
   Double_t b_mMiss = -9.;
   Double_t b_mMiss2 = -9.;
@@ -111,37 +294,41 @@ int main(int argc, char **argv)
   Double_t b_pxMiss = -9.;
   Double_t b_pyMiss = -9.;
   Double_t b_pzMiss = -9.;
+  Double_t b_pxMiss_rot = -9.;
+  Double_t b_pyMiss_rot = -9.;
+  Double_t b_pzMiss_rot = -9.;
+  Double_t b_pMiss_rot = -9.;
+  Double_t b_thetaMiss_rot = -9.;
+  Double_t b_phiMiss_rot = -9.;
 
-  Double_t b_eP = -9., b_eTheta = -9., b_ePhi = -9.;
-  Double_t b_ePx = -9., b_ePy = -9., b_ePz = -9., b_eE = -9., b_eVz = -99.;
-  Int_t b_eStatus = -9, b_eRegion = -9;
-
-  Double_t b_pimP = -9., b_pimTheta = -9., b_pimPhi = -9.;
-  Double_t b_pimPx = -9., b_pimPy = -9., b_pimPz = -9., b_pimE = -9., b_pimVz = -99.;
-  Int_t b_pimStatus = -9, b_pimRegion = -9;
-
-  Double_t b_p1P = -9., b_p1Theta = -9., b_p1Phi = -9.;
-  Double_t b_p1Px = -9., b_p1Py = -9., b_p1Pz = -9., b_p1E = -9., b_p1Vz = -99.;
-  Int_t b_p1Status = -9, b_p1Region = -9;
-
-  Double_t b_p2P = -9., b_p2Theta = -9., b_p2Phi = -9.;
-  Double_t b_p2Px = -9., b_p2Py = -9., b_p2Pz = -9., b_p2E = -9., b_p2Vz = -99.;
-  Int_t b_p2Status = -9, b_p2Region = -9;
+  ParticleBranches b_e;
+  ParticleBranches b_pim;
+  ParticleBranches b_p1;
+  ParticleBranches b_p2;
 
   tree->Branch("run", &b_run, "run/I");
   tree->Branch("event", &b_event, "event/L");
   tree->Branch("isMC", &b_isMC, "isMC/O");
   tree->Branch("weight", &b_weight, "weight/F");
+  tree->Branch("topologyId", &b_topologyId, "topologyId/I");
+  tree->Branch("targetMass", &b_targetMass, "targetMass/D");
   tree->Branch("nElectrons", &b_nElectrons, "nElectrons/I");
   tree->Branch("nProtons", &b_nProtons, "nProtons/I");
   tree->Branch("nPiMinus", &b_nPiMinus, "nPiMinus/I");
   tree->Branch("p1Index", &b_p1Index, "p1Index/I");
   tree->Branch("p2Index", &b_p2Index, "p2Index/I");
   tree->Branch("pimIndex", &b_pimIndex, "pimIndex/I");
+  tree->Branch("leadProtonIndex_rot", &b_leadProtonIndex_rot, "leadProtonIndex_rot/I");
 
   tree->Branch("Q2", &b_Q2, "Q2/D");
   tree->Branch("xB", &b_xB, "xB/D");
   tree->Branch("omega", &b_omega, "omega/D");
+  tree->Branch("qP", &b_qP, "qP/D");
+  tree->Branch("qTheta", &b_qTheta, "qTheta/D");
+  tree->Branch("qPhi", &b_qPhi, "qPhi/D");
+  tree->Branch("qPx", &b_qPx, "qPx/D");
+  tree->Branch("qPy", &b_qPy, "qPy/D");
+  tree->Branch("qPz", &b_qPz, "qPz/D");
 
   tree->Branch("mMiss", &b_mMiss, "mMiss/D");
   tree->Branch("mMiss2", &b_mMiss2, "mMiss2/D");
@@ -151,50 +338,17 @@ int main(int argc, char **argv)
   tree->Branch("pxMiss", &b_pxMiss, "pxMiss/D");
   tree->Branch("pyMiss", &b_pyMiss, "pyMiss/D");
   tree->Branch("pzMiss", &b_pzMiss, "pzMiss/D");
+  tree->Branch("pxMiss_rot", &b_pxMiss_rot, "pxMiss_rot/D");
+  tree->Branch("pyMiss_rot", &b_pyMiss_rot, "pyMiss_rot/D");
+  tree->Branch("pzMiss_rot", &b_pzMiss_rot, "pzMiss_rot/D");
+  tree->Branch("pMiss_rot", &b_pMiss_rot, "pMiss_rot/D");
+  tree->Branch("thetaMiss_rot", &b_thetaMiss_rot, "thetaMiss_rot/D");
+  tree->Branch("phiMiss_rot", &b_phiMiss_rot, "phiMiss_rot/D");
 
-  tree->Branch("eP", &b_eP, "eP/D");
-  tree->Branch("eTheta", &b_eTheta, "eTheta/D");
-  tree->Branch("ePhi", &b_ePhi, "ePhi/D");
-  tree->Branch("ePx", &b_ePx, "ePx/D");
-  tree->Branch("ePy", &b_ePy, "ePy/D");
-  tree->Branch("ePz", &b_ePz, "ePz/D");
-  tree->Branch("eE", &b_eE, "eE/D");
-  tree->Branch("eVz", &b_eVz, "eVz/D");
-  tree->Branch("eStatus", &b_eStatus, "eStatus/I");
-  tree->Branch("eRegion", &b_eRegion, "eRegion/I");
-
-  tree->Branch("pimP", &b_pimP, "pimP/D");
-  tree->Branch("pimTheta", &b_pimTheta, "pimTheta/D");
-  tree->Branch("pimPhi", &b_pimPhi, "pimPhi/D");
-  tree->Branch("pimPx", &b_pimPx, "pimPx/D");
-  tree->Branch("pimPy", &b_pimPy, "pimPy/D");
-  tree->Branch("pimPz", &b_pimPz, "pimPz/D");
-  tree->Branch("pimE", &b_pimE, "pimE/D");
-  tree->Branch("pimVz", &b_pimVz, "pimVz/D");
-  tree->Branch("pimStatus", &b_pimStatus, "pimStatus/I");
-  tree->Branch("pimRegion", &b_pimRegion, "pimRegion/I");
-
-  tree->Branch("p1P", &b_p1P, "p1P/D");
-  tree->Branch("p1Theta", &b_p1Theta, "p1Theta/D");
-  tree->Branch("p1Phi", &b_p1Phi, "p1Phi/D");
-  tree->Branch("p1Px", &b_p1Px, "p1Px/D");
-  tree->Branch("p1Py", &b_p1Py, "p1Py/D");
-  tree->Branch("p1Pz", &b_p1Pz, "p1Pz/D");
-  tree->Branch("p1E", &b_p1E, "p1E/D");
-  tree->Branch("p1Vz", &b_p1Vz, "p1Vz/D");
-  tree->Branch("p1Status", &b_p1Status, "p1Status/I");
-  tree->Branch("p1Region", &b_p1Region, "p1Region/I");
-
-  tree->Branch("p2P", &b_p2P, "p2P/D");
-  tree->Branch("p2Theta", &b_p2Theta, "p2Theta/D");
-  tree->Branch("p2Phi", &b_p2Phi, "p2Phi/D");
-  tree->Branch("p2Px", &b_p2Px, "p2Px/D");
-  tree->Branch("p2Py", &b_p2Py, "p2Py/D");
-  tree->Branch("p2Pz", &b_p2Pz, "p2Pz/D");
-  tree->Branch("p2E", &b_p2E, "p2E/D");
-  tree->Branch("p2Vz", &b_p2Vz, "p2Vz/D");
-  tree->Branch("p2Status", &b_p2Status, "p2Status/I");
-  tree->Branch("p2Region", &b_p2Region, "p2Region/I");
+  b_e.book(tree, "e");
+  b_pim.book(tree, "pim");
+  b_p1.book(tree, "p1");
+  b_p2.book(tree, "p2");
 
   clas12root::HipoChain chain;
   for(const auto &fname : inputFiles){
@@ -210,17 +364,13 @@ int main(int argc, char **argv)
   clas12ana clasAna;
 
   TLorentzVector beam(0., 0., Ebeam, Ebeam);
-  TLorentzVector target(0., 0., 0., mP);
+  TLorentzVector target(0., 0., 0., topology.targetMass);
   TLorentzVector el;
-  TLorentzVector pim;
-  TLorentzVector p1;
-  TLorentzVector p2;
 
   long long nRead = 0;
   long long nOneElectron = 0;
-  long long nTwoProtons = 0;
-  long long nPiMinus = 0;
-  long long nTopology = 0;
+  long long nEnoughProtons = 0;
+  long long nEnoughPiMinus = 0;
   long long nGoodElectronKinematics = 0;
   long long nWritten = 0;
 
@@ -229,8 +379,7 @@ int main(int argc, char **argv)
       cout << "Processing event " << nRead << "\t" << nWritten << " rows saved." << endl;
     }
     nRead++;
-
-   if(nWritten > 100000) break;
+    if(maxRows > 0 && nWritten >= maxRows){ break; }
 
     clasAna.Run(c12);
     auto electrons = clasAna.getByPid(11);
@@ -243,11 +392,10 @@ int main(int argc, char **argv)
 
     if(electrons.size() != 1){ continue; }
     nOneElectron++;
-    if(protons.size() < 2){ continue; }
-    nTwoProtons++;
-    if(piminus.empty()){ continue; }
-    nPiMinus++;
-    nTopology++;
+    if(static_cast<int>(protons.size()) < topology.minProtons){ continue; }
+    nEnoughProtons++;
+    if(static_cast<int>(piminus.size()) < topology.minPiMinus){ continue; }
+    nEnoughPiMinus++;
 
     setCorrectedP4(el, electrons[0], me, isMC);
     if(el.P() <= 0.){ continue; }
@@ -257,51 +405,114 @@ int main(int argc, char **argv)
     b_omega = q.E();
     if(b_omega <= 0.){ continue; }
     b_xB = b_Q2 / (2. * mP * b_omega);
+    b_qP = q.P();
+    b_qTheta = q.Theta() * rad2deg;
+    b_qPhi = q.Phi() * rad2deg;
+    b_qPx = q.Px();
+    b_qPy = q.Py();
+    b_qPz = q.Pz();
     nGoodElectronKinematics++;
 
     b_run = c12->runconfig()->getRun();
     b_event = c12->runconfig()->getEvent();
     b_weight = isMC ? c12->mcevent()->getWeight() : 1.f;
-    fillParticleBranches(el, electrons[0],
-                         b_eP, b_eTheta, b_ePhi, b_ePx, b_ePy, b_ePz,
-                         b_eE, b_eVz, b_eStatus, b_eRegion);
+    b_topologyId = topology.id;
+    b_targetMass = topology.targetMass;
+    b_e.fill(el, electrons[0]);
 
-    // for(int ipim = 0; ipim < static_cast<int>(piminus.size()); ipim++){
-    //   setCorrectedP4(pim, piminus[ipim], mPi, isMC);
-    //   fillParticleBranches(pim, piminus[ipim],
-    //                        b_pimP, b_pimTheta, b_pimPhi, b_pimPx, b_pimPy, b_pimPz,
-    //                        b_pimE, b_pimVz, b_pimStatus, b_pimRegion);
-    //   b_pimIndex = ipim;
+    vector<CorrectedParticle> corrProtons;
+    corrProtons.reserve(protons.size());
+    for(int i = 0; i < static_cast<int>(protons.size()); i++){
+      CorrectedParticle cp;
+      cp.index = i;
+      cp.part = protons[i];
+      setCorrectedP4(cp.p4, protons[i], mP, isMC);
+      corrProtons.push_back(cp);
+    }
 
-      for(int ip1 = 0; ip1 < static_cast<int>(protons.size()); ip1++){
-        setCorrectedP4(p1, protons[ip1], mP, isMC);
-        fillParticleBranches(p1, protons[ip1],
-                             b_p1P, b_p1Theta, b_p1Phi, b_p1Px, b_p1Py, b_p1Pz,
-                             b_p1E, b_p1Vz, b_p1Status, b_p1Region);
-        b_p1Index = ip1;
+    vector<CorrectedParticle> corrPiMinus;
+    corrPiMinus.reserve(piminus.size());
+    for(int i = 0; i < static_cast<int>(piminus.size()); i++){
+      CorrectedParticle cp;
+      cp.index = i;
+      cp.part = piminus[i];
+      setCorrectedP4(cp.p4, piminus[i], mPi, isMC);
+      corrPiMinus.push_back(cp);
+    }
 
-        // for(int ip2 = ip1 + 1; ip2 < static_cast<int>(protons.size()); ip2++){
-        //   setCorrectedP4(p2, protons[ip2], mP, isMC);
-        //   fillParticleBranches(p2, protons[ip2],
-        //                        b_p2P, b_p2Theta, b_p2Phi, b_p2Px, b_p2Py, b_p2Pz,
-        //                        b_p2E, b_p2Vz, b_p2Status, b_p2Region);
-        //   b_p2Index = ip2;
+    auto fillRow = [&](CorrectedParticle const &lead,
+                       CorrectedParticle const *recoil,
+                       CorrectedParticle const *pim)
+    {
+      b_p1.reset();
+      b_p2.reset();
+      b_pim.reset();
+      b_p1Index = lead.index;
+      b_p2Index = recoil ? recoil->index : -1;
+      b_pimIndex = pim ? pim->index : -1;
+      b_leadProtonIndex_rot = lead.index;
 
-          TLorentzVector miss = beam + target - el - p1; // - p2 - pim;
-          b_mMiss = miss.M();
-          b_mMiss2 = miss.M2();
-          b_pMiss = miss.P();
-          b_thetaMiss = miss.Theta() * rad2deg;
-          b_phiMiss = miss.Phi() * rad2deg;
-          b_pxMiss = miss.Px();
-          b_pyMiss = miss.Py();
-          b_pzMiss = miss.Pz();
+      b_p1.fill(lead.p4, lead.part);
+      TLorentzVector miss = beam + target - el - lead.p4;
 
-          tree->Fill();
-          nWritten++;
-        //}
+      if(recoil){
+        b_p2.fill(recoil->p4, recoil->part);
+        miss -= recoil->p4;
       }
-    //}
+      if(pim){
+        b_pim.fill(pim->p4, pim->part);
+        miss -= pim->p4;
+      }
+
+      b_mMiss = miss.M();
+      b_mMiss2 = miss.M2();
+      b_pMiss = miss.P();
+      b_thetaMiss = miss.Theta() * rad2deg;
+      b_phiMiss = miss.Phi() * rad2deg;
+      b_pxMiss = miss.Px();
+      b_pyMiss = miss.Py();
+      b_pzMiss = miss.Pz();
+
+      fillRotatedMissingBranches(miss.Vect(), lead.p4.Vect() - q.Vect(), q.Vect(),
+                                 b_pxMiss_rot, b_pyMiss_rot, b_pzMiss_rot,
+                                 b_pMiss_rot, b_thetaMiss_rot, b_phiMiss_rot);
+
+      tree->Fill();
+      nWritten++;
+    };
+
+    if(topology.useP2){
+      for(int i = 0; i < static_cast<int>(corrProtons.size()); i++){
+        for(int j = i + 1; j < static_cast<int>(corrProtons.size()); j++){
+          CorrectedParticle const *lead = &corrProtons[i];
+          CorrectedParticle const *recoil = &corrProtons[j];
+          if(recoil->p4.P() > lead->p4.P()){
+            swap(lead, recoil);
+          }
+
+          if(topology.usePiMinus){
+            for(auto const &pim : corrPiMinus){
+              fillRow(*lead, recoil, &pim);
+            }
+          }
+          else{
+            fillRow(*lead, recoil, nullptr);
+          }
+        }
+      }
+    }
+    else{
+      for(auto const &lead : corrProtons){
+        if(topology.usePiMinus){
+          for(auto const &pim : corrPiMinus){
+            fillRow(lead, nullptr, &pim);
+          }
+        }
+        else{
+          fillRow(lead, nullptr, nullptr);
+        }
+      }
+    }
   }
 
   outFile->cd();
@@ -310,18 +521,21 @@ int main(int argc, char **argv)
   string dateString = ctime(&now);
   while(!dateString.empty() && dateString.back() == '\n'){ dateString.pop_back(); }
   meta << "date=" << dateString << "\n"
-       << "topology=d(e,e'pp pi-); one row per pi-/proton-pair combination\n"
-       << "cuts=exactly_one_electron,nProtons>=2,nPiMinus>=1\n"
+       << "topology=" << topology.name << "\n"
+       << "topology_id=" << topology.id << "\n"
+       << "target=" << topology.targetName << "\n"
+       << "target_mass=" << topology.targetMass << "\n"
+       << "cuts=exactly_one_electron,nProtons>=" << topology.minProtons
+       << ",nPiMinus>=" << topology.minPiMinus << "\n"
        << "corrections=GetLorentzVector_Corrected from Corrections.h, matching the SRC_General correction prescription\n"
+       << "rotation=z_axis=(p1_lead-q), y_axis=(p1_lead-q)xq, x_axis=zx y; p1 is higher-momentum proton in two-proton topologies\n"
        << "beam_energy=" << Ebeam << "\n"
-       << "target=deuterium\n"
        << "QADB=OFF\n"
        << "isMC_arg=" << isMC << "\n"
        << "events_read=" << nRead << "\n"
        << "cutflow_one_electron=" << nOneElectron << "\n"
-       << "cutflow_two_protons=" << nTwoProtons << "\n"
-       << "cutflow_pi_minus=" << nPiMinus << "\n"
-       << "events_with_topology=" << nTopology << "\n"
+       << "cutflow_enough_protons=" << nEnoughProtons << "\n"
+       << "cutflow_enough_pi_minus=" << nEnoughPiMinus << "\n"
        << "cutflow_good_electron_kinematics=" << nGoodElectronKinematics << "\n"
        << "rows_written=" << nWritten;
   TNamed metadata("skimmer_metadata", meta.str().c_str());
@@ -330,9 +544,9 @@ int main(int argc, char **argv)
   outFile->Close();
 
   cout << "Done. Processed " << nRead << " events. Saved " << nWritten << " rows.\n"
-       << "Cutflow: one electron " << nOneElectron
-       << ", >=2 protons " << nTwoProtons
-       << ", >=1 pi- " << nPiMinus
+       << "Topology " << topology.name << " on " << topology.targetName << ". Cutflow: one electron "
+       << nOneElectron << ", enough protons " << nEnoughProtons
+       << ", enough pi- " << nEnoughPiMinus
        << ", electron kinematics " << nGoodElectronKinematics << ".\n";
   return 0;
 }
