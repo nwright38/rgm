@@ -29,6 +29,34 @@ const double mK = 0.493677;
 const double me = 0.000511;
 const double rad2deg = 180. / M_PI;
 
+struct AngularCut {
+  double thetaMin = -1.e9;
+  double thetaMax = 1.e9;
+  double phiMin = -1.e9;
+  double phiMax = 1.e9;
+};
+
+AngularCut anyAngles()
+{
+  return AngularCut{};
+}
+
+AngularCut fdAngles()
+{
+  return AngularCut{5., 40., -1.e9, 1.e9};
+}
+
+AngularCut cdAngles()
+{
+  return AngularCut{35., 140., -1.e9, 1.e9};
+}
+
+bool sameAngularCut(AngularCut const &a, AngularCut const &b)
+{
+  return a.thetaMin == b.thetaMin && a.thetaMax == b.thetaMax &&
+         a.phiMin == b.phiMin && a.phiMax == b.phiMax;
+}
+
 // ------------------------------------------------------------------
 // Manual-edit block for new exclusive topologies.
 // ------------------------------------------------------------------
@@ -37,7 +65,11 @@ namespace ExclusiveConfig {
   //   H(e,e'p)         : {2212}, targetMass = mP
   //   d(e,e'pp pi-)   : {2212, 2212, -211}, targetMass = mD
   //   d(e,e'p pi-)    : {2212, -211}, targetMass = mD
+  //   p wherever, pi+ FD-like, pi- CD-like:
+  //     topologyPids = {2212, 211, -211}
+  //     slotAngularCuts = {anyAngles(), fdAngles(), cdAngles()}
   const vector<int> topologyPids = {2212, 2212, -211};
+  const vector<AngularCut> slotAngularCuts = {anyAngles(), anyAngles(), anyAngles()};
   const double targetMass = mD;
   const string topologyName = "eppim_pp";
   const bool requireExactlyOneElectron = true;
@@ -178,6 +210,7 @@ void fillRotated(TVector3 const &vec,
 
 void findCombinations(vector<ParticleInfo> const &particles,
                       vector<int> const &topologyPids,
+                      vector<AngularCut> const &slotAngularCuts,
                       int slot,
                       int electronIndex,
                       vector<int> &selected,
@@ -189,18 +222,25 @@ void findCombinations(vector<ParticleInfo> const &particles,
   }
 
   int requiredPid = topologyPids[slot];
+  AngularCut cut = (slot < static_cast<int>(slotAngularCuts.size())) ? slotAngularCuts[slot] : anyAngles();
   int minIndex = -1;
-  if(slot > 0 && topologyPids[slot - 1] == requiredPid){
+  if(slot > 0 && topologyPids[slot - 1] == requiredPid &&
+     slot - 1 < static_cast<int>(slotAngularCuts.size()) &&
+     sameAngularCut(slotAngularCuts[slot - 1], cut)){
     minIndex = selected.back();
   }
 
   for(int i = 0; i < static_cast<int>(particles.size()); i++){
     if(i == electronIndex){ continue; }
     if(particles[i].pid != requiredPid){ continue; }
+    double thetaDeg = particles[i].p4.Theta() * rad2deg;
+    double phiDeg = particles[i].p4.Phi() * rad2deg;
+    if(thetaDeg < cut.thetaMin || thetaDeg > cut.thetaMax){ continue; }
+    if(phiDeg < cut.phiMin || phiDeg > cut.phiMax){ continue; }
     if(i <= minIndex){ continue; }
     if(find(selected.begin(), selected.end(), i) != selected.end()){ continue; }
     selected.push_back(i);
-    findCombinations(particles, topologyPids, slot + 1, electronIndex, selected, out);
+    findCombinations(particles, topologyPids, slotAngularCuts, slot + 1, electronIndex, selected, out);
     selected.pop_back();
   }
 }
@@ -423,7 +463,8 @@ int main(int argc, char **argv)
 
     vector<int> selected;
     vector<vector<int>> combinations;
-    findCombinations(particles, ExclusiveConfig::topologyPids, 0, electronIndex, selected, combinations);
+    findCombinations(particles, ExclusiveConfig::topologyPids, ExclusiveConfig::slotAngularCuts,
+                     0, electronIndex, selected, combinations);
     nTopologyCombos = static_cast<int>(combinations.size());
     if(combinations.empty()){ continue; }
     nWithTopology++;
@@ -478,6 +519,14 @@ int main(int argc, char **argv)
   for(size_t i = 0; i < ExclusiveConfig::topologyPids.size(); i++){
     if(i > 0){ meta << ","; }
     meta << ExclusiveConfig::topologyPids[i];
+  }
+  meta << "\n"
+       << "topology_angle_cuts_deg=";
+  for(size_t i = 0; i < ExclusiveConfig::topologyPids.size(); i++){
+    AngularCut cut = (i < ExclusiveConfig::slotAngularCuts.size()) ? ExclusiveConfig::slotAngularCuts[i] : anyAngles();
+    if(i > 0){ meta << ";"; }
+    meta << ExclusiveConfig::topologyPids[i] << ":theta[" << cut.thetaMin << "," << cut.thetaMax
+         << "],phi[" << cut.phiMin << "," << cut.phiMax << "]";
   }
   meta << "\n"
        << "target_mass=" << ExclusiveConfig::targetMass << "\n"
