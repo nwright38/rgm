@@ -14,10 +14,16 @@ Examples:
         --label "new data" --label "reference data" \\
         --with-ratio --ratio-reference-index 1
 
+    python plot_1D_overlay.py A.root B.root C.root D.root \\
+        --label A --label B --label C --label D \\
+        --with-ratio --ratio-mode pairwise \\
+        --ratio-pair 0 1 --ratio-pair 2 3
+
 By default the ratio panel shows every non-reference file divided by the
 reference input file (input/reference). Use --ratio-mode reference-over-inputs
 for reference/input, or --ratio-mode pairwise for fully manual
-numerator/denominator choices.
+numerator/denominator choices. Input indices are zero-based, so input 1 is
+index 0, input 2 is index 1, etc.
 """
 
 from __future__ import division
@@ -114,9 +120,12 @@ def parse_args():
     p.add_argument('--ratio-reference-index', type=int, default=0,
                    help='Reference input-file index for inputs-over-reference or reference-over-inputs')
     p.add_argument('--ratio-numerator-index', type=int, default=0,
-                   help='Numerator input-file index for pairwise ratio mode')
+                   help='Numerator input-file index for legacy pairwise ratio mode')
     p.add_argument('--ratio-denominator-index', type=int, action='append', default=[],
                    help='Denominator/reference input-file index; repeat for pairwise overlays')
+    p.add_argument('--ratio-pair', nargs=2, type=int, action='append', default=[],
+                   metavar=('NUMERATOR_INDEX', 'DENOMINATOR_INDEX'),
+                   help='Explicit numerator/denominator input-file pair for --ratio-mode pairwise; repeat for multiple ratios')
     p.add_argument('--ratio-ylabel', default=None,
                    help='Override the bottom-panel y-axis label')
     p.add_argument('--ratio-ylim', nargs=2, type=float, default=(0.5, 1.5),
@@ -226,10 +235,24 @@ def _manual_ratio_denominators(args, n_inputs):
     return denominators
 
 
+def _manual_ratio_pairs(args, n_inputs):
+    if args.ratio_pair:
+        specs = []
+        for num_idx, den_idx in args.ratio_pair:
+            _check_index(num_idx, n_inputs, '--ratio-pair numerator')
+            _check_index(den_idx, n_inputs, '--ratio-pair denominator')
+            if num_idx == den_idx:
+                raise ValueError('Ratio numerator and denominator cannot be the same input')
+            specs.append((num_idx, den_idx))
+        return specs
+
+    return [(args.ratio_numerator_index, den_idx)
+            for den_idx in _manual_ratio_denominators(args, n_inputs)]
+
+
 def _ratio_specs(args, n_inputs):
     if args.ratio_mode == 'pairwise':
-        return [(args.ratio_numerator_index, den_idx)
-                for den_idx in _manual_ratio_denominators(args, n_inputs)]
+        return _manual_ratio_pairs(args, n_inputs)
 
     _check_index(args.ratio_reference_index, n_inputs, '--ratio-reference-index')
     others = [i for i in range(n_inputs) if i != args.ratio_reference_index]
