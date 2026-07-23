@@ -387,14 +387,17 @@ int main(int argc, char **argv)
   long long nEnoughProtons = 0;
   long long nEnoughPiMinus = 0;
   long long nGoodElectronKinematics = 0;
+  long long nFDLeadKinematics = 0;
   long long nWritten = 0;
+  
 
   while(chain.Next()){
     if(nRead % 100000 == 0){
-      cout << "Processing event " << nRead << "\t" << nWritten << " rows saved." << endl;
+      cout << "Processing event " << nRead << "\t" << nWritten << " rows saved." << "\t" << nFDLeadKinematics << " FD e-." << endl;
     }
     nRead++;
     if(maxRows > 0 && nWritten >= maxRows){ break; }
+    if(nFDLeadKinematics > 10000) break;
 
     clasAna.Run(c12);
     auto electrons = clasAna.getByPid(11);
@@ -426,7 +429,13 @@ int main(int argc, char **argv)
     b_qPx = q.Px();
     b_qPy = q.Py();
     b_qPz = q.Pz();
+
+    if(b_xB < .7) continue;
+   
+
     nGoodElectronKinematics++;
+
+
 
     b_run = c12->runconfig()->getRun();
     b_event = c12->runconfig()->getEvent();
@@ -496,6 +505,10 @@ int main(int argc, char **argv)
                                  b_pMiss_rot, b_thetaMiss_rot, b_phiMiss_rot);
 
       tree->Fill();
+
+      if(lead.p4.Theta() * rad2deg < 37.){
+        nFDLeadKinematics++;
+      }
       nWritten++;
     };
 
