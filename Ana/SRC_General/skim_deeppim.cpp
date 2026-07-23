@@ -95,7 +95,7 @@ struct CorrectedParticle {
 
 void Usage()
 {
-  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> <output.root> <input.hipo> [more hipo...] [options]\n"
+  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> [Ebeam(GeV)] <output.root> <input.hipo> [more hipo...] [options]\n"
        << "Options:\n"
        << "  --topology deeppim|eppim|epp|ep   default: deeppim\n"
        << "  --target deuterium|hydrogen       default: topology-dependent\n"
@@ -163,6 +163,13 @@ TopologyConfig makeTopology(string name)
   return cfg;
 }
 
+bool isNumber(const string &text)
+{
+  char *end = nullptr;
+  strtod(text.c_str(), &end);
+  return end != text.c_str() && end != nullptr && *end == '\0';
+}
+
 void applyTargetOverride(TopologyConfig &cfg, string target)
 {
   transform(target.begin(), target.end(), target.begin(), [](unsigned char c){ return tolower(c); });
@@ -181,9 +188,9 @@ void applyTargetOverride(TopologyConfig &cfg, string target)
   }
 }
 
-void fillRotatedMissingBranches(TVector3 const &miss,
-                                TVector3 const &leadMinusQ,
-                                TVector3 const &q,
+void fillRotatedMissingBranches(TVector3 const &vec,
+                                TVector3 const &zAxis,
+                                TVector3 const &planeAxis,
                                 Double_t &pxMissRot,
                                 Double_t &pyMissRot,
                                 Double_t &pzMissRot,
@@ -194,15 +201,15 @@ void fillRotatedMissingBranches(TVector3 const &miss,
   pxMissRot = pyMissRot = pzMissRot = -9.;
   pMissRot = thetaMissRot = phiMissRot = -9.;
 
-  TVector3 yRaw = leadMinusQ.Cross(q);
-  if(miss.Mag() <= 0. || leadMinusQ.Mag() <= 0. || q.Mag() <= 0. || yRaw.Mag() <= 0.){
+  TVector3 yRaw = planeAxis.Cross(zAxis);
+  if(vec.Mag() <= 0. || zAxis.Mag() <= 0. || planeAxis.Mag() <= 0. || yRaw.Mag() <= 0.){
     return;
   }
 
-  TVector3 vz = leadMinusQ.Unit();
+  TVector3 vz = zAxis.Unit();
   TVector3 vy = yRaw.Unit();
   TVector3 vx = vz.Cross(vy).Unit();
-  TVector3 missRot(miss.Dot(vx), miss.Dot(vy), miss.Dot(vz));
+  TVector3 missRot(vec.Dot(vx), vec.Dot(vy), vec.Dot(vz));
 
   pxMissRot = missRot.X();
   pyMissRot = missRot.Y();
@@ -224,9 +231,17 @@ int main(int argc, char **argv)
   long long maxRows = -1;
   string topologyName = "deeppim";
   string targetOverride;
+  string outputName = argv[2];
   vector<string> inputFiles;
 
-  for(int k = 3; k < argc; k++){
+  int firstInputArg = 3;
+  if(argc >= 5 && isNumber(argv[2])){
+    Ebeam = atof(argv[2]);
+    outputName = argv[3];
+    firstInputArg = 4;
+  }
+
+  for(int k = firstInputArg; k < argc; k++){
     string arg = argv[k];
     if(arg == "--beam"){
       if(k + 1 >= argc){ Usage(); return -1; }
@@ -259,7 +274,7 @@ int main(int argc, char **argv)
     applyTargetOverride(topology, targetOverride);
   }
 
-  TFile *outFile = new TFile(argv[2], "RECREATE");
+  TFile *outFile = new TFile(outputName.c_str(), "RECREATE");
   TTree *tree = new TTree("deeppim", "Configurable e-scattering missing-system skim");
 
   Int_t b_run = -9;
@@ -464,16 +479,19 @@ int main(int argc, char **argv)
         miss -= pim->p4;
       }
 
+      TVector3 pMiss = lead.p4.Vect() - q.Vect();
       b_mMiss = miss.M();
       b_mMiss2 = miss.M2();
-      b_pMiss = miss.P();
-      b_thetaMiss = miss.Theta() * rad2deg;
-      b_phiMiss = miss.Phi() * rad2deg;
-      b_pxMiss = miss.Px();
-      b_pyMiss = miss.Py();
-      b_pzMiss = miss.Pz();
+      b_pMiss = pMiss.Mag();
+      b_thetaMiss = pMiss.Theta() * rad2deg;
+      b_phiMiss = pMiss.Phi() * rad2deg;
+      b_pxMiss = pMiss.X();
+      b_pyMiss = pMiss.Y();
+      b_pzMiss = pMiss.Z();
 
-      fillRotatedMissingBranches(miss.Vect(), lead.p4.Vect() - q.Vect(), q.Vect(),
+      TVector3 rotZ = (topology.name == "ep") ? q.Vect() : pMiss;
+      TVector3 rotPlane = (topology.name == "ep") ? pMiss : q.Vect();
+      fillRotatedMissingBranches(pMiss, rotZ, rotPlane,
                                  b_pxMiss_rot, b_pyMiss_rot, b_pzMiss_rot,
                                  b_pMiss_rot, b_thetaMiss_rot, b_phiMiss_rot);
 
@@ -528,7 +546,8 @@ int main(int argc, char **argv)
        << "cuts=exactly_one_electron,nProtons>=" << topology.minProtons
        << ",nPiMinus>=" << topology.minPiMinus << "\n"
        << "corrections=GetLorentzVector_Corrected from Corrections.h, matching the SRC_General correction prescription\n"
-       << "rotation=z_axis=(p1_lead-q), y_axis=(p1_lead-q)xq, x_axis=zx y; p1 is higher-momentum proton in two-proton topologies\n"
+       << "pMiss_convention=p1_lead-q; mMiss is from the full missing four-vector for the selected topology\n"
+       << "rotation=ep z_axis=q; otherwise z_axis=p1_lead-q; y_axis=plane_axis x z_axis; x_axis=z_axis x y_axis\n"
        << "beam_energy=" << Ebeam << "\n"
        << "QADB=OFF\n"
        << "isMC_arg=" << isMC << "\n"
