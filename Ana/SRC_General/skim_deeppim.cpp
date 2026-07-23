@@ -393,7 +393,7 @@ int main(int argc, char **argv)
 
   while(chain.Next()){
     if(nRead % 100000 == 0){
-      cout << "Processing event " << nRead << "\t" << nWritten << " rows saved." << "\t" << nFDLeadKinematics << " FD e-." << endl;
+      cout << "Processing event " << nRead << "\t" << nWritten << " rows saved." << "\t" << nFDLeadKinematics << " FD lead." << endl;
     }
     nRead++;
     if(maxRows > 0 && nWritten >= maxRows){ break; }
