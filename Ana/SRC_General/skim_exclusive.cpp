@@ -68,10 +68,10 @@ namespace ExclusiveConfig {
   //   p wherever, pi+ FD-like, pi- CD-like:
   //     topologyPids = {2212, 211, -211}
   //     slotAngularCuts = {anyAngles(), fdAngles(), cdAngles()}
-  const vector<int> topologyPids = {2212, 2212, -211};
-  const vector<AngularCut> slotAngularCuts = {anyAngles(), anyAngles(), anyAngles()};
-  const double targetMass = mD;
-  const string topologyName = "eppim_pp";
+  const vector<int> topologyPids = {2212, -211, 2212};
+  const vector<AngularCut> slotAngularCuts = {cdAngles(), anyAngles(), fdAngles()};
+  const double targetMass = mP;
+  const string topologyName = "pip_pim_p";
   const bool requireExactlyOneElectron = true;
   const bool applyCorrections = true;
 
