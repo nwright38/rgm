@@ -70,6 +70,10 @@ namespace ExclusiveConfig {
   //     slotAngularCuts = {anyAngles(), fdAngles(), cdAngles()}
   const vector<int> topologyPids = {2212, -211, 2212};
   const vector<AngularCut> slotAngularCuts = {cdAngles(), anyAngles(), fdAngles()};
+  // Set to a topology slot to predict that particle from missing four-momentum.
+  // Example: topologyPids={2212,211,-211}, missingParticleSlot=2 predicts the pi-.
+  // Set to -1 to subtract every topology particle, the older fully exclusive missing P4.
+  const int missingParticleSlot = -1;
   const double targetMass = mP;
   const string topologyName = "pip_pim_p";
   const bool requireExactlyOneElectron = true;
@@ -78,11 +82,13 @@ namespace ExclusiveConfig {
   TLorentzVector missingP4(TLorentzVector const &beam,
                            TLorentzVector const &target,
                            TLorentzVector const &electron,
-                           vector<TLorentzVector> const &selected)
+                           vector<TLorentzVector> const &selected,
+                           int heldOutSlot)
   {
     TLorentzVector miss = beam + target - electron;
-    for(auto const &p4 : selected){
-      miss -= p4;
+    for(int i = 0; i < static_cast<int>(selected.size()); i++){
+      if(i == heldOutSlot){ continue; }
+      miss -= selected[i];
     }
     return miss;
   }
@@ -294,6 +300,9 @@ int main(int argc, char **argv)
   float weight = 1.f;
   int nParticles = 0;
   int nTopologyCombos = 0;
+  int missingParticleSlot = ExclusiveConfig::missingParticleSlot;
+  int missingParticleIndex = -1;
+  int missingParticlePid = 0;
 
   double Q2 = -9.;
   double xB = -9.;
@@ -312,6 +321,14 @@ int main(int argc, char **argv)
   double pMiss_rot = -9.;
   double thetaMiss_rot = -9.;
   double phiMiss_rot = -9.;
+  double dMissParticleE = -9.;
+  double dMissParticleP = -9.;
+  double dMissParticleTheta = -9.;
+  double dMissParticlePhi = -9.;
+  double dMissParticlePx = -9.;
+  double dMissParticlePy = -9.;
+  double dMissParticlePz = -9.;
+  double dMissParticleM2 = -9.;
 
   vector<int> pid;
   vector<int> charge;
@@ -335,6 +352,9 @@ int main(int argc, char **argv)
   tree->Branch("weight", &weight);
   tree->Branch("nParticles", &nParticles);
   tree->Branch("nTopologyCombos", &nTopologyCombos);
+  tree->Branch("missingParticleSlot", &missingParticleSlot);
+  tree->Branch("missingParticleIndex", &missingParticleIndex);
+  tree->Branch("missingParticlePid", &missingParticlePid);
   tree->Branch("Q2", &Q2);
   tree->Branch("xB", &xB);
   tree->Branch("omega", &omega);
@@ -352,6 +372,14 @@ int main(int argc, char **argv)
   tree->Branch("pMiss_rot", &pMiss_rot);
   tree->Branch("thetaMiss_rot", &thetaMiss_rot);
   tree->Branch("phiMiss_rot", &phiMiss_rot);
+  tree->Branch("dMissParticleE", &dMissParticleE);
+  tree->Branch("dMissParticleP", &dMissParticleP);
+  tree->Branch("dMissParticleTheta", &dMissParticleTheta);
+  tree->Branch("dMissParticlePhi", &dMissParticlePhi);
+  tree->Branch("dMissParticlePx", &dMissParticlePx);
+  tree->Branch("dMissParticlePy", &dMissParticlePy);
+  tree->Branch("dMissParticlePz", &dMissParticlePz);
+  tree->Branch("dMissParticleM2", &dMissParticleM2);
   tree->Branch("pid", &pid);
   tree->Branch("charge", &charge);
   tree->Branch("status", &status);
@@ -480,7 +508,9 @@ int main(int argc, char **argv)
         topologyPid.push_back(particles[idx].pid);
       }
 
-      TLorentzVector miss = ExclusiveConfig::missingP4(beam, target, electron, selectedP4);
+      int heldOutSlot = ExclusiveConfig::missingParticleSlot;
+      bool hasHeldOut = heldOutSlot >= 0 && heldOutSlot < static_cast<int>(selectedP4.size());
+      TLorentzVector miss = ExclusiveConfig::missingP4(beam, target, electron, selectedP4, heldOutSlot);
       TVector3 pmiss3 = ExclusiveConfig::pMiss3(q, selectedP4);
       TVector3 zAxis = ExclusiveConfig::rotationZAxis(q, pmiss3, selectedP4);
       TVector3 planeAxis = ExclusiveConfig::rotationPlaneAxis(q, pmiss3, selectedP4);
@@ -488,6 +518,9 @@ int main(int argc, char **argv)
       run = c12->runconfig()->getRun();
       event = c12->runconfig()->getEvent();
       weight = isMC ? c12->mcevent()->getWeight() : 1.f;
+      missingParticleSlot = heldOutSlot;
+      missingParticleIndex = hasHeldOut ? topologyParticleIndex[heldOutSlot] : -1;
+      missingParticlePid = hasHeldOut ? topologyPid[heldOutSlot] : 0;
 
       mMiss = miss.M();
       mMiss2 = miss.M2();
@@ -501,6 +534,20 @@ int main(int argc, char **argv)
       fillRotated(pmiss3, zAxis, planeAxis,
                   pxMiss_rot, pyMiss_rot, pzMiss_rot,
                   pMiss_rot, thetaMiss_rot, phiMiss_rot);
+
+      dMissParticleE = dMissParticleP = dMissParticleTheta = dMissParticlePhi = -9.;
+      dMissParticlePx = dMissParticlePy = dMissParticlePz = dMissParticleM2 = -9.;
+      if(hasHeldOut){
+        TLorentzVector diff = miss - selectedP4[heldOutSlot];
+        dMissParticleE = diff.E();
+        dMissParticleP = diff.P();
+        dMissParticleTheta = diff.Theta() * rad2deg;
+        dMissParticlePhi = diff.Phi() * rad2deg;
+        dMissParticlePx = diff.Px();
+        dMissParticlePy = diff.Py();
+        dMissParticlePz = diff.Pz();
+        dMissParticleM2 = diff.M2();
+      }
 
       tree->Fill();
       nWritten++;
@@ -530,6 +577,7 @@ int main(int argc, char **argv)
   }
   meta << "\n"
        << "target_mass=" << ExclusiveConfig::targetMass << "\n"
+       << "missing_particle_slot=" << ExclusiveConfig::missingParticleSlot << "\n"
        << "beam_energy=" << Ebeam << "\n"
        << "corrections=" << (ExclusiveConfig::applyCorrections ? "on" : "off") << "\n"
        << "events_read=" << nRead << "\n"
