@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <TFile.h>
 #include <TLorentzVector.h>
@@ -25,7 +26,8 @@ const double rad2deg = 180. / M_PI;
 
 void Usage()
 {
-  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> <Ebeam(GeV)> <output.root> <input.hipo> [more hipo...]\n";
+  cerr << "Usage: ./skim_deeppim <MC=1,Data=0> <output.root> <input.hipo> [more hipo...] [--beam Ebeam]\n"
+       << "Default Ebeam is 5.98636 GeV, matching SRC_General/skim_ep.cpp.\n";
 }
 
 void setCorrectedP4(TLorentzVector &p4, clas12::region_part_ptr part, double mass, bool isMC)
@@ -55,16 +57,36 @@ void fillParticleBranches(TLorentzVector const &p4,
 
 int main(int argc, char **argv)
 {
-  if(argc < 5){
+  if(argc < 4){
     Usage();
     return -1;
   }
 
   bool isMC = (atoi(argv[1]) == 1);
-  double Ebeam = atof(argv[2]);
+  double Ebeam = 5.98636;
+  vector<string> inputFiles;
 
-  TFile *outFile = new TFile(argv[3], "RECREATE");
-  TTree *tree = new TTree("tree", "p(e,e'p) missing-system skim");
+  for(int k = 3; k < argc; k++){
+    string arg = argv[k];
+    if(arg == "--beam"){
+      if(k + 1 >= argc){
+        Usage();
+        return -1;
+      }
+      Ebeam = atof(argv[++k]);
+    }
+    else{
+      inputFiles.push_back(arg);
+    }
+  }
+
+  if(inputFiles.empty()){
+    Usage();
+    return -1;
+  }
+
+  TFile *outFile = new TFile(argv[2], "RECREATE");
+  TTree *tree = new TTree("deeppim", "d(e,e'pp pi-) missing-system skim");
 
   Int_t b_run = -9;
   Long64_t b_event = -9;
@@ -175,9 +197,9 @@ int main(int argc, char **argv)
   tree->Branch("p2Region", &b_p2Region, "p2Region/I");
 
   clas12root::HipoChain chain;
-  for(int k = 4; k < argc; k++){
-    cout << "Input file " << argv[k] << endl;
-    chain.Add(argv[k]);
+  for(const auto &fname : inputFiles){
+    cout << "Input file " << fname << endl;
+    chain.Add(fname.c_str());
   }
   chain.SetReaderTags({0});
   chain.db()->turnOffQADB();
@@ -195,7 +217,11 @@ int main(int argc, char **argv)
   TLorentzVector p2;
 
   long long nRead = 0;
+  long long nOneElectron = 0;
+  long long nTwoProtons = 0;
+  long long nPiMinus = 0;
   long long nTopology = 0;
+  long long nGoodElectronKinematics = 0;
   long long nWritten = 0;
 
   while(chain.Next()){
@@ -216,8 +242,11 @@ int main(int argc, char **argv)
     b_nPiMinus = static_cast<int>(piminus.size());
 
     if(electrons.size() != 1){ continue; }
-    if(protons.size() != 1){ continue; }
-  //  if(piminus.empty()){ continue; }
+    nOneElectron++;
+    if(protons.size() < 2){ continue; }
+    nTwoProtons++;
+    if(piminus.empty()){ continue; }
+    nPiMinus++;
     nTopology++;
 
     setCorrectedP4(el, electrons[0], me, isMC);
@@ -228,10 +257,7 @@ int main(int argc, char **argv)
     b_omega = q.E();
     if(b_omega <= 0.){ continue; }
     b_xB = b_Q2 / (2. * mP * b_omega);
-
-    // if(b_xB < 1.2){ continue; }
-    // if(b_Q2 < 1.5){ continue; }
-    // if(b_Q2 > 5.0){ continue; }
+    nGoodElectronKinematics++;
 
     b_run = c12->runconfig()->getRun();
     b_event = c12->runconfig()->getEvent();
@@ -285,20 +311,28 @@ int main(int argc, char **argv)
   while(!dateString.empty() && dateString.back() == '\n'){ dateString.pop_back(); }
   meta << "date=" << dateString << "\n"
        << "topology=d(e,e'pp pi-); one row per pi-/proton-pair combination\n"
-       << "cuts=exactly_one_electron,nProtons>=2,nPiMinus>=1,xB>=1.2,1.5<=Q2<=5.0\n"
-       << "corrections=GetLorentzVector_Corrected from SRC_General/skim_ep prescription\n"
+       << "cuts=exactly_one_electron,nProtons>=2,nPiMinus>=1\n"
+       << "corrections=GetLorentzVector_Corrected from Corrections.h, matching the SRC_General correction prescription\n"
        << "beam_energy=" << Ebeam << "\n"
        << "target=deuterium\n"
        << "QADB=OFF\n"
        << "isMC_arg=" << isMC << "\n"
        << "events_read=" << nRead << "\n"
+       << "cutflow_one_electron=" << nOneElectron << "\n"
+       << "cutflow_two_protons=" << nTwoProtons << "\n"
+       << "cutflow_pi_minus=" << nPiMinus << "\n"
        << "events_with_topology=" << nTopology << "\n"
+       << "cutflow_good_electron_kinematics=" << nGoodElectronKinematics << "\n"
        << "rows_written=" << nWritten;
   TNamed metadata("skimmer_metadata", meta.str().c_str());
   metadata.Write();
   tree->Write();
   outFile->Close();
 
-  cout << "Done. Processed " << nRead << " events. Saved " << nWritten << " rows.\n";
+  cout << "Done. Processed " << nRead << " events. Saved " << nWritten << " rows.\n"
+       << "Cutflow: one electron " << nOneElectron
+       << ", >=2 protons " << nTwoProtons
+       << ", >=1 pi- " << nPiMinus
+       << ", electron kinematics " << nGoodElectronKinematics << ".\n";
   return 0;
 }
