@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -57,25 +56,75 @@ bool sameAngularCut(AngularCut const &a, AngularCut const &b)
          a.phiMin == b.phiMin && a.phiMax == b.phiMax;
 }
 
+struct SlotSelector {
+  int pid = 0;
+  int charge = 999;
+  AngularCut angles = anyAngles();
+  string label = "any";
+};
+
+SlotSelector pidSlot(int pid, AngularCut angles = anyAngles(), string label = "")
+{
+  SlotSelector slot;
+  slot.pid = pid;
+  slot.angles = angles;
+  slot.label = label.empty() ? ("pid_" + to_string(pid)) : label;
+  return slot;
+}
+
+SlotSelector chargeSlot(int charge, AngularCut angles = anyAngles(), string label = "")
+{
+  SlotSelector slot;
+  slot.charge = charge;
+  slot.angles = angles;
+  if(!label.empty()){
+    slot.label = label;
+  }
+  else if(charge > 0){
+    slot.label = "positive";
+  }
+  else if(charge < 0){
+    slot.label = "negative";
+  }
+  else{
+    slot.label = "neutral";
+  }
+  return slot;
+}
+
+SlotSelector anySlot(AngularCut angles = anyAngles(), string label = "any")
+{
+  SlotSelector slot;
+  slot.angles = angles;
+  slot.label = label;
+  return slot;
+}
+
+bool sameSlotSelector(SlotSelector const &a, SlotSelector const &b)
+{
+  return a.pid == b.pid && a.charge == b.charge && sameAngularCut(a.angles, b.angles);
+}
+
 // ------------------------------------------------------------------
 // Manual-edit block for new exclusive topologies.
 // ------------------------------------------------------------------
 namespace ExclusiveConfig {
   // Examples:
-  //   H(e,e'p)         : {2212}, targetMass = mP
-  //   d(e,e'pp pi-)   : {2212, 2212, -211}, targetMass = mD
-  //   d(e,e'p pi-)    : {2212, -211}, targetMass = mD
-  //   p wherever, pi+ FD-like, pi- CD-like:
-  //     topologyPids = {2212, 211, -211}
-  //     slotAngularCuts = {anyAngles(), fdAngles(), cdAngles()}
-  const vector<int> topologyPids = {2212, -211, 2212};
-  const vector<AngularCut> slotAngularCuts = {cdAngles(), anyAngles(), fdAngles()};
+  //   H(e,e'p)       : {pidSlot(2212)}, targetMass = mP
+  //   d(e,e'pp pi-) : {pidSlot(2212), pidSlot(2212), pidSlot(-211)}, targetMass = mD
+  //   proton FD, pi- anywhere, positive particle CD:
+  //     {pidSlot(2212, fdAngles()), pidSlot(-211), chargeSlot(+1, cdAngles())}
+  const vector<SlotSelector> topologySlots = {
+    pidSlot(2212, fdAngles(), "p_fd"),
+    pidSlot(-211, anyAngles(), "pim_any"),
+    chargeSlot(+1, cdAngles(), "pos_cd_pid_test")
+  };
   // Set to a topology slot to predict that particle from missing four-momentum.
-  // Example: topologyPids={2212,211,-211}, missingParticleSlot=2 predicts the pi-.
+  // Example: missingParticleSlot=2 predicts/checks the third topology slot.
   // Set to -1 to subtract every topology particle, the older fully exclusive missing P4.
-  const int missingParticleSlot = -1;
+  const int missingParticleSlot = 2;
   const double targetMass = mP;
-  const string topologyName = "pip_pim_p";
+  const string topologyName = "p_fd_pim_any_pos_cd";
   const bool requireExactlyOneElectron = true;
   const bool applyCorrections = true;
 
@@ -214,39 +263,50 @@ void fillRotated(TVector3 const &vec,
   phiRot = rotated.Phi() * rad2deg;
 }
 
+bool matchesSlot(ParticleInfo const &particle, SlotSelector const &slot)
+{
+  if(slot.pid != 0 && particle.pid != slot.pid){
+    return false;
+  }
+
+  if(slot.charge != 999){
+    if(slot.charge > 0 && particle.charge <= 0){ return false; }
+    if(slot.charge < 0 && particle.charge >= 0){ return false; }
+    if(slot.charge == 0 && particle.charge != 0){ return false; }
+  }
+
+  double thetaDeg = particle.p4.Theta() * rad2deg;
+  double phiDeg = particle.p4.Phi() * rad2deg;
+  if(thetaDeg < slot.angles.thetaMin || thetaDeg > slot.angles.thetaMax){ return false; }
+  if(phiDeg < slot.angles.phiMin || phiDeg > slot.angles.phiMax){ return false; }
+  return true;
+}
+
 void findCombinations(vector<ParticleInfo> const &particles,
-                      vector<int> const &topologyPids,
-                      vector<AngularCut> const &slotAngularCuts,
+                      vector<SlotSelector> const &topologySlots,
                       int slot,
                       int electronIndex,
                       vector<int> &selected,
                       vector<vector<int>> &out)
 {
-  if(slot == static_cast<int>(topologyPids.size())){
+  if(slot == static_cast<int>(topologySlots.size())){
     out.push_back(selected);
     return;
   }
 
-  int requiredPid = topologyPids[slot];
-  AngularCut cut = (slot < static_cast<int>(slotAngularCuts.size())) ? slotAngularCuts[slot] : anyAngles();
+  SlotSelector const &selector = topologySlots[slot];
   int minIndex = -1;
-  if(slot > 0 && topologyPids[slot - 1] == requiredPid &&
-     slot - 1 < static_cast<int>(slotAngularCuts.size()) &&
-     sameAngularCut(slotAngularCuts[slot - 1], cut)){
+  if(slot > 0 && sameSlotSelector(topologySlots[slot - 1], selector)){
     minIndex = selected.back();
   }
 
   for(int i = 0; i < static_cast<int>(particles.size()); i++){
     if(i == electronIndex){ continue; }
-    if(particles[i].pid != requiredPid){ continue; }
-    double thetaDeg = particles[i].p4.Theta() * rad2deg;
-    double phiDeg = particles[i].p4.Phi() * rad2deg;
-    if(thetaDeg < cut.thetaMin || thetaDeg > cut.thetaMax){ continue; }
-    if(phiDeg < cut.phiMin || phiDeg > cut.phiMax){ continue; }
+    if(!matchesSlot(particles[i], selector)){ continue; }
     if(i <= minIndex){ continue; }
     if(find(selected.begin(), selected.end(), i) != selected.end()){ continue; }
     selected.push_back(i);
-    findCombinations(particles, topologyPids, slotAngularCuts, slot + 1, electronIndex, selected, out);
+    findCombinations(particles, topologySlots, slot + 1, electronIndex, selected, out);
     selected.pop_back();
   }
 }
@@ -345,6 +405,8 @@ int main(int argc, char **argv)
   vector<double> vz;
   vector<int> topologyParticleIndex;
   vector<int> topologyPid;
+  vector<int> topologyCharge;
+  vector<int> topologySlot;
 
   tree->Branch("run", &run);
   tree->Branch("event", &event);
@@ -395,6 +457,8 @@ int main(int argc, char **argv)
   tree->Branch("vz", &vz);
   tree->Branch("topologyParticleIndex", &topologyParticleIndex);
   tree->Branch("topologyPid", &topologyPid);
+  tree->Branch("topologyCharge", &topologyCharge);
+  tree->Branch("topologySlot", &topologySlot);
 
   clas12root::HipoChain chain;
   for(auto const &fname : inputFiles){
@@ -491,8 +555,7 @@ int main(int argc, char **argv)
 
     vector<int> selected;
     vector<vector<int>> combinations;
-    findCombinations(particles, ExclusiveConfig::topologyPids, ExclusiveConfig::slotAngularCuts,
-                     0, electronIndex, selected, combinations);
+    findCombinations(particles, ExclusiveConfig::topologySlots, 0, electronIndex, selected, combinations);
     nTopologyCombos = static_cast<int>(combinations.size());
     if(combinations.empty()){ continue; }
     nWithTopology++;
@@ -501,11 +564,16 @@ int main(int argc, char **argv)
       vector<TLorentzVector> selectedP4;
       topologyParticleIndex.clear();
       topologyPid.clear();
+      topologyCharge.clear();
+      topologySlot.clear();
 
-      for(int idx : combo){
+      for(int slot = 0; slot < static_cast<int>(combo.size()); slot++){
+        int idx = combo[slot];
         selectedP4.push_back(particles[idx].p4);
         topologyParticleIndex.push_back(particles[idx].index);
         topologyPid.push_back(particles[idx].pid);
+        topologyCharge.push_back(particles[idx].charge);
+        topologySlot.push_back(slot);
       }
 
       int heldOutSlot = ExclusiveConfig::missingParticleSlot;
@@ -562,17 +630,15 @@ int main(int argc, char **argv)
   while(!dateString.empty() && dateString.back() == '\n'){ dateString.pop_back(); }
   meta << "date=" << dateString << "\n"
        << "topology_name=" << ExclusiveConfig::topologyName << "\n"
-       << "topology_pids=";
-  for(size_t i = 0; i < ExclusiveConfig::topologyPids.size(); i++){
-    if(i > 0){ meta << ","; }
-    meta << ExclusiveConfig::topologyPids[i];
-  }
-  meta << "\n"
-       << "topology_angle_cuts_deg=";
-  for(size_t i = 0; i < ExclusiveConfig::topologyPids.size(); i++){
-    AngularCut cut = (i < ExclusiveConfig::slotAngularCuts.size()) ? ExclusiveConfig::slotAngularCuts[i] : anyAngles();
+       << "topology_slots=";
+  for(size_t i = 0; i < ExclusiveConfig::topologySlots.size(); i++){
+    SlotSelector const &slot = ExclusiveConfig::topologySlots[i];
+    AngularCut const &cut = slot.angles;
     if(i > 0){ meta << ";"; }
-    meta << ExclusiveConfig::topologyPids[i] << ":theta[" << cut.thetaMin << "," << cut.thetaMax
+    meta << i << ":" << slot.label
+         << ",pid=" << slot.pid
+         << ",charge=" << slot.charge
+         << ",theta[" << cut.thetaMin << "," << cut.thetaMax
          << "],phi[" << cut.phiMin << "," << cut.phiMax << "]";
   }
   meta << "\n"
