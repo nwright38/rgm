@@ -34,6 +34,21 @@ void Usage()
 bool inFD(int status){ return (abs(status) >= 2000 && abs(status) < 4000); }
 bool inCD(int status){ return (abs(status) >= 4000 && abs(status) < 8000); }
 
+double getChi(const TVector3 &pMiss, const TVector3 &q)
+{
+  // yHat is normal to the (pMiss,q) plane, while phiHat_m is normal to the
+  // (pMiss,beam) plane.  chi is their dihedral angle about pMiss.
+  const TVector3 zLab(0., 0., 1.);
+  const TVector3 yHatV = pMiss.Cross(q);
+  const TVector3 phiHatMV = zLab.Cross(pMiss);
+  if(yHatV.Mag2() == 0. || phiHatMV.Mag2() == 0.) return -9.;
+
+  double cosChi = yHatV.Unit().Dot(phiHatMV.Unit());
+  if(cosChi > 1.) cosChi = 1.;
+  if(cosChi < -1.) cosChi = -1.;
+  return acos(cosChi);
+}
+
 void setElectronP4(TLorentzVector &p4, clas12::region_part_ptr electron, bool isMC)
 {
   GetLorentzVector_ReconVector(p4, electron);
@@ -96,6 +111,7 @@ int main(int argc, char **argv)
   Float_t b_EMiss;
   Float_t b_theta_PmQ;    // angle between pMiss and q
   Float_t b_theta_PleadQ; // angle between lead proton momentum and q
+  Float_t b_chi;          // dihedral angle about pMiss
   Bool_t  b_goodLead;     // lead passes all SRC lead cuts
 
   // pRel and pCM (filled only when a recoil partner exists)
@@ -125,6 +141,7 @@ int main(int argc, char **argv)
   Float_t b_EMiss_truth;
   Float_t b_theta_PmQ_truth;
   Float_t b_theta_PleadQ_truth;
+  Float_t b_chi_truth;
   Float_t b_pRel_truth, b_pRelTheta_truth, b_pRelPhi_truth;
   Float_t b_pCM_truth, b_pCMx_truth, b_pCMy_truth, b_pCMz_truth;
   Float_t b_E2miss_truth;
@@ -166,6 +183,7 @@ int main(int argc, char **argv)
   srcTree->Branch("EMiss",       &b_EMiss,       "EMiss/F");
   srcTree->Branch("theta_PmQ",   &b_theta_PmQ,   "theta_PmQ/F");
   srcTree->Branch("theta_PleadQ",&b_theta_PleadQ,"theta_PleadQ/F");
+  srcTree->Branch("chi",         &b_chi,         "chi/F");
   srcTree->Branch("goodLead",    &b_goodLead,    "goodLead/O");
 
   srcTree->Branch("pRel",        &b_pRel,        "pRel/F");
@@ -214,6 +232,7 @@ int main(int argc, char **argv)
   srcTree->Branch("EMiss_truth",       &b_EMiss_truth,       "EMiss_truth/F");
   srcTree->Branch("theta_PmQ_truth",   &b_theta_PmQ_truth,   "theta_PmQ_truth/F");
   srcTree->Branch("theta_PleadQ_truth",&b_theta_PleadQ_truth,"theta_PleadQ_truth/F");
+  srcTree->Branch("chi_truth",         &b_chi_truth,         "chi_truth/F");
 
   srcTree->Branch("pRel_truth",        &b_pRel_truth,        "pRel_truth/F");
   srcTree->Branch("pRelTheta_truth",   &b_pRelTheta_truth,   "pRelTheta_truth/F");
@@ -292,6 +311,7 @@ int main(int argc, char **argv)
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_theta_PmQ = -9.f;
     b_theta_PleadQ = -9.f;
+    b_chi = -9.f;
     b_theta_PleadPrec = -9.f;
     b_theta_PmPrec = -9.f;
     b_theta_PrecQ  = -9.f;
@@ -305,6 +325,7 @@ int main(int argc, char **argv)
     b_mMiss_truth = -9.f;  b_kMiss_truth = -9.f;  b_EMiss_truth = -9.f;
     b_theta_PmQ_truth = -9.f;
     b_theta_PleadQ_truth = -9.f;
+    b_chi_truth = -9.f;
     b_pRel_truth = -9.f;   b_pRelTheta_truth = -9.f;   b_pRelPhi_truth = -9.f;
     b_pCM_truth = -9.f;    b_pCMx_truth = -9.f;        b_pCMy_truth = -9.f;    b_pCMz_truth = -9.f;
     b_E2miss_truth = -9.f;
@@ -441,6 +462,7 @@ int main(int argc, char **argv)
       b_theta_PmQ   = cand_theta_PmQ[leadIdx];
       b_goodLead    = cand_goodLead[leadIdx];
       b_theta_PleadQ = cand_p3[leadIdx].Angle(qP3);
+      b_chi = getChi(cand_pMissV[leadIdx], qP3);
     }
 
     // ---- pass 2: find recoil and fill pRel / pCM (using the lead identified above) ----
@@ -571,6 +593,7 @@ int main(int argc, char **argv)
         b_EMiss_truth      = EMiss_truth;
         b_theta_PmQ_truth  = pMiss_truth.Angle(q_truth);
         b_theta_PleadQ_truth = lead_truth.Angle(q_truth);
+        b_chi_truth = getChi(pMiss_truth, q_truth);
 
         if(mcInfo->getRows() >= 3)
         {
