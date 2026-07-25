@@ -516,6 +516,10 @@ int main(int argc, char **argv)
       info.beta = part->par()->getBeta();
       info.vz = part->par()->getVz();
       info.p4 = correctedP4(part, isMC);
+
+      if(info.p4.P() < 1. && info.charge == 1 && info.p4.Theta()*180./TMath::Pi() < 45.){
+        continue;
+      } 
       particles.push_back(info);
 
       if(info.pid == 11){
@@ -576,6 +580,7 @@ int main(int argc, char **argv)
         topologySlot.push_back(slot);
       }
 
+
       int heldOutSlot = ExclusiveConfig::missingParticleSlot;
       bool hasHeldOut = heldOutSlot >= 0 && heldOutSlot < static_cast<int>(selectedP4.size());
       TLorentzVector miss = ExclusiveConfig::missingP4(beam, target, electron, selectedP4, heldOutSlot);
@@ -607,14 +612,14 @@ int main(int argc, char **argv)
       dMissParticlePx = dMissParticlePy = dMissParticlePz = dMissParticleM2 = -9.;
       if(hasHeldOut){
         TLorentzVector diff = miss - selectedP4[heldOutSlot];
-        dMissParticleE = diff.E();
-        dMissParticleP = diff.P();
-        dMissParticleTheta = diff.Theta() * rad2deg;
-        dMissParticlePhi = diff.Phi() * rad2deg;
-        dMissParticlePx = diff.Px();
-        dMissParticlePy = diff.Py();
-        dMissParticlePz = diff.Pz();
-        dMissParticleM2 = diff.M2();
+        dMissParticleE = miss.E() - selectedP4[heldOutSlot].E();
+        dMissParticleP = miss.P() - selectedP4[heldOutSlot].P();
+        dMissParticleTheta = (miss.Theta() - selectedP4[heldOutSlot].Theta()) * rad2deg;
+        dMissParticlePhi = (miss.Phi() - selectedP4[heldOutSlot].Phi()) * rad2deg;
+        dMissParticlePx = miss.Px() - selectedP4[heldOutSlot].Px();
+        dMissParticlePy = miss.Py() - selectedP4[heldOutSlot].Py();
+        dMissParticlePz = miss.Pz() - selectedP4[heldOutSlot].Pz();
+        dMissParticleM2 = (miss - selectedP4[heldOutSlot]).M2();
       }
 
       tree->Fill();
