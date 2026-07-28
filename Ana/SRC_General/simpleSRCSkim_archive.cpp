@@ -49,6 +49,22 @@ double getChi(const TVector3 &pMiss, const TVector3 &q)
   return acos(cosChi);
 }
 
+double getChiFrame(const TVector3 &pMiss, const TVector3 &q,
+                   const TVector3 &pRec)
+{
+  // Signed azimuth of the recoil about pMiss, measured from the
+  // (q,pMiss) plane.  These are the same axes used for pCMx and pCMy.
+  if(pMiss.Mag2() == 0.) return -9.;
+
+  const TVector3 zHat = pMiss.Unit();
+  const TVector3 yHatV = pMiss.Cross(q);
+  if(yHatV.Mag2() == 0.) return -9.;
+
+  const TVector3 yHat = yHatV.Unit();
+  const TVector3 xHat = zHat.Cross(yHat).Unit();
+  return atan2(pRec.Dot(yHat), pRec.Dot(xHat));
+}
+
 void setElectronP4(TLorentzVector &p4, clas12::region_part_ptr electron, bool isMC)
 {
   GetLorentzVector_ReconVector(p4, electron);
@@ -117,6 +133,7 @@ int main(int argc, char **argv)
   // pRel and pCM (filled only when a recoil partner exists)
   Float_t b_pRel, b_pRelTheta, b_pRelPhi;
   Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
+  Float_t b_chi_frame;
   Float_t b_E2miss;
 
   // event-level summary
@@ -144,6 +161,7 @@ int main(int argc, char **argv)
   Float_t b_chi_truth;
   Float_t b_pRel_truth, b_pRelTheta_truth, b_pRelPhi_truth;
   Float_t b_pCM_truth, b_pCMx_truth, b_pCMy_truth, b_pCMz_truth;
+  Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
   Float_t b_recP_truth, b_recTheta_truth, b_recPhi_truth;
   Float_t b_theta_PmPrec_truth;
@@ -193,6 +211,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
   srcTree->Branch("pCMz",        &b_pCMz,        "pCMz/F");
+  srcTree->Branch("chi_frame",   &b_chi_frame,   "chi_frame/F");
   srcTree->Branch("E2miss",      &b_E2miss,      "E2miss/F");
 
   srcTree->Branch("nGoodLeads",     &b_nGoodLeads,     "nGoodLeads/I");
@@ -241,6 +260,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx_truth",        &b_pCMx_truth,        "pCMx_truth/F");
   srcTree->Branch("pCMy_truth",        &b_pCMy_truth,        "pCMy_truth/F");
   srcTree->Branch("pCMz_truth",        &b_pCMz_truth,        "pCMz_truth/F");
+  srcTree->Branch("chi_frame_truth",   &b_chi_frame_truth,   "chi_frame_truth/F");
   srcTree->Branch("E2miss_truth",      &b_E2miss_truth,      "E2miss_truth/F");
 
   srcTree->Branch("recP_truth",        &b_recP_truth,        "recP_truth/F");
@@ -307,6 +327,7 @@ int main(int argc, char **argv)
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
+    b_chi_frame = -9.f;
     b_E2miss = -9.f;
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_theta_PmQ = -9.f;
@@ -328,6 +349,7 @@ int main(int argc, char **argv)
     b_chi_truth = -9.f;
     b_pRel_truth = -9.f;   b_pRelTheta_truth = -9.f;   b_pRelPhi_truth = -9.f;
     b_pCM_truth = -9.f;    b_pCMx_truth = -9.f;        b_pCMy_truth = -9.f;    b_pCMz_truth = -9.f;
+    b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
     b_recP_truth = -9.f;   b_recTheta_truth = -9.f;    b_recPhi_truth = -9.f;
     b_theta_PmPrec_truth = -9.f;
@@ -508,6 +530,7 @@ int main(int argc, char **argv)
         b_pCMx = v_cm.Dot(vx);
         b_pCMy = v_cm.Dot(vy);
         b_pCMz = v_cm.Dot(vz);
+        b_chi_frame = getChiFrame(miss_neg, qP3, recoil_p3);
 
         // Same E2miss definition used by Main_Figs_Binned.cpp.
         TLorentzVector selectedLeadP4;
@@ -613,6 +636,7 @@ int main(int argc, char **argv)
           b_pCMx_truth = pCM_truth.Dot(vx_truth);
           b_pCMy_truth = pCM_truth.Dot(vy_truth);
           b_pCMz_truth = pCM_truth.Dot(vz_truth);
+          b_chi_frame_truth = getChiFrame(pMiss_truth, q_truth, rec_truth);
 
           TLorentzVector recP4_truth;
           recP4_truth.SetVectM(rec_truth, mP);
