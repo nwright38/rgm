@@ -10,7 +10,7 @@ reweighter::reweighter(double E, int Z, int N, ffModel thisMod, char * input_uTy
   N_nuc = N;
 
   uType_init="AV18";
-  gcf_config_init = new gcfSRC(2,2,uType_init);
+  gcf_config_init = new gcfSRC(Z,N,uType_init);
   sigma_cm_init = 0.2;
   CS_config_init = new eNCrossSection(cc1,kelly);
 
@@ -42,7 +42,7 @@ reweighter::reweighter(double E, int Z, int N, ffModel thisMod, char * input_uTy
   N_nuc = N;
 
   uType_init="AV18";
-  gcf_config_init = new gcfSRC(2,2,uType_init);
+  gcf_config_init = new gcfSRC(Z,N,uType_init);
   sigma_cm_init = 0.2;
   CS_config_init = new eNCrossSection(cc1,kelly);
 
