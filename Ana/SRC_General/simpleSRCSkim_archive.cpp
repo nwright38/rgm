@@ -126,6 +126,7 @@ int main(int argc, char **argv)
   Float_t b_kMiss;
   Float_t b_EMiss;
   Float_t b_theta_PmQ;    // angle between pMiss and q
+  Float_t b_theta_PmPlead; // angle between pMiss and lead proton momentum
   Float_t b_theta_PleadQ; // angle between lead proton momentum and q
   Float_t b_chi;          // dihedral angle about pMiss
   Bool_t  b_goodLead;     // lead passes all SRC lead cuts
@@ -157,6 +158,7 @@ int main(int argc, char **argv)
   Float_t b_kMiss_truth;
   Float_t b_EMiss_truth;
   Float_t b_theta_PmQ_truth;
+  Float_t b_theta_PmPlead_truth;
   Float_t b_theta_PleadQ_truth;
   Float_t b_chi_truth;
   Float_t b_pRel_truth, b_pRelTheta_truth, b_pRelPhi_truth;
@@ -200,6 +202,7 @@ int main(int argc, char **argv)
   srcTree->Branch("kMiss",       &b_kMiss,       "kMiss/F");
   srcTree->Branch("EMiss",       &b_EMiss,       "EMiss/F");
   srcTree->Branch("theta_PmQ",   &b_theta_PmQ,   "theta_PmQ/F");
+  srcTree->Branch("theta_PmPlead",&b_theta_PmPlead,"theta_PmPlead/F");
   srcTree->Branch("theta_PleadQ",&b_theta_PleadQ,"theta_PleadQ/F");
   srcTree->Branch("chi",         &b_chi,         "chi/F");
   srcTree->Branch("goodLead",    &b_goodLead,    "goodLead/O");
@@ -250,6 +253,7 @@ int main(int argc, char **argv)
   srcTree->Branch("kMiss_truth",       &b_kMiss_truth,       "kMiss_truth/F");
   srcTree->Branch("EMiss_truth",       &b_EMiss_truth,       "EMiss_truth/F");
   srcTree->Branch("theta_PmQ_truth",   &b_theta_PmQ_truth,   "theta_PmQ_truth/F");
+  srcTree->Branch("theta_PmPlead_truth",&b_theta_PmPlead_truth,"theta_PmPlead_truth/F");
   srcTree->Branch("theta_PleadQ_truth",&b_theta_PleadQ_truth,"theta_PleadQ_truth/F");
   srcTree->Branch("chi_truth",         &b_chi_truth,         "chi_truth/F");
 
@@ -331,6 +335,7 @@ int main(int argc, char **argv)
     b_E2miss = -9.f;
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_theta_PmQ = -9.f;
+    b_theta_PmPlead = -9.f;
     b_theta_PleadQ = -9.f;
     b_chi = -9.f;
     b_theta_PleadPrec = -9.f;
@@ -345,6 +350,7 @@ int main(int argc, char **argv)
     b_pMiss_truth = -9.f;  b_pMissTheta_truth = -9.f;  b_pMissPhi_truth = -9.f;
     b_mMiss_truth = -9.f;  b_kMiss_truth = -9.f;  b_EMiss_truth = -9.f;
     b_theta_PmQ_truth = -9.f;
+    b_theta_PmPlead_truth = -9.f;
     b_theta_PleadQ_truth = -9.f;
     b_chi_truth = -9.f;
     b_pRel_truth = -9.f;   b_pRelTheta_truth = -9.f;   b_pRelPhi_truth = -9.f;
@@ -482,6 +488,7 @@ int main(int argc, char **argv)
       b_kMiss       = cand_kMiss[leadIdx];
       b_EMiss       = cand_EMiss[leadIdx];
       b_theta_PmQ   = cand_theta_PmQ[leadIdx];
+      b_theta_PmPlead = cand_pMissV[leadIdx].Angle(cand_p3[leadIdx]);
       b_goodLead    = cand_goodLead[leadIdx];
       b_theta_PleadQ = cand_p3[leadIdx].Angle(qP3);
       b_chi = getChi(cand_pMissV[leadIdx], qP3);
@@ -615,6 +622,7 @@ int main(int argc, char **argv)
         b_kMiss_truth      = kMiss_truth;
         b_EMiss_truth      = EMiss_truth;
         b_theta_PmQ_truth  = pMiss_truth.Angle(q_truth);
+        b_theta_PmPlead_truth = pMiss_truth.Angle(lead_truth);
         b_theta_PleadQ_truth = lead_truth.Angle(q_truth);
         b_chi_truth = getChi(pMiss_truth, q_truth);
 

@@ -47,7 +47,7 @@ void fitSigmaCM_recTheta(
     // baseCut = baseCut && "leadTheta*180./TMath::Pi()< 37.";
     // baseCut = baseCut && avoidGaps;
 
-    TCut weight = "weight_epp";
+    TCut weight = "(weight_epp*(weight_epp<300))";
     baseCut = baseCut*weight;
 
     TH1D *componentHists[n_samples][n_components][n_bins];

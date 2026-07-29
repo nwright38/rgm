@@ -88,8 +88,8 @@ void extrSigCMDet(
     const char *dataFileName = "~/data/RGM_DATA/c12_src_skim.root",
     const char *outputFileName = "extrSigCMDet.root",
     const char *treeName = "srcTree",
-    const char *extraCut = "pCM > 0",
-    const char *weightExpression = "weight_epp") {
+    const char *extraCut = "pCM > 0 && (weight_epp < 200)",
+    const char *weightExpression = "(weight_epp)") {
 
   TFile *dataFile = TFile::Open(dataFileName, "READ");
   TTree *dataTree =
