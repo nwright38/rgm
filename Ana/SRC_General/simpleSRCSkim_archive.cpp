@@ -415,7 +415,7 @@ int main(int argc, char **argv)
       setProtonP4(leadP4, protons[pr], isMC);
       TVector3 pLead3 = leadP4.Vect();
 
-      pLead3.SetMag(pLead3.Mag() - .03); // apply 1% momentum scale correction to lead proton
+//      pLead3.SetMag(pLead3.Mag() - .03); // apply 1% momentum scale correction to lead proton
       leadP4.SetVectM(pLead3, mP);
 
       missP4 = targP4 + beamP4 - eP4 - leadP4;
@@ -499,7 +499,7 @@ int main(int argc, char **argv)
       {
         if(j == leadIdx) continue;
 
-        cand_p3[j].SetMag(cand_p3[j].Mag() - .03); // apply nA potential correction 
+        // cand_p3[j].SetMag(cand_p3[j].Mag() - .03); // apply nA potential correction 
         
         if(cand_p3[j].Mag() < 0.3) continue;   // recoil momentum cut
 
