@@ -133,8 +133,8 @@ bool shouldSkipSimulation(const char *combination,
 }  // namespace
 
 void overlaySigCMDet(
-    const char *dataFileName = "extrSigCMDet_he4_dat.root",
-    const char *simulationFileName = "extrSigCMDet_he4_sim.root",
+    const char *dataFileName = "extrSigCMDet_he4_dat_lab.root",
+    const char *simulationFileName = "extrSigCMDet_he4_sim_lab.root",
     const char *outputFileName = "extrSigCMDet_overlays.root",
     bool normalize = true,
   const char *outputPdfName = "extrSigCMDet_overlays.pdf",

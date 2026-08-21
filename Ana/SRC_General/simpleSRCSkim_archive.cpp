@@ -65,6 +65,23 @@ double getChiFrame(const TVector3 &pMiss, const TVector3 &q,
   return atan2(pRec.Dot(yHat), pRec.Dot(xHat));
 }
 
+double getPhiTrentoZeroCM(const TVector3 &pLead, const TVector3 &pMiss,
+                          const TVector3 &pRec)
+{
+  // Infer the third nucleon from zero-CM: p3 = -(pRec + pMiss).
+  if(pLead.Mag2() == 0. || pRec.Mag2() == 0. || pMiss.Mag2() == 0.) return -9.;
+
+  const TVector3 p3 = -(pRec + pMiss);
+  const TVector3 n1 = pLead.Cross(pRec);
+  const TVector3 n2 = pLead.Cross(p3);
+  if(n1.Mag2() == 0. || n2.Mag2() == 0.) return -9.;
+
+  double cosPhi = n1.Unit().Dot(n2.Unit());
+  if(cosPhi > 1.) cosPhi = 1.;
+  if(cosPhi < -1.) cosPhi = -1.;
+  return acos(cosPhi);
+}
+
 void setElectronP4(TLorentzVector &p4, clas12::region_part_ptr electron, bool isMC)
 {
   GetLorentzVector_ReconVector(p4, electron);
@@ -148,6 +165,7 @@ int main(int argc, char **argv)
   Float_t b_theta_PleadPrec; // angle between lead and recoil momentum
   Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
   Float_t b_theta_PrecQ;  // angle between recoil momentum and q
+  Float_t b_phiTrento;
 
   // truth-level MC quantities, named to mirror reco branches
   Float_t b_xB_truth, b_Q2_truth, b_omega_truth;
@@ -169,6 +187,7 @@ int main(int argc, char **argv)
   Float_t b_recP_truth, b_recTheta_truth, b_recPhi_truth;
   Float_t b_theta_PmPrec_truth;
   Float_t b_theta_PrecQ_truth;
+  Float_t b_phiTrento_truth;
 
   srcTree->Branch("weight",      &b_weight,      "weight/F");
   srcTree->Branch("weight_ep",   &b_weight_ep,   "weight_ep/F");
@@ -232,6 +251,7 @@ int main(int argc, char **argv)
   srcTree->Branch("theta_PleadPrec",&b_theta_PleadPrec,"theta_PleadPrec/F");
   srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
   srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
+  srcTree->Branch("phiTrento",   &b_phiTrento,   "phiTrento/F");
 
   srcTree->Branch("xB_truth",          &b_xB_truth,          "xB_truth/F");
   srcTree->Branch("Q2_truth",          &b_Q2_truth,          "Q2_truth/F");
@@ -276,6 +296,7 @@ int main(int argc, char **argv)
   srcTree->Branch("recPhi_truth",      &b_recPhi_truth,      "recPhi_truth/F");
   srcTree->Branch("theta_PmPrec_truth",&b_theta_PmPrec_truth,"theta_PmPrec_truth/F");
   srcTree->Branch("theta_PrecQ_truth", &b_theta_PrecQ_truth, "theta_PrecQ_truth/F");
+  srcTree->Branch("phiTrento_truth",   &b_phiTrento_truth,   "phiTrento_truth/F");
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
@@ -346,6 +367,7 @@ int main(int argc, char **argv)
     b_theta_PleadPrec = -9.f;
     b_theta_PmPrec = -9.f;
     b_theta_PrecQ  = -9.f;
+    b_phiTrento = -9.f;
     b_goodLead = false;
 
     b_xB_truth = -9.f;  b_Q2_truth = -9.f;  b_omega_truth = -9.f;
@@ -365,6 +387,7 @@ int main(int argc, char **argv)
     b_recP_truth = -9.f;   b_recTheta_truth = -9.f;    b_recPhi_truth = -9.f;
     b_theta_PmPrec_truth = -9.f;
     b_theta_PrecQ_truth  = -9.f;
+    b_phiTrento_truth = -9.f;
 
     clasAna.Run(c12);
 
@@ -569,6 +592,7 @@ int main(int argc, char **argv)
         b_theta_PleadPrec = lead_p3.Angle(recoil_p3);
         b_theta_PmPrec = miss_neg.Angle(recoil_p3);
         b_theta_PrecQ  = recoil_p3.Angle(qP3);
+        b_phiTrento = getPhiTrentoZeroCM(lead_p3, miss_neg, recoil_p3);
 
         break;  // one recoil per event
       }
@@ -667,6 +691,7 @@ int main(int argc, char **argv)
           b_recPhi_truth   = rec_truth.Phi();
           b_theta_PmPrec_truth = pMiss_truth.Angle(rec_truth);
           b_theta_PrecQ_truth  = rec_truth.Angle(q_truth);
+          b_phiTrento_truth = getPhiTrentoZeroCM(lead_truth, pMiss_truth, rec_truth);
         }
       }
     }

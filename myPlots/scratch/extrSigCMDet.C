@@ -9,6 +9,11 @@
 // Usage:
 //   root -l -b -q 'extrSigCMDet.C()'
 //   root -l -b -q 'extrSigCMDet.C("input.root","output.root")'
+//   root -l -b -q 'extrSigCMDet.C("input.root","output.root","srcTree",'
+//                                '"pCM > 0 && (weight_epp < 200)",'
+//                                '"(weight_epp)",true)'
+//     -> when the last argument is true, use pcmx_lab/pcmy_lab instead of
+//        pCMx/pCMy.
 //
 // The output contains one directory per detector combination.  Each directory
 // has the three histograms, their fit/mean functions, and a canvas showing the
@@ -52,7 +57,8 @@ bool hasBranchOrLeaf(TTree *tree, const char *name) {
 }
 
 bool validInput(TFile *file, TTree *tree, const char *fileName,
-                const char *treeName) {
+                const char *treeName, const char *pcmXBranch,
+                const char *pcmYBranch) {
   if (!file || file->IsZombie()) {
     std::cerr << "[extrSigCMDet] Could not open input file " << fileName << '\n';
     return false;
@@ -64,7 +70,7 @@ bool validInput(TFile *file, TTree *tree, const char *fileName,
   }
 
   const char *requiredBranches[] = {
-      "leadTheta", "recTheta", "pCMx", "pCMy", "weight_epp"};
+      "leadTheta", "recTheta", pcmXBranch, pcmYBranch, "weight_epp"};
   for (const char *branch : requiredBranches) {
     if (!hasBranchOrLeaf(tree, branch)) {
       std::cerr << "[extrSigCMDet] Required branch \"" << branch
@@ -88,19 +94,27 @@ void styleHistogram(TH1D *hist, int color) {
 
 }  // namespace
 
+
 void extrSigCMDet(
-    const char *dataFileName = "~/data/RGM_DATA/he4_src_skim.root",
-    const char *outputFileName = "extrSigCMDet_he4_dat.root",
+    const char *dataFileName = "~/data/RGM_DATA/he4_sim_skim_100MeV.root",
+    const char *outputFileName = "extrSigCMDet_he4_sim_lab.root",
     const char *treeName = "srcTree",
     const char *extraCut = "pCM > 0 && (weight_epp < 200)",
-    const char *weightExpression = "(weight_epp)") {
+    const char *weightExpression = "(weight_epp)",
+    bool useLabFramePCM = true) {
+
+  const char *pcmXBranch = useLabFramePCM ? "pcmx_lab" : "pCMx";
+  const char *pcmYBranch = useLabFramePCM ? "pcmy_lab" : "pCMy";
+  const char *pcmAxisLabelX = useLabFramePCM ? "p_{CM,x}^{lab}" : "p_{CM,x}";
+  const char *pcmAxisLabelY = useLabFramePCM ? "p_{CM,y}^{lab}" : "p_{CM,y}";
 
   TFile *dataFile = TFile::Open(dataFileName, "READ");
   TTree *dataTree =
       dataFile && !dataFile->IsZombie()
           ? dynamic_cast<TTree *>(dataFile->Get(treeName))
           : nullptr;
-  if (!validInput(dataFile, dataTree, dataFileName, treeName)) {
+  if (!validInput(dataFile, dataTree, dataFileName, treeName,
+                  pcmXBranch, pcmYBranch)) {
     if (dataFile) dataFile->Close();
     return;
   }
@@ -204,13 +218,15 @@ void extrSigCMDet(
 
     TH1D *hX = new TH1D(
         Form("h_pCMx_%s", combinationName),
-        Form("%s, %s;p_{CM,x} [GeV/c];Weighted counts",
-             combination.lead->label, combination.recoil->label),
+         Form("%s, %s;%s [GeV/c];Weighted counts",
+           combination.lead->label, combination.recoil->label,
+           pcmAxisLabelX),
         50, componentMin, componentMax);
     TH1D *hY = new TH1D(
         Form("h_pCMy_%s", combinationName),
-        Form("%s, %s;p_{CM,y} [GeV/c];Weighted counts",
-             combination.lead->label, combination.recoil->label),
+         Form("%s, %s;%s [GeV/c];Weighted counts",
+           combination.lead->label, combination.recoil->label,
+           pcmAxisLabelY),
         50, componentMin, componentMax);
     TH1D *hCos = nullptr;
     if (hasChi) {
@@ -224,8 +240,8 @@ void extrSigCMDet(
     styleHistogram(hY, kRed + 1);
     if (hCos) styleHistogram(hCos, kGreen + 2);
 
-    dataTree->Project(hX->GetName(), "pCMx", weightedCut);
-    dataTree->Project(hY->GetName(), "pCMy", weightedCut);
+    dataTree->Project(hX->GetName(), pcmXBranch, weightedCut);
+    dataTree->Project(hY->GetName(), pcmYBranch, weightedCut);
     if (hCos) {
       dataTree->Project(hCos->GetName(), "TMath::Cos(2*chi)", weightedCut);
     }
