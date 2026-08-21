@@ -134,6 +134,7 @@ int main(int argc, char **argv)
   // pRel and pCM (filled only when a recoil partner exists)
   Float_t b_pRel, b_pRelTheta, b_pRelPhi;
   Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
+  Float_t b_pcmx_lab, b_pcmy_lab, b_pcmz_lab;
   Float_t b_chi_frame;
   Float_t b_E2miss;
 
@@ -214,6 +215,9 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
   srcTree->Branch("pCMz",        &b_pCMz,        "pCMz/F");
+  srcTree->Branch("pcmx_lab",    &b_pcmx_lab,    "pcmx_lab/F");
+  srcTree->Branch("pcmy_lab",    &b_pcmy_lab,    "pcmy_lab/F");
+  srcTree->Branch("pcmz_lab",    &b_pcmz_lab,    "pcmz_lab/F");
   srcTree->Branch("chi_frame",   &b_chi_frame,   "chi_frame/F");
   srcTree->Branch("E2miss",      &b_E2miss,      "E2miss/F");
 
@@ -331,6 +335,7 @@ int main(int argc, char **argv)
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
+    b_pcmx_lab = -9.f; b_pcmy_lab = -9.f;  b_pcmz_lab = -9.f;
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
@@ -537,6 +542,9 @@ int main(int argc, char **argv)
         b_pCMx = v_cm.Dot(vx);
         b_pCMy = v_cm.Dot(vy);
         b_pCMz = v_cm.Dot(vz);
+        b_pcmx_lab = v_cm.X();
+        b_pcmy_lab = v_cm.Y();
+        b_pcmz_lab = v_cm.Z();
         b_chi_frame = getChiFrame(miss_neg, qP3, recoil_p3);
 
         // Same E2miss definition used by Main_Figs_Binned.cpp.

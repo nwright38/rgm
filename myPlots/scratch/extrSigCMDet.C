@@ -47,6 +47,10 @@ struct Combination {
   const DetectorRegion *recoil;
 };
 
+bool hasBranchOrLeaf(TTree *tree, const char *name) {
+  return tree && (tree->GetBranch(name) || tree->GetLeaf(name));
+}
+
 bool validInput(TFile *file, TTree *tree, const char *fileName,
                 const char *treeName) {
   if (!file || file->IsZombie()) {
@@ -60,9 +64,9 @@ bool validInput(TFile *file, TTree *tree, const char *fileName,
   }
 
   const char *requiredBranches[] = {
-      "leadTheta", "recTheta", "pCMx", "pCMy", "chi", "weight_epp"};
+      "leadTheta", "recTheta", "pCMx", "pCMy", "weight_epp"};
   for (const char *branch : requiredBranches) {
-    if (!tree->GetBranch(branch) && !tree->GetLeaf(branch)) {
+    if (!hasBranchOrLeaf(tree, branch)) {
       std::cerr << "[extrSigCMDet] Required branch \"" << branch
                 << "\" is missing from " << treeName << '\n';
       return false;
@@ -85,8 +89,8 @@ void styleHistogram(TH1D *hist, int color) {
 }  // namespace
 
 void extrSigCMDet(
-    const char *dataFileName = "~/data/RGM_DATA/c12_src_skim.root",
-    const char *outputFileName = "extrSigCMDet.root",
+    const char *dataFileName = "~/data/RGM_DATA/he4_src_skim.root",
+    const char *outputFileName = "extrSigCMDet_he4_dat.root",
     const char *treeName = "srcTree",
     const char *extraCut = "pCM > 0 && (weight_epp < 200)",
     const char *weightExpression = "(weight_epp)") {
@@ -99,6 +103,13 @@ void extrSigCMDet(
   if (!validInput(dataFile, dataTree, dataFileName, treeName)) {
     if (dataFile) dataFile->Close();
     return;
+  }
+  const bool hasChi = hasBranchOrLeaf(dataTree, "chi");
+  if (!hasChi) {
+    std::cerr << "[extrSigCMDet] Optional branch \"chi\" is missing from "
+              << treeName
+              << "; skipping cos(2 chi) extraction and plot for all combinations."
+              << '\n';
   }
 
   TFile *outputFile = TFile::Open(outputFileName, "RECREATE");
@@ -165,8 +176,8 @@ void extrSigCMDet(
 
   const double componentMin = -0.8;
   const double componentMax = 0.8;
-  const double fitMin = -0.2;
-  const double fitMax = 0.2;
+  const double fitMin = -0.15;
+  const double fitMax = 0.15;
 
   for (const Combination &combination : combinations) {
     snprintf(combinationName, sizeof(combinationName), "lead_%s_rec_%s",
@@ -201,18 +212,23 @@ void extrSigCMDet(
         Form("%s, %s;p_{CM,y} [GeV/c];Weighted counts",
              combination.lead->label, combination.recoil->label),
         50, componentMin, componentMax);
-    TH1D *hCos = new TH1D(
+    TH1D *hCos = nullptr;
+    if (hasChi) {
+      hCos = new TH1D(
         Form("h_cos2chi_%s", combinationName),
         Form("%s, %s;cos(2#chi);Weighted counts",
-             combination.lead->label, combination.recoil->label),
+           combination.lead->label, combination.recoil->label),
         40, -1., 1.);
+    }
     styleHistogram(hX, kBlue + 1);
     styleHistogram(hY, kRed + 1);
-    styleHistogram(hCos, kGreen + 2);
+    if (hCos) styleHistogram(hCos, kGreen + 2);
 
     dataTree->Project(hX->GetName(), "pCMx", weightedCut);
     dataTree->Project(hY->GetName(), "pCMy", weightedCut);
-    dataTree->Project(hCos->GetName(), "TMath::Cos(2*chi)", weightedCut);
+    if (hCos) {
+      dataTree->Project(hCos->GetName(), "TMath::Cos(2*chi)", weightedCut);
+    }
 
     TF1 *fitX = new TF1(Form("fit_pCMx_%s", combinationName), "gaus",
                         fitMin, fitMax);
@@ -253,24 +269,35 @@ void extrSigCMDet(
       }
     }
 
-    meanCos2Chi = hCos->GetMean();
-    meanCos2ChiError = hCos->GetMeanError();
-    entries = static_cast<Long64_t>(hCos->GetEntries());
-    sumWeights = hCos->Integral(0, hCos->GetNbinsX() + 1);
+    if (hCos) {
+      meanCos2Chi = hCos->GetMean();
+      meanCos2ChiError = hCos->GetMeanError();
+      entries = static_cast<Long64_t>(hCos->GetEntries());
+      sumWeights = hCos->Integral(0, hCos->GetNbinsX() + 1);
+    } else {
+      meanCos2Chi = TMath::QuietNaN();
+      meanCos2ChiError = TMath::QuietNaN();
+      entries = static_cast<Long64_t>(hX->GetEntries());
+      sumWeights = hX->Integral(0, hX->GetNbinsX() + 1);
+    }
 
     // A constant function at the histogram mean makes the extracted average
     // visible on the saved cos(2 chi) plot.  It is not a fit to bin contents.
-    TF1 *meanLine = new TF1(Form("mean_cos2chi_%s", combinationName),
-                            "[0]", -1., 1.);
-    meanLine->SetParameter(0, meanCos2Chi);
-    meanLine->FixParameter(0, meanCos2Chi);
-    meanLine->SetLineColor(kGreen + 2);
-    meanLine->SetLineStyle(2);
-    meanLine->SetLineWidth(2);
+    TF1 *meanLine = nullptr;
+    if (hCos) {
+      meanLine = new TF1(Form("mean_cos2chi_%s", combinationName),
+               "[0]", -1., 1.);
+      meanLine->SetParameter(0, meanCos2Chi);
+      meanLine->FixParameter(0, meanCos2Chi);
+      meanLine->SetLineColor(kGreen + 2);
+      meanLine->SetLineStyle(2);
+      meanLine->SetLineWidth(2);
+    }
 
     TCanvas *canvas = new TCanvas(
-        Form("c_%s", combinationName), combinationName, 1500, 500);
-    canvas->Divide(3, 1);
+      Form("c_%s", combinationName), combinationName,
+      hCos ? 1500 : 1000, 500);
+    canvas->Divide(hCos ? 3 : 2, 1);
     TLatex text;
     text.SetNDC();
     text.SetTextSize(0.045);
@@ -299,28 +326,33 @@ void extrSigCMDet(
                    Form("Mean_{CM,y} = %.4f #pm %.4f", meanCMy,
                         meanCMyError));
 
-    canvas->cd(3);
-    hCos->Draw("E");
-    const double ymax = hCos->GetMaximum() > 0. ? 1.05 * hCos->GetMaximum() : 1.;
-    TLine *verticalMean =
-        new TLine(meanCos2Chi, 0., meanCos2Chi, ymax);
-    verticalMean->SetLineColor(kGreen + 2);
-    verticalMean->SetLineStyle(2);
-    verticalMean->SetLineWidth(2);
-    verticalMean->Draw("same");
-    text.DrawLatex(0.16, 0.84,
-                   Form("#LTcos(2#chi)#GT = %.4f #pm %.4f",
-                        meanCos2Chi, meanCos2ChiError));
+    TLine *verticalMean = nullptr;
+    if (hCos) {
+      canvas->cd(3);
+      hCos->Draw("E");
+      const double ymax =
+        hCos->GetMaximum() > 0. ? 1.05 * hCos->GetMaximum() : 1.;
+      verticalMean = new TLine(meanCos2Chi, 0., meanCos2Chi, ymax);
+      verticalMean->SetLineColor(kGreen + 2);
+      verticalMean->SetLineStyle(2);
+      verticalMean->SetLineWidth(2);
+      verticalMean->Draw("same");
+      text.DrawLatex(0.16, 0.84,
+             Form("#LTcos(2#chi)#GT = %.4f #pm %.4f",
+                meanCos2Chi, meanCos2ChiError));
+    }
 
     hX->Write();
     hY->Write();
-    hCos->Write();
+    if (hCos) hCos->Write();
     if (!useHistogramMoments) {
       fitX->Write();
       fitY->Write();
     }
-    meanLine->Write();
-    verticalMean->Write(Form("mean_marker_cos2chi_%s", combinationName));
+    if (meanLine) meanLine->Write();
+    if (verticalMean) {
+      verticalMean->Write(Form("mean_marker_cos2chi_%s", combinationName));
+    }
     canvas->Write();
     results->Fill();
 
@@ -333,7 +365,11 @@ void extrSigCMDet(
               << ", mean_cm_y = " << meanCMy
               << " +/- " << meanCMyError
               << ", <cos(2 chi)> = " << meanCos2Chi
-              << " +/- " << meanCos2ChiError << '\n';
+              << " +/- " << meanCos2ChiError;
+    if (!hCos) {
+      std::cout << " (skipped: chi branch missing)";
+    }
+    std::cout << '\n';
   }
 
   outputFile->cd();

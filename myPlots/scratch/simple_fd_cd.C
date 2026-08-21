@@ -307,7 +307,7 @@ void drawRatioPage(TCanvas* c,
 
 }  // namespace
 
-void simple_fd_cd(const char* inputFile = "~/data/RGM_DATA/c12_src_skim.root",
+void simple_fd_cd(const char* inputFile = "~/data/RGM_DATA/he4_src_skim.root",
                   const char* treeName = "srcTree",
                   const char* outPdf = "myPlots/pdf/scratch/fd_cd_overlays.pdf",
                   const char* baseCut = "",

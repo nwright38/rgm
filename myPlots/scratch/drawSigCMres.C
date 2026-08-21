@@ -10,8 +10,8 @@ void drawSigCMres(){
 
     TCut currCut = weight*cdCut;
 
-    TFile *simFile = new TFile("~/data/RGM_DATA/c12_sim_skim.root");
-    TFile *dataFile = new TFile("~/data/RGM_DATA/c12_src_skim.root");
+    TFile *simFile = new TFile("~/data/RGM_DATA/he4_src_skim_sim.root");
+    TFile *dataFile = new TFile("~/data/RGM_DATA/he4_src_skim.root");
 
     TTree *simTree = (TTree*)simFile->Get("srcTree"); 
     TTree *dataTree = (TTree*)dataFile->Get("srcTree");

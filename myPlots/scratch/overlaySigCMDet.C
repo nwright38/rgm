@@ -5,14 +5,18 @@
 //     'overlaySigCMDet.C("extrSigCMDet_data.root",
 //                        "extrSigCMDet_sim.root",
 //                        "extrSigCMDet_overlays.root",true,
-//                        "extrSigCMDet_overlays.pdf")'
+//                        "extrSigCMDet_overlays.pdf",
+//                        "lead_cd_rec_fd,lead_cd_rec_cd")'
 //
 // normalize=true scales each histogram to unit area.  Set it to false to
 // compare the weighted yields stored in the two input files.  The PDF contains
-// one data/simulation histogram overlay per page.
+// one overlay per page.  skipSimulationFor is a comma- or semicolon-separated
+// list of detector combinations for which only data should be plotted.
 
 #include <cmath>
+#include <cctype>
 #include <iostream>
+#include <string>
 
 #include <TCanvas.h>
 #include <TDirectory.h>
@@ -108,14 +112,33 @@ void scaleHistogramAndFit(TH1D *hist, TF1 *fit, bool normalize) {
   if (fit) fit->SetParameter(0, factor * fit->GetParameter(0));
 }
 
+bool shouldSkipSimulation(const char *combination,
+                          const char *skipSimulationFor) {
+  if (!skipSimulationFor || skipSimulationFor[0] == '\0') return false;
+
+  std::string token;
+  const char *cursor = skipSimulationFor;
+  while (*cursor) {
+    if (*cursor == ',' || *cursor == ';') {
+      if (!token.empty() && token == combination) return true;
+      token.clear();
+    } else if (!std::isspace(static_cast<unsigned char>(*cursor))) {
+      token.push_back(*cursor);
+    }
+    ++cursor;
+  }
+  return !token.empty() && token == combination;
+}
+
 }  // namespace
 
 void overlaySigCMDet(
-    const char *dataFileName = "extrSigCMDet_data.root",
-    const char *simulationFileName = "extrSigCMDet_sim.root",
+    const char *dataFileName = "extrSigCMDet_he4_dat.root",
+    const char *simulationFileName = "extrSigCMDet_he4_sim.root",
     const char *outputFileName = "extrSigCMDet_overlays.root",
     bool normalize = true,
-    const char *outputPdfName = "extrSigCMDet_overlays.pdf") {
+  const char *outputPdfName = "extrSigCMDet_overlays.pdf",
+  const char *skipSimulationFor = "lead_cd_rec_fd,lead_cd_rec_cd") {
 
   TFile *dataFile = TFile::Open(dataFileName, "READ");
   TFile *simulationFile = TFile::Open(simulationFileName, "READ");
@@ -157,17 +180,26 @@ void overlaySigCMDet(
 
     for (int variableIndex = 0; variableIndex < 3; ++variableIndex) {
       const char *variable = variables[variableIndex];
+      const bool skipSimulation =
+          shouldSkipSimulation(combination, skipSimulationFor);
       TH1D *sourceData = getHistogram(dataFile, combination, variable);
       TH1D *sourceSimulation =
-          getHistogram(simulationFile, combination, variable);
-      if (!sourceData || !sourceSimulation) {
+          skipSimulation ? nullptr
+                         : getHistogram(simulationFile, combination, variable);
+      if (!skipSimulation && !sourceSimulation) {
         std::cerr << "[overlaySigCMDet] Missing " << combination << "/h_"
                   << variable << "_" << combination << " in "
-                  << (!sourceData ? dataFileName : simulationFileName)
+                  << simulationFileName
+                  << "; continuing with data-only plot" << '\n';
+      }
+      if (!sourceData) {
+        std::cerr << "[overlaySigCMDet] Missing " << combination << "/h_"
+                  << variable << "_" << combination << " in "
+                  << dataFileName
                   << '\n';
         continue;
       }
-      if (!compatibleBinning(sourceData, sourceSimulation)) {
+      if (sourceSimulation && !compatibleBinning(sourceData, sourceSimulation)) {
         std::cerr << "[overlaySigCMDet] Incompatible binning for "
                   << combination << ", " << variable << '\n';
         continue;
@@ -175,17 +207,21 @@ void overlaySigCMDet(
 
       TH1D *dataHist = dynamic_cast<TH1D *>(sourceData->Clone(
           Form("h_%s_data_%s", variable, combination)));
-      TH1D *simulationHist = dynamic_cast<TH1D *>(sourceSimulation->Clone(
-          Form("h_%s_simulation_%s", variable, combination)));
+      TH1D *simulationHist = nullptr;
+      if (sourceSimulation) {
+        simulationHist = dynamic_cast<TH1D *>(sourceSimulation->Clone(
+            Form("h_%s_simulation_%s", variable, combination)));
+      }
       style(dataHist, kBlack, 20);
-      style(simulationHist, kRed + 1, 24);
+      if (simulationHist) style(simulationHist, kRed + 1, 24);
 
       TF1 *dataFit = nullptr;
       TF1 *simulationFit = nullptr;
       if (variableIndex < 2) {
         TF1 *sourceDataFit = getFit(dataFile, combination, variable);
         TF1 *sourceSimulationFit =
-            getFit(simulationFile, combination, variable);
+            sourceSimulation ? getFit(simulationFile, combination, variable)
+                             : nullptr;
         if (sourceDataFit) {
           dataFit = dynamic_cast<TF1 *>(sourceDataFit->Clone(
               Form("fit_%s_data_%s", variable, combination)));
@@ -202,11 +238,13 @@ void overlaySigCMDet(
       }
 
       scaleHistogramAndFit(dataHist, dataFit, normalize);
-      scaleHistogramAndFit(simulationHist, simulationFit, normalize);
+      if (simulationHist)
+        scaleHistogramAndFit(simulationHist, simulationFit, normalize);
       dataHist->GetYaxis()->SetTitle(
           normalize ? "Normalized counts" : "Weighted counts");
-      const double maximum =
-          TMath::Max(dataHist->GetMaximum(), simulationHist->GetMaximum());
+      double maximum = dataHist->GetMaximum();
+      if (simulationHist)
+        maximum = TMath::Max(maximum, simulationHist->GetMaximum());
       dataHist->SetMaximum(maximum > 0. ? 1.25 * maximum : 1.);
 
       TCanvas *canvas = new TCanvas(
@@ -217,7 +255,7 @@ void overlaySigCMDet(
       canvas->SetBottomMargin(0.12);
       canvas->cd();
       dataHist->Draw("E");
-      simulationHist->Draw("E same");
+      if (simulationHist) simulationHist->Draw("E same");
       if (dataFit) dataFit->Draw("same");
       if (simulationFit) simulationFit->Draw("same");
 
@@ -226,25 +264,30 @@ void overlaySigCMDet(
       if (variableIndex == 2) {
         dataMean = new TLine(dataHist->GetMean(), 0., dataHist->GetMean(),
                              dataHist->GetMaximum());
-        simulationMean =
-            new TLine(simulationHist->GetMean(), 0.,
-                      simulationHist->GetMean(),
-                      simulationHist->GetMaximum());
+        if (simulationHist) {
+          simulationMean =
+              new TLine(simulationHist->GetMean(), 0.,
+                        simulationHist->GetMean(),
+                        simulationHist->GetMaximum());
+        }
         dataMean->SetLineColor(kBlack);
         dataMean->SetLineStyle(2);
         dataMean->SetLineWidth(2);
-        simulationMean->SetLineColor(kRed + 1);
-        simulationMean->SetLineStyle(2);
-        simulationMean->SetLineWidth(2);
+        if (simulationMean) {
+          simulationMean->SetLineColor(kRed + 1);
+          simulationMean->SetLineStyle(2);
+          simulationMean->SetLineWidth(2);
+        }
         dataMean->Draw("same");
-        simulationMean->Draw("same");
+        if (simulationMean) simulationMean->Draw("same");
       }
 
       TLegend *legend = new TLegend(0.57, 0.70, 0.89, 0.89);
       legend->SetBorderSize(0);
       legend->SetFillStyle(0);
       legend->AddEntry(dataHist, "Data", "lep");
-      legend->AddEntry(simulationHist, "Simulation", "lep");
+      if (simulationHist)
+        legend->AddEntry(simulationHist, "Simulation", "lep");
       legend->Draw();
 
       TLatex valuesText;
@@ -258,7 +301,7 @@ void overlaySigCMDet(
               Form("Data #sigma_{CM,x} = %.4f #pm %.4f",
                    dataValues.sigmaX, dataValues.sigmaXError));
         }
-        if (simulationValues.found) {
+        if (simulationHist && simulationValues.found) {
           valuesText.SetTextColor(kRed + 1);
           valuesText.DrawLatex(
               0.15, 0.81,
@@ -274,7 +317,7 @@ void overlaySigCMDet(
               Form("Data #sigma_{CM,y} = %.4f #pm %.4f",
                    dataValues.sigmaY, dataValues.sigmaYError));
         }
-        if (simulationValues.found) {
+        if (simulationHist && simulationValues.found) {
           valuesText.SetTextColor(kRed + 1);
           valuesText.DrawLatex(
               0.15, 0.81,
@@ -290,7 +333,7 @@ void overlaySigCMDet(
               Form("Data #sigma_{CM,x/y} = %.4f / %.4f",
                    dataValues.sigmaX, dataValues.sigmaY));
         }
-        if (simulationValues.found) {
+        if (simulationHist && simulationValues.found) {
           valuesText.SetTextColor(kRed + 1);
           valuesText.DrawLatex(
               0.15, 0.81,
@@ -301,7 +344,7 @@ void overlaySigCMDet(
 
       directory->cd();
       dataHist->Write();
-      simulationHist->Write();
+      if (simulationHist) simulationHist->Write();
       if (dataFit) dataFit->Write();
       if (simulationFit) simulationFit->Write();
       if (dataMean)
