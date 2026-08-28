@@ -149,6 +149,8 @@ int main(int argc, char **argv)
 
   // pRel and pCM (filled only when a recoil partner exists)
   Float_t b_pRel, b_pRelTheta, b_pRelPhi;
+  Float_t b_pRelx, b_pRely, b_pRelz;
+  Float_t b_pLeadPlusRecOver2, b_pLeadMinusRec;
   Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
   Float_t b_pcmx_lab, b_pcmy_lab, b_pcmz_lab;
   Float_t b_chi_frame;
@@ -180,6 +182,8 @@ int main(int argc, char **argv)
   Float_t b_theta_PleadQ_truth;
   Float_t b_chi_truth;
   Float_t b_pRel_truth, b_pRelTheta_truth, b_pRelPhi_truth;
+  Float_t b_pRelx_truth, b_pRely_truth, b_pRelz_truth;
+  Float_t b_pLeadPlusRecOver2_truth, b_pLeadMinusRec_truth;
   Float_t b_pCM_truth, b_pCMx_truth, b_pCMy_truth, b_pCMz_truth;
   Float_t b_pcmx_lab_truth, b_pcmy_lab_truth, b_pcmz_lab_truth;
   Float_t b_chi_frame_truth;
@@ -232,6 +236,13 @@ int main(int argc, char **argv)
   srcTree->Branch("pRel",        &b_pRel,        "pRel/F");
   srcTree->Branch("pRelTheta",   &b_pRelTheta,   "pRelTheta/F");
   srcTree->Branch("pRelPhi",     &b_pRelPhi,     "pRelPhi/F");
+  srcTree->Branch("pRelx",       &b_pRelx,       "pRelx/F");
+  srcTree->Branch("pRely",       &b_pRely,       "pRely/F");
+  srcTree->Branch("pRelz",       &b_pRelz,       "pRelz/F");
+  srcTree->Branch("pLeadPlusRecOver2", &b_pLeadPlusRecOver2,
+                  "pLeadPlusRecOver2/F");
+  srcTree->Branch("pLeadMinusRec", &b_pLeadMinusRec,
+                  "pLeadMinusRec/F");
   srcTree->Branch("pCM",         &b_pCM,         "pCM/F");
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
@@ -288,6 +299,13 @@ int main(int argc, char **argv)
   srcTree->Branch("pRel_truth",        &b_pRel_truth,        "pRel_truth/F");
   srcTree->Branch("pRelTheta_truth",   &b_pRelTheta_truth,   "pRelTheta_truth/F");
   srcTree->Branch("pRelPhi_truth",     &b_pRelPhi_truth,     "pRelPhi_truth/F");
+  srcTree->Branch("pRelx_truth",       &b_pRelx_truth,       "pRelx_truth/F");
+  srcTree->Branch("pRely_truth",       &b_pRely_truth,       "pRely_truth/F");
+  srcTree->Branch("pRelz_truth",       &b_pRelz_truth,       "pRelz_truth/F");
+  srcTree->Branch("pLeadPlusRecOver2_truth", &b_pLeadPlusRecOver2_truth,
+                  "pLeadPlusRecOver2_truth/F");
+  srcTree->Branch("pLeadMinusRec_truth", &b_pLeadMinusRec_truth,
+                  "pLeadMinusRec_truth/F");
   srcTree->Branch("pCM_truth",         &b_pCM_truth,         "pCM_truth/F");
   srcTree->Branch("pCMx_truth",        &b_pCMx_truth,        "pCMx_truth/F");
   srcTree->Branch("pCMy_truth",        &b_pCMy_truth,        "pCMy_truth/F");
@@ -362,6 +380,9 @@ int main(int argc, char **argv)
     b_leadBeta = -9.f;  b_leadToF = -9.f;  b_leadVz = -99.f;
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
+    b_pRelx = -9.f;  b_pRely = -9.f;       b_pRelz = -9.f;
+    b_pLeadPlusRecOver2 = -9.f;
+    b_pLeadMinusRec = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
     b_pcmx_lab = -9.f; b_pcmy_lab = -9.f;  b_pcmz_lab = -9.f;
     b_chi_frame = -9.f;
@@ -389,6 +410,9 @@ int main(int argc, char **argv)
     b_theta_PleadQ_truth = -9.f;
     b_chi_truth = -9.f;
     b_pRel_truth = -9.f;   b_pRelTheta_truth = -9.f;   b_pRelPhi_truth = -9.f;
+    b_pRelx_truth = -9.f;  b_pRely_truth = -9.f;       b_pRelz_truth = -9.f;
+    b_pLeadPlusRecOver2_truth = -9.f;
+    b_pLeadMinusRec_truth = -9.f;
     b_pCM_truth = -9.f;    b_pCMx_truth = -9.f;        b_pCMy_truth = -9.f;    b_pCMz_truth = -9.f;
     b_pcmx_lab_truth = -9.f; b_pcmy_lab_truth = -9.f;  b_pcmz_lab_truth = -9.f;
     b_chi_frame_truth = -9.f;
@@ -571,6 +595,8 @@ int main(int argc, char **argv)
         b_pRel      = pRelV.Mag();
         b_pRelTheta = pRelV.Theta();
         b_pRelPhi   = pRelV.Phi();
+        b_pLeadPlusRecOver2 = 0.5f * static_cast<Float_t>((lead_p3 + recoil_p3).Mag());
+        b_pLeadMinusRec = static_cast<Float_t>((lead_p3 - recoil_p3).Mag());
 
         // ---- pCM: pair CM momentum projected onto the (miss_neg, q) frame ----
         TVector3 v_rec = recoil_p3;
@@ -581,6 +607,9 @@ int main(int argc, char **argv)
         TVector3 vx = vz.Cross(vy).Unit();
 
         b_pCM  = v_cm.Mag();
+        b_pRelx = pRelV.Dot(vx);
+        b_pRely = pRelV.Dot(vy);
+        b_pRelz = pRelV.Dot(vz);
         b_pCMx = v_cm.Dot(vx);
         b_pCMy = v_cm.Dot(vy);
         b_pCMz = v_cm.Dot(vz);
@@ -697,6 +726,11 @@ int main(int argc, char **argv)
           b_pRel_truth      = pRel_truth.Mag();
           b_pRelTheta_truth = pRel_truth.Theta();
           b_pRelPhi_truth   = pRel_truth.Phi();
+          b_pRelx_truth     = pRel_truth.Dot(vx_truth);
+          b_pRely_truth     = pRel_truth.Dot(vy_truth);
+          b_pRelz_truth     = pRel_truth.Dot(vz_truth);
+          b_pLeadPlusRecOver2_truth = 0.5f * static_cast<Float_t>((lead_truth + rec_truth).Mag());
+          b_pLeadMinusRec_truth = static_cast<Float_t>((lead_truth - rec_truth).Mag());
 
           b_pCM_truth  = pCM_truth.Mag();
           b_pCMx_truth = pCM_truth.Dot(vx_truth);

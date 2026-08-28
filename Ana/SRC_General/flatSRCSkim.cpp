@@ -95,6 +95,8 @@ int main(int argc, char **argv)
 
   // pRel and pCM (filled only when a recoil partner exists)
   Double_t b_pRel, b_pRelTheta, b_pRelPhi;
+  Double_t b_pRelx, b_pRely, b_pRelz;
+  Double_t b_pLeadPlusRecOver2, b_pLeadMinusRec;
   Double_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
   Double_t b_E2miss;
 
@@ -110,6 +112,8 @@ int main(int argc, char **argv)
 
   Bool_t   b_isMC;
   Double_t b_genWeight;
+  Double_t b_pRelx_truth, b_pRely_truth, b_pRelz_truth;
+  Double_t b_pLeadPlusRecOver2_truth, b_pLeadMinusRec_truth;
   Double_t b_pcmX_truth, b_pcmY_truth, b_pcmZ_truth;
   Double_t b_pcmX_truth_lab, b_pcmY_truth_lab, b_pcmZ_truth_lab;
   Double_t b_Q2_truth, b_pMiss_truth, b_pLead_truth, b_thetaLead_truth, b_pRec_truth;
@@ -170,6 +174,13 @@ int main(int argc, char **argv)
   srcTree->Branch("pRel",        &b_pRel,        "pRel/D");
   srcTree->Branch("pRelTheta",   &b_pRelTheta,   "pRelTheta/D");
   srcTree->Branch("pRelPhi",     &b_pRelPhi,     "pRelPhi/D");
+  srcTree->Branch("pRelx",       &b_pRelx,       "pRelx/D");
+  srcTree->Branch("pRely",       &b_pRely,       "pRely/D");
+  srcTree->Branch("pRelz",       &b_pRelz,       "pRelz/D");
+  srcTree->Branch("pLeadPlusRecOver2", &b_pLeadPlusRecOver2,
+                  "pLeadPlusRecOver2/D");
+  srcTree->Branch("pLeadMinusRec", &b_pLeadMinusRec,
+                  "pLeadMinusRec/D");
   srcTree->Branch("pCM",         &b_pCM,         "pCM/D");
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/D");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/D");
@@ -195,6 +206,13 @@ int main(int argc, char **argv)
   srcTree->Branch("thetaPRecPmiss",&b_theta_PmPrec,"thetaPRecPmiss/D");
   srcTree->Branch("isMC",        &b_isMC,        "isMC/O");
   srcTree->Branch("genWeight",   &b_genWeight,   "genWeight/D");
+  srcTree->Branch("pRelx_truth", &b_pRelx_truth, "pRelx_truth/D");
+  srcTree->Branch("pRely_truth", &b_pRely_truth, "pRely_truth/D");
+  srcTree->Branch("pRelz_truth", &b_pRelz_truth, "pRelz_truth/D");
+  srcTree->Branch("pLeadPlusRecOver2_truth", &b_pLeadPlusRecOver2_truth,
+                  "pLeadPlusRecOver2_truth/D");
+  srcTree->Branch("pLeadMinusRec_truth", &b_pLeadMinusRec_truth,
+                  "pLeadMinusRec_truth/D");
   srcTree->Branch("pcmX_truth",  &b_pcmX_truth,  "pcmX_truth/D");
   srcTree->Branch("pcmY_truth",  &b_pcmY_truth,  "pcmY_truth/D");
   srcTree->Branch("pcmZ_truth",  &b_pcmZ_truth,  "pcmZ_truth/D");
@@ -285,6 +303,9 @@ int main(int argc, char **argv)
     b_leadRegion = -9;
     b_pMiss = -9.;  b_pMissTheta = -9.;  b_pMissPhi = -9.;
     b_pRel = -9.;   b_pRelTheta = -9.;   b_pRelPhi = -9.;
+    b_pRelx = -9.;  b_pRely = -9.;       b_pRelz = -9.;
+    b_pLeadPlusRecOver2 = -9.;
+    b_pLeadMinusRec = -9.;
     b_pCM = -9.;    b_pCMx = -9.;        b_pCMy = -9.;    b_pCMz = -9.;
     b_E2miss = -9.;
     b_mMiss = -9.;  b_kMiss = -9.;       b_EMiss = -9.; b_E0miss = -9.; b_E1miss = -9.;
@@ -297,6 +318,9 @@ int main(int argc, char **argv)
     bool eventIsMC = isMC || (mcInfoForEvent && mcInfoForEvent->getRows() > 0);
     b_isMC = eventIsMC;
     b_genWeight = eventIsMC ? 1. : 0.;
+    b_pRelx_truth = b_pRely_truth = b_pRelz_truth = -9.;
+    b_pLeadPlusRecOver2_truth = -9.;
+    b_pLeadMinusRec_truth = -9.;
     b_pcmX_truth = b_pcmY_truth = b_pcmZ_truth = -9.;
     b_pcmX_truth_lab = b_pcmY_truth_lab = b_pcmZ_truth_lab = -9.;
     b_Q2_truth = b_pMiss_truth = b_pLead_truth = b_thetaLead_truth = b_pRec_truth = -9.;
@@ -417,6 +441,11 @@ int main(int argc, char **argv)
       b_pRel      = pRelV.Mag();
       b_pRelTheta = pRelV.Theta() * rad2deg;
       b_pRelPhi   = pRelV.Phi() * rad2deg;
+      b_pRelx     = pRelV.Dot(vx);
+      b_pRely     = pRelV.Dot(vy);
+      b_pRelz     = pRelV.Dot(vz);
+      b_pLeadPlusRecOver2 = 0.5 * (pLead3 + recoil_p3).Mag();
+      b_pLeadMinusRec = (pLead3 - recoil_p3).Mag();
       b_pCM       = v_cm.Mag();
       b_pCMx      = v_cm.Dot(vx);
       b_pCMy      = v_cm.Dot(vy);
@@ -454,6 +483,12 @@ int main(int argc, char **argv)
         b_pLead_truth = vlead_truth.Mag();
         b_thetaLead_truth = vlead_truth.Theta() * rad2deg;
         b_pRec_truth = vrec_truth.Mag();
+        TVector3 vrel_truth = (vmiss_truth - vrec_truth) * 0.5;
+        b_pRelx_truth = vrel_truth.Dot(tx);
+        b_pRely_truth = vrel_truth.Dot(ty);
+        b_pRelz_truth = vrel_truth.Dot(tz);
+        b_pLeadPlusRecOver2_truth = 0.5 * (vlead_truth + vrec_truth).Mag();
+        b_pLeadMinusRec_truth = (vlead_truth - vrec_truth).Mag();
         b_pcmX_truth = vcm_truth.Dot(tx);
         b_pcmY_truth = vcm_truth.Dot(ty);
         b_pcmZ_truth = vcm_truth.Dot(tz);
