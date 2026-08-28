@@ -157,9 +157,10 @@ int main(int argc, char ** argv)
       // --- Lead proton 4-vector + corrections ---
       GetLorentzVector_ReconVector(lead_ptr,lead[0]);
       if(!isMC){SetLorentzVector_ThetaCorrection(lead_ptr,lead[0]);}
-      SetLorentzVector_EnergyLossCorrection(lead_ptr,lead[0]);
       if(!isMC){SetLorentzVector_MomentumCorrection(lead_ptr,lead[0]);}
-      if(isMC){SetLorentzVector_MomentumSimulationSmear(lead_ptr,protons[0]);}
+      if(isMC){SetLorentzVector_MomentumSimulationSmear(lead_ptr,lead[0]);}
+      SetLorentzVector_EnergyLossCorrection(lead_ptr,lead[0]);
+
 
       TLorentzVector miss = q + deut_ptr - lead_ptr;
       double mmiss = sqrt(miss.M2());

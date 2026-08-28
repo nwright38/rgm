@@ -1,8 +1,8 @@
-<!-- GEMC 5.13 -->
+<!-- GEMC 6.1 -->
 <gcard>
 
 	<!-- band detector upstream of the target -->
-	<detector name="experiments/clas12/band/band" factory="TEXT" variation="main"/>
+	<detector name="experiments/clas12/band/band" factory="TEXT"/>
 
 	<detector name="experiments/clas12/targets/target"    factory="TEXT" variation="rgm_fall2021_Cx4"/>
 
