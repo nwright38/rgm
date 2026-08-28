@@ -97,11 +97,11 @@ void styleHistogram(TH1D *hist, int color) {
 
 void extrSigCMDet(
     const char *dataFileName = "~/data/RGM_DATA/he4_sim_skim_100MeV.root",
-    const char *outputFileName = "extrSigCMDet_he4_sim_lab.root",
+    const char *outputFileName = "extrSigCMDet_he4_sim.root",
     const char *treeName = "srcTree",
-    const char *extraCut = "pCM > 0 && (weight_epp < 200)",
+    const char *extraCut = "pCM > 0 && (weight_epp < 200) && pMiss < 1. && recP < 1. && recP > .4",
     const char *weightExpression = "(weight_epp)",
-    bool useLabFramePCM = true) {
+    bool useLabFramePCM = false) {
 
   const char *pcmXBranch = useLabFramePCM ? "pcmx_lab" : "pCMx";
   const char *pcmYBranch = useLabFramePCM ? "pcmy_lab" : "pCMy";

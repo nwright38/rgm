@@ -31,20 +31,20 @@ namespace {
 // --------------------------- CONFIGURATION ---------------------------
 // Leave all four false for no detector-topology restriction.
 // Set at most one lead option and at most one recoil option to true.
-const bool requireLeadFD = true;    // leadTheta < 37 degrees
+const bool requireLeadFD = false;    // leadTheta < 37 degrees
 const bool requireLeadCD = false;    // leadTheta > 45 degrees
 const bool requireRecoilFD = false;  // recTheta  < 37 degrees
-const bool requireRecoilCD = true;  // recTheta  > 45 degrees
+const bool requireRecoilCD = false;  // recTheta  > 45 degrees
 
-const char *baseCut = "pCM > 0 && weight_epp < 300";
+const char *baseCut = "pCM > 0 && weight_epp < 300 && pMiss < 1. && recP < 1.";
 const char *weightExpression = "weight_epp";
 
 std::vector<double> pmissBins() {
-  return {0.2,0.40, 0.50, 0.60, 0.70, 0.85, 1., 1.2};
+  return {0.2, 0.4, 0.50, 0.60, 0.70, 0.85, 1.};
 }
 
 std::vector<double> kmissBins() {
-  return {0.2, 0.30, 0.45, 0.60, 0.75, 0.90, 1., 1.2};
+  return {0.30, 0.45, 0.60, 0.75, 0.90, 1.};
 }
 // ---------------------------------------------------------------------
 
@@ -94,10 +94,10 @@ std::vector<HistPair> makeHistograms(const char *variable,
         Form("%.3g #leq %s < %.3g GeV/c", edges[i], variable, edges[i + 1]);
     TH1D *hx = new TH1D(Form("h_pCMx_%s_bin%02d", variable, i),
                         Form("%s;p_{CM,x} [GeV/c];Weighted counts", label.Data()),
-                        60, -0.75, 0.75);
+                        40, -0.75, 0.75);
     TH1D *hy = new TH1D(Form("h_pCMy_%s_bin%02d", variable, i),
                         Form("%s;p_{CM,y} [GeV/c];Weighted counts", label.Data()),
-                        60, -0.75, 0.75);
+                        40, -0.75, 0.75);
     hx->Sumw2();
     hy->Sumw2();
     result.push_back({hx, hy});
@@ -108,8 +108,8 @@ std::vector<HistPair> makeHistograms(const char *variable,
 }  // namespace
 
 void fillCMByMiss(
-    const char *inputFileName = "~/data/RGM_DATA/he4_src_skim.root",
-    const char *outputFileName = "cm_by_miss_he.root",
+    const char *inputFileName = "~/data/RGM_DATA/c12_src_skim.root",
+    const char *outputFileName = "cm_by_miss.root",
     const char *treeName = "srcTree") {
 
   if ((requireLeadFD && requireLeadCD) ||

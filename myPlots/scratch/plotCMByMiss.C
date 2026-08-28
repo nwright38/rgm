@@ -110,7 +110,7 @@ FitPoint drawAndFit(TH1D *hist, const Bin &bin, const char component) {
   hist->Draw("E");
   TF1 *fit = new TF1(Form("fit_%s_%c_%02d", bin.variable.c_str(), component,
                           bin.index),
-                     "gaus", -0.15, 0.15);
+                     "gaus", -0.25, 0.25);
   fit->SetLineColor(kBlack);
   TFitResultPtr result = hist->Fit(fit, "RQSN");
   if (result.Get() && static_cast<int>(result) == 0 &&
@@ -148,8 +148,8 @@ TGraphErrors *makeGraph(const std::vector<FitPoint> &points, int color,
 
 }  // namespace
 
-void plotCMByMiss(const char *inputFileNames = "cm_by_miss_he.root",
-                  const char *outputPdf = "cm_by_miss_he.pdf") {
+void plotCMByMiss(const char *inputFileNames = "cm_by_miss.root",
+                  const char *outputPdf = "cm_by_miss.pdf") {
   gStyle->SetOptStat(0);
   std::vector<std::unique_ptr<TFile>> ownedFiles;
   std::vector<TFile *> files;

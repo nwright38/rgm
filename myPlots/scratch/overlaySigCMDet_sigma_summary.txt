@@ -1,0 +1,5 @@
+combination	data_sigma_cm_x	data_sigma_cm_x_err	data_sigma_cm_y	data_sigma_cm_y_err	sim_sigma_cm_x	sim_sigma_cm_x_err	sim_sigma_cm_y	sim_sigma_cm_y_err	sim_status
+lead_fd_rec_fd	0.119542	0.021132	0.305245	0.053960	0.133272	0.034896	0.194124	0.046744	available
+lead_fd_rec_cd	0.163520	0.015334	0.208409	0.032534	0.133690	0.007569	0.142506	0.009722	available
+lead_cd_rec_fd	0.132903	0.012845	0.128347	0.011704	0.162504	0.012681	0.164478	0.012513	available
+lead_cd_rec_cd	0.155790	0.007109	0.164738	0.008431	0.150990	0.006741	0.152637	0.008098	available

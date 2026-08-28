@@ -30,10 +30,10 @@ void fitSigmaCM_recTheta(
 
     const int n_bins = 6;
     //const double bin_edges[n_bins+1] = {0,150,160,180};
-    const double bin_edges[n_bins+1] = {0,80, 100, 120,150,160,180};
+    const double bin_edges[n_bins+1] = {0,0.4, 0.6, 0.8, 0.9, 1.0,1.5};
 
     // Plot labels: update these when changing the binned or sigma variable.
-    const char *binVariableTitle = "#chi [deg]";
+    const char *binVariableTitle = "Var";
     const char *sigmaVariableTitle = "#sigma_{CM}[(GeV/c)]";
 
     //const int n_bins = 5;
@@ -47,7 +47,7 @@ void fitSigmaCM_recTheta(
     // baseCut = baseCut && "leadTheta*180./TMath::Pi()< 37.";
     // baseCut = baseCut && avoidGaps;
 
-    TCut weight = "(weight_epp*(weight_epp<300))";
+    TCut weight = "weight_epp";
     baseCut = baseCut*weight;
 
     TH1D *componentHists[n_samples][n_components][n_bins];
@@ -74,18 +74,18 @@ void fitSigmaCM_recTheta(
                 50,-0.8,0.8);
             componentFits[sample][component][i] = new TF1(
                 Form("%s_%s_fitFunc_%d",sampleNames[sample],components[component],i),
-                "gaus",-0.2,0.2);
+                "gaus",-0.25,0.2);
             componentFits[sample][component][i]->SetLineColor(colors[component]);
 
             TCut binCut = Form(
-                "chi*180./TMath::Pi() > %f && "
-                "chi*180./TMath::Pi() < %f",
+                "pMiss > %f && "
+                "pMiss < %f",
                 bin_edges[i],bin_edges[i+1]);
 
             inputTrees[sample]->Draw(
                 Form("%s>>%s_%s_binHist_%d",
                      components[component],sampleNames[sample],components[component],i),
-                baseCut && binCut,"goff");
+                baseCut*binCut,"goff");
             componentHists[sample][component][i]->Fit(
                 componentFits[sample][component][i],"RQ");
 
@@ -155,22 +155,22 @@ void fitSigmaCM_recTheta(
 
     // Final page: compare sigma_CMx between data and simulation.
     sigmaCanvas->Clear();
-    sigmaGraphs[0][0]->SetTitle(
-        Form("#sigma_{pCMx}: Data vs Simulation;%s;%s",
+    sigmaGraphs[0][1]->SetTitle(
+        Form("#sigma_{pCMy}: Data vs Simulation;%s;%s",
              binVariableTitle,sigmaVariableTitle));
-    sigmaGraphs[0][0]->SetMarkerStyle(20);
-    sigmaGraphs[0][0]->SetMarkerColor(kBlack);
-    sigmaGraphs[0][0]->SetLineColor(kBlack);
-    sigmaGraphs[1][0]->SetMarkerStyle(24);
-    sigmaGraphs[1][0]->SetMarkerColor(kBlue+1);
-    sigmaGraphs[1][0]->SetLineColor(kBlue+1);
+    sigmaGraphs[0][1]->SetMarkerStyle(20);
+    sigmaGraphs[0][1]->SetMarkerColor(kBlack);
+    sigmaGraphs[0][1]->SetLineColor(kBlack);
+    sigmaGraphs[1][1]->SetMarkerStyle(24);
+    sigmaGraphs[1][1]->SetMarkerColor(kBlue+1);
+    sigmaGraphs[1][1]->SetLineColor(kBlue+1);
 
-    double comparisonMin = sigmaGraphs[0][0]->GetY()[0];
+    double comparisonMin = sigmaGraphs[0][1]->GetY()[0];
     double comparisonMax = comparisonMin;
     for(int sample = 0; sample < n_samples; sample++){
         for(int i = 0; i < n_bins; i++){
-            const double y = sigmaGraphs[sample][0]->GetY()[i];
-            const double yError = sigmaGraphs[sample][0]->GetErrorY(i);
+            const double y = sigmaGraphs[sample][1]->GetY()[i];
+            const double yError = sigmaGraphs[sample][1]->GetErrorY(i);
             comparisonMin = TMath::Min(comparisonMin,y - yError);
             comparisonMax = TMath::Max(comparisonMax,y + yError);
         }
@@ -178,14 +178,14 @@ void fitSigmaCM_recTheta(
     const double comparisonPadding =
         0.1*TMath::Max(comparisonMax - comparisonMin,
                        TMath::Max(TMath::Abs(comparisonMax),1.e-3));
-    sigmaGraphs[0][0]->SetMinimum(comparisonMin - comparisonPadding);
-    sigmaGraphs[0][0]->SetMaximum(comparisonMax + comparisonPadding);
-    sigmaGraphs[0][0]->Draw("APL");
-    sigmaGraphs[1][0]->Draw("PL same");
+    sigmaGraphs[0][1]->SetMinimum(comparisonMin - comparisonPadding);
+    sigmaGraphs[0][1]->SetMaximum(comparisonMax + comparisonPadding);
+    sigmaGraphs[0][1]->Draw("APL");
+    sigmaGraphs[1][1]->Draw("PL same");
 
     TLegend *comparisonLegend = new TLegend(0.68,0.72,0.88,0.88);
-    comparisonLegend->AddEntry(sigmaGraphs[0][0],"Data","lp");
-    comparisonLegend->AddEntry(sigmaGraphs[1][0],"Simulation","lp");
+    comparisonLegend->AddEntry(sigmaGraphs[0][1],"Data","lp");
+    comparisonLegend->AddEntry(sigmaGraphs[1][1],"Simulation","lp");
     comparisonLegend->Draw();
     sigmaCanvas->Print(Form("%s)",pdfName),"pdf");
 }

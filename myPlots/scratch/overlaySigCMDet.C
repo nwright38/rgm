@@ -15,6 +15,7 @@
 
 #include <cmath>
 #include <cctype>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -133,12 +134,13 @@ bool shouldSkipSimulation(const char *combination,
 }  // namespace
 
 void overlaySigCMDet(
-    const char *dataFileName = "extrSigCMDet_he4_dat_lab.root",
-    const char *simulationFileName = "extrSigCMDet_he4_sim_lab.root",
+    const char *dataFileName = "extrSigCMDet_dat.root",
+    const char *simulationFileName = "extrSigCMDet_sim.root",
     const char *outputFileName = "extrSigCMDet_overlays.root",
     bool normalize = true,
   const char *outputPdfName = "extrSigCMDet_overlays.pdf",
-  const char *skipSimulationFor = "lead_cd_rec_fd,lead_cd_rec_cd") {
+  const char *skipSimulationFor = "",
+  const char *sigmaSummaryTxtName = "overlaySigCMDet_sigma_summary.txt") {
 
   TFile *dataFile = TFile::Open(dataFileName, "READ");
   TFile *simulationFile = TFile::Open(simulationFileName, "READ");
@@ -169,6 +171,25 @@ void overlaySigCMDet(
       "lead_cd_rec_fd", "lead_cd_rec_cd"};
   const char *variables[] = {"pCMx", "pCMy", "cos2chi"};
 
+  std::ofstream sigmaSummary;
+  if (sigmaSummaryTxtName && sigmaSummaryTxtName[0] != '\0') {
+    sigmaSummary.open(sigmaSummaryTxtName);
+    if (!sigmaSummary) {
+      std::cerr << "[overlaySigCMDet] Could not open sigma summary text file "
+                << sigmaSummaryTxtName << '\n';
+      outputFile->Close();
+      dataFile->Close();
+      simulationFile->Close();
+      return;
+    }
+    sigmaSummary << "combination"
+                 << "\tdata_sigma_cm_x\tdata_sigma_cm_x_err"
+                 << "\tdata_sigma_cm_y\tdata_sigma_cm_y_err"
+                 << "\tsim_sigma_cm_x\tsim_sigma_cm_x_err"
+                 << "\tsim_sigma_cm_y\tsim_sigma_cm_y_err"
+                 << "\tsim_status\n";
+  }
+
   std::vector<TCanvas *> overlayCanvases;
   for (const char *combination : combinations) {
     TDirectory *directory = outputFile->mkdir(combination);
@@ -177,11 +198,29 @@ void overlaySigCMDet(
         getExtractedValues(dataFile, combination);
     const ExtractedValues simulationValues =
         getExtractedValues(simulationFile, combination);
+    const bool skipSimulation =
+      shouldSkipSimulation(combination, skipSimulationFor);
+
+    if (sigmaSummary.is_open()) {
+      const bool simShown = !skipSimulation;
+      const char *simStatus = skipSimulation
+                    ? "skipped_by_user"
+                    : (simulationValues.found ? "available"
+                                : "missing_fit_results");
+      sigmaSummary << combination << "\t"
+             << (dataValues.found ? Form("%.6f", dataValues.sigmaX) : "nan") << "\t"
+             << (dataValues.found ? Form("%.6f", dataValues.sigmaXError) : "nan") << "\t"
+             << (dataValues.found ? Form("%.6f", dataValues.sigmaY) : "nan") << "\t"
+             << (dataValues.found ? Form("%.6f", dataValues.sigmaYError) : "nan") << "\t"
+             << ((simShown && simulationValues.found) ? Form("%.6f", simulationValues.sigmaX) : "nan") << "\t"
+             << ((simShown && simulationValues.found) ? Form("%.6f", simulationValues.sigmaXError) : "nan") << "\t"
+             << ((simShown && simulationValues.found) ? Form("%.6f", simulationValues.sigmaY) : "nan") << "\t"
+             << ((simShown && simulationValues.found) ? Form("%.6f", simulationValues.sigmaYError) : "nan") << "\t"
+             << simStatus << "\n";
+    }
 
     for (int variableIndex = 0; variableIndex < 3; ++variableIndex) {
       const char *variable = variables[variableIndex];
-      const bool skipSimulation =
-          shouldSkipSimulation(combination, skipSimulationFor);
       TH1D *sourceData = getHistogram(dataFile, combination, variable);
       TH1D *sourceSimulation =
           skipSimulation ? nullptr
@@ -368,10 +407,13 @@ void overlaySigCMDet(
   outputFile->Close();
   dataFile->Close();
   simulationFile->Close();
+  if (sigmaSummary.is_open()) sigmaSummary.close();
 
   std::cout << "[overlaySigCMDet] Wrote " << overlayCanvases.size()
             << " overlay canvases to " << outputFileName;
   if (outputPdfName && outputPdfName[0] != '\0')
     std::cout << " and " << outputPdfName;
+  if (sigmaSummaryTxtName && sigmaSummaryTxtName[0] != '\0')
+    std::cout << " ; sigma summary to " << sigmaSummaryTxtName;
   std::cout << '\n';
 }
