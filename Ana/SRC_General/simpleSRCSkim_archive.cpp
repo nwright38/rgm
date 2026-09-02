@@ -24,9 +24,27 @@ const double mP = 0.938;
 const double mU = 0.9314941024;
 const double me = 0.000511;
 const double m_4He = 4.00260325415 * mU - 2 * me;
-const int kTargetMassNumber = 4;
+const double m_12C = 12.0 * 0.93149410242 - 6.0 * 0.00051099895;
 const double kLightConeEdgeEpsilon = 1e-6;
 const double kLightConeRoundoffTolerance = 1e-9;
+
+struct TargetConfig {
+  const char *name;
+  double mass;
+  int massNumber;
+  int Z;
+  int N;
+  double sigmaCM;
+};
+
+TargetConfig parseTargetConfig(const char *arg)
+{
+  const std::string target = arg ? arg : "";
+  if(target == "c12" || target == "C12" || target == "carbon12" || target == "carbon-12") {
+    return {"C12", m_12C, 12, 6, 6, 0.15};
+  }
+  return {"He4", m_4He, 4, 2, 2, 0.10};
+}
 
 const int MAXP = 4;  // max number of proton candidates considered per event
 
