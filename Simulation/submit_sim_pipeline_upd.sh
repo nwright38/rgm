@@ -8,7 +8,7 @@ LUND_EX=/work/clas12/users/nwright/rgm_andrew/Simulation/GCF_to_LUND.C
 #output
 #change this to your specific output path
 OUTPATH=/volatile/clas12/users/nwright/RGM_SIM
-FILE_PREFIX=src_qe_he_6gev
+FILE_PREFIX=src_qe_he_6gev_150MeV
 
 #input
 #Here is where I put the configurations files I want for this simulation
@@ -25,7 +25,7 @@ NEVENTS=${2:-100000}  #now overridable as 2nd script arg; 10x NEVENTS_BKG (10% b
 NEVENTS_BKG=$(( NEVENTS / 10 )) #10% of events are bg-merged; each bg file has max 10000 events available
 TORUS=-1.0 #-1.0 for inbending(6,4 GeV) 0.5 for outbending (2 Gev)
 TARGET=liquid #Targets: liquid, 4-foil, 1-foil, Ar, Ca
-SIGMACM=0.200 #GeV/c
+SIGMACM=0.2 #GeV/c
 
 # sanity check: bg-merger can't hand you more bg events than exist per file
 if [ "$NEVENTS_BKG" -gt 10000 ]; then
@@ -45,10 +45,10 @@ BKGDFILE=/cache/clas12/rg-m/production/bkgfiles/tor-1.00_sol-1.00/He_5986MeV/he_
 # BKGDFILE=/cache/clas12/rg-m/production/bkgfiles/tor-1.00_sol-1.00/Cx4_5986MeV/c_${PADDED_ID}.hipo
 
 #DON'T NEED TO TOUCH BELOW HERE UNLESS YOU NEED TO
-ROOTOUT=${OUTPATH}/rootfiles/He_Aug28
-LUNDOUT=${OUTPATH}/lundfiles/He_Aug28
-MCOUT=${OUTPATH}/mchipo/He_Aug28
-RECONOUT=${OUTPATH}/reconhipo/He_Aug28
+ROOTOUT=${OUTPATH}/rootfiles/He_Aug31
+LUNDOUT=${OUTPATH}/lundfiles/He_Aug31
+MCOUT=${OUTPATH}/mchipo/He_Aug31
+RECONOUT=${OUTPATH}/reconhipo/He_Aug31
 
 # SLURM_ARRAY_TASK_ID=1 #for testing, comment out for array job submission
 
