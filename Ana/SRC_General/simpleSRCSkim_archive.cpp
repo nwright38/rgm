@@ -28,6 +28,24 @@ const double m_12C = 12.0 * 0.93149410242 - 6.0 * 0.00051099895;
 const double kLightConeEdgeEpsilon = 1e-6;
 const double kLightConeRoundoffTolerance = 1e-9;
 
+struct TargetConfig {
+  const char *name;
+  double mass;
+  int massNumber;
+  int Z;
+  int N;
+  double sigmaCM;
+};
+
+TargetConfig parseTargetConfig(const char *arg)
+{
+  const std::string target = arg ? arg : "";
+  if(target == "c12" || target == "C12" || target == "carbon12" || target == "carbon-12") {
+    return {"C12", m_12C, 12, 6, 6, 0.15};
+  }
+  return {"He4", m_4He, 4, 2, 2, 0.10};
+}
+
 const int MAXP = 4;  // max number of proton candidates considered per event
 
 struct LightConeBasis {
@@ -268,7 +286,7 @@ void runLightConeSelfTests()
 
 void Usage()
 {
-  cerr << "Usage: ./code <MC=1,Data=0> <Ebeam(GeV)> <output.root> <A> <input.hipo> [more hipo...]\n";
+  cerr << "Usage: ./code <MC=1,Data=0> <Ebeam(GeV)> <output.root> [he4|c12] <input.hipo> [more hipo...]\n";
 }
 
 bool inFD(int status){ return (abs(status) >= 2000 && abs(status) < 4000); }
@@ -351,33 +369,10 @@ void setProtonP4(TLorentzVector &p4, clas12::region_part_ptr proton, bool isMC)
 
 int main(int argc, char **argv)
 {
-  if(argc < 5){ Usage(); return -1; }
+  if(argc < 4){ Usage(); return -1; }
 
   bool isMC = (atoi(argv[1]) == 1);
   double Ebeam = atof(argv[2]);
-  int nucleus_A = atoi(argv[4]);
-  double targetMass = m_4He;
-  int targetMassNumber = 4;
-  int targetZ = 2;
-  int targetN = 2;
-  double targetSigmaCM = 0.10;
-  const char *targetLabel = "He4";
-
-  if(nucleus_A == 12) {
-    targetMass = m_12C;
-    targetMassNumber = 12;
-    targetZ = 6;
-    targetN = 6;
-    targetSigmaCM = 0.15;
-    targetLabel = "C12";
-  } else {
-    targetMass = m_4He;
-    targetMassNumber = 4;
-    targetZ = 2;
-    targetN = 2;
-    targetSigmaCM = 0.10;
-    targetLabel = "He4";
-  }
 
   TFile *outFile = new TFile(argv[3], "RECREATE");
   TTree *srcTree = new TTree("srcTree", "SRC Kinematics");
@@ -647,7 +642,7 @@ int main(int argc, char **argv)
   TH1D *h_alpha_2 = new TH1D("h_alpha_2", "alpha_{2};alpha_{2};Events", 80, 0., 2.);
   TH1D *h_alpha_CM = new TH1D("h_alpha_CM", "alpha_{CM};alpha_{CM};Events", 80, 0., 4.);
   TH1D *h_alpha_spectator = new TH1D("h_alpha_spectator",
-                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., targetMassNumber);
+                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., 4.);
   TH1D *h_k2 = new TH1D("h_k2", "k^{2};k^{2} [GeV^{2}];Events", 80, 0., 2.0);
   TH2D *h_k_vs_pRel = new TH2D("h_k_vs_pRel",
                                "k vs |p_{rel}^{lab}|;|p_{rel}^{lab}| [GeV/c];k [GeV/c]",
@@ -655,7 +650,7 @@ int main(int argc, char **argv)
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
-  for(int k = 5; k < argc; k++){
+  for(int k = 4; k < argc; k++){
     cout << "Input file " << argv[k] << endl;
     chain.Add(argv[k]);
   }
@@ -668,8 +663,9 @@ int main(int argc, char **argv)
   clas12ana clasAna;
 
   // fixed 4-vectors
-  TLorentzVector targP4(0., 0., 0., targetMass);
-  TLorentzVector nucleusP4(0., 0., 0., targetMass);
+  const double md = 2.01410178 * mU - me;
+  TLorentzVector targP4(0., 0., 0., md);
+  TLorentzVector nucleusP4(0., 0., 0., m_4He);
   TLorentzVector beamP4(0., 0., Ebeam, Ebeam);
 
   TLorentzVector eP4(0., 0., 0., me);
@@ -682,10 +678,8 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  char av18[] = "AV18";
-  reweighter newWeight(Ebeam, targetZ, targetN, kelly, av18, targetSigmaCM);
-  cout << "Target A = " << nucleus_A << " (" << targetLabel
-       << ", sigmaCM = " << targetSigmaCM << ")" << endl;
+  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
+
   int ctr = 0;
   while(chain.Next())
   {
@@ -857,7 +851,7 @@ int main(int argc, char **argv)
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
-      if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
@@ -990,7 +984,7 @@ int main(int argc, char **argv)
         b_phiTrento = getPhiTrentoZeroCM(lead_p3, miss_neg, recoil_p3);
 
         const LightConeKinematics lc = computeLightConeKinematics(
-          qP3, omega, lead_p3, recoil_p3, mP, mP, targetMass, targetMassNumber);
+            qP3, omega, lead_p3, recoil_p3, mP, mP, m_4He, kTargetMassNumber);
         if(lc.validBasis && lc.pairDefined){
           b_alpha_1 = lc.alpha1;
           b_alpha_2 = lc.alpha2;
@@ -1017,7 +1011,7 @@ int main(int argc, char **argv)
           h_alpha_1->Fill(lc.alpha1);
           h_alpha_2->Fill(lc.alpha2);
           h_alpha_CM->Fill(lc.alphaCM);
-          h_alpha_spectator->Fill(targetMassNumber - lc.alphaCM);
+          h_alpha_spectator->Fill(kTargetMassNumber - lc.alphaCM);
           h_k2->Fill(lc.k2);
           if(b_pRel > 0. && lc.k >= 0.) h_k_vs_pRel->Fill(b_pRel, lc.k);
         }
@@ -1136,8 +1130,8 @@ int main(int argc, char **argv)
           b_phiTrento_truth = getPhiTrentoZeroCM(lead_truth, pMiss_truth, rec_truth);
 
           const LightConeKinematics lcTruth = computeLightConeKinematics(
-              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, targetMass,
-              targetMassNumber);
+              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, m_4He,
+              kTargetMassNumber);
           if(lcTruth.validBasis && lcTruth.pairDefined){
             b_alpha_1_truth = lcTruth.alpha1;
             b_alpha_2_truth = lcTruth.alpha2;
