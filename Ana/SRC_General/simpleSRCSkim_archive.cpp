@@ -48,6 +48,8 @@ struct LightConeKinematics {
   double alphaCM = -9.;
   double alphaRel = -9.;
   double qMinus = -9.;
+  double p1Plus = -9.;
+  double p2Plus = -9.;
   double k = -9.;
   double k2 = -9.;
   double kZ = -9.;
@@ -219,8 +221,8 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   if(targetMass <= 0. || massNumber <= 0) return out;
 
   out.mBar = targetMass / static_cast<double>(massNumber);
-  //const LightConeBasis basis = makeLightConeBasis(qVec);
-  const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
+  const LightConeBasis basis = makeLightConeBasis(qVec);
+  //const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
   if(!basis.valid) return out;
 
   out.validBasis = true;
@@ -228,11 +230,15 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
 
   const double qMag = qVec.Mag();
   out.qMinus = nu - qMag;
+  const double qPlus = nu + qMag;
 
   const double eLead = std::sqrt(pLead.Mag2() + mLead * mLead);
   const double eRec = std::sqrt(pRec.Mag2() + mRec * mRec);
   const double pLeadZ = pLead.Dot(basis.zHat);
   const double pRecZ = pRec.Dot(basis.zHat);
+
+  out.p1Plus = eLead + pLeadZ - qPlus;
+  out.p2Plus = eRec + pRecZ;
 
   // alpha_1 uses p_1^- = p_lead^- - q^- to avoid assigning an on-shell energy to the struck initial nucleon.
   out.alpha1 = (eLead - pLeadZ - out.qMinus) / out.mBar;
@@ -496,6 +502,7 @@ int main(int argc, char **argv)
   Float_t b_chi_frame;
   Float_t b_E2miss;
   Float_t b_alpha_1, b_alpha_2, b_alpha_CM, b_alpha_rel;
+  Float_t b_p1_plus, b_p2_plus;
   Float_t b_p1_perp_x, b_p1_perp_y, b_p1_perp_mag;
   Float_t b_p2_perp_x, b_p2_perp_y, b_p2_perp_mag;
   Float_t b_pCM_perp_x, b_pCM_perp_y, b_pCM_perp_mag;
@@ -536,6 +543,7 @@ int main(int argc, char **argv)
   Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
   Float_t b_alpha_1_truth, b_alpha_2_truth, b_alpha_CM_truth, b_alpha_rel_truth;
+  Float_t b_p1_plus_truth, b_p2_plus_truth;
   Float_t b_p1_perp_x_truth, b_p1_perp_y_truth, b_p1_perp_mag_truth;
   Float_t b_p2_perp_x_truth, b_p2_perp_y_truth, b_p2_perp_mag_truth;
   Float_t b_pCM_perp_x_truth, b_pCM_perp_y_truth, b_pCM_perp_mag_truth;
@@ -610,6 +618,8 @@ int main(int argc, char **argv)
   srcTree->Branch("alpha_2",     &b_alpha_2,     "alpha_2/F");
   srcTree->Branch("alpha_CM",    &b_alpha_CM,    "alpha_CM/F");
   srcTree->Branch("alpha_rel",   &b_alpha_rel,   "alpha_rel/F");
+  srcTree->Branch("p1_plus",     &b_p1_plus,     "p1_plus/F");
+  srcTree->Branch("p2_plus",     &b_p2_plus,     "p2_plus/F");
   srcTree->Branch("p1_perp_x",   &b_p1_perp_x,   "p1_perp_x/F");
   srcTree->Branch("p1_perp_y",   &b_p1_perp_y,   "p1_perp_y/F");
   srcTree->Branch("p1_perp_mag", &b_p1_perp_mag, "p1_perp_mag/F");
@@ -694,6 +704,8 @@ int main(int argc, char **argv)
   srcTree->Branch("alpha_2_truth",     &b_alpha_2_truth,     "alpha_2_truth/F");
   srcTree->Branch("alpha_CM_truth",    &b_alpha_CM_truth,    "alpha_CM_truth/F");
   srcTree->Branch("alpha_rel_truth",   &b_alpha_rel_truth,   "alpha_rel_truth/F");
+  srcTree->Branch("p1_plus_truth",     &b_p1_plus_truth,     "p1_plus_truth/F");
+  srcTree->Branch("p2_plus_truth",     &b_p2_plus_truth,     "p2_plus_truth/F");
   srcTree->Branch("p1_perp_x_truth",   &b_p1_perp_x_truth,   "p1_perp_x_truth/F");
   srcTree->Branch("p1_perp_y_truth",   &b_p1_perp_y_truth,   "p1_perp_y_truth/F");
   srcTree->Branch("p1_perp_mag_truth", &b_p1_perp_mag_truth, "p1_perp_mag_truth/F");
@@ -797,6 +809,7 @@ int main(int argc, char **argv)
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
     b_alpha_1 = -9.f; b_alpha_2 = -9.f; b_alpha_CM = -9.f; b_alpha_rel = -9.f;
+    b_p1_plus = -9.f; b_p2_plus = -9.f;
     b_p1_perp_x = -9.f; b_p1_perp_y = -9.f; b_p1_perp_mag = -9.f;
     b_p2_perp_x = -9.f; b_p2_perp_y = -9.f; b_p2_perp_mag = -9.f;
     b_pCM_perp_x = -9.f; b_pCM_perp_y = -9.f; b_pCM_perp_mag = -9.f;
@@ -834,6 +847,7 @@ int main(int argc, char **argv)
     b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
     b_alpha_1_truth = -9.f; b_alpha_2_truth = -9.f; b_alpha_CM_truth = -9.f; b_alpha_rel_truth = -9.f;
+    b_p1_plus_truth = -9.f; b_p2_plus_truth = -9.f;
     b_p1_perp_x_truth = -9.f; b_p1_perp_y_truth = -9.f; b_p1_perp_mag_truth = -9.f;
     b_p2_perp_x_truth = -9.f; b_p2_perp_y_truth = -9.f; b_p2_perp_mag_truth = -9.f;
     b_pCM_perp_x_truth = -9.f; b_pCM_perp_y_truth = -9.f; b_pCM_perp_mag_truth = -9.f;
@@ -1072,6 +1086,8 @@ int main(int argc, char **argv)
           b_alpha_2 = lc.alpha2;
           b_alpha_CM = lc.alphaCM;
           b_alpha_rel = lc.alphaRel;
+          b_p1_plus = lc.p1Plus;
+          b_p2_plus = lc.p2Plus;
           b_p1_perp_x = lc.p1PerpX;
           b_p1_perp_y = lc.p1PerpY;
           b_p1_perp_mag = lc.p1PerpMag;
@@ -1219,6 +1235,8 @@ int main(int argc, char **argv)
             b_alpha_2_truth = lcTruth.alpha2;
             b_alpha_CM_truth = lcTruth.alphaCM;
             b_alpha_rel_truth = lcTruth.alphaRel;
+            b_p1_plus_truth = lcTruth.p1Plus;
+            b_p2_plus_truth = lcTruth.p2Plus;
             b_p1_perp_x_truth = lcTruth.p1PerpX;
             b_p1_perp_y_truth = lcTruth.p1PerpY;
             b_p1_perp_mag_truth = lcTruth.p1PerpMag;

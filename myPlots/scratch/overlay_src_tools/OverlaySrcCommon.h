@@ -185,7 +185,7 @@ inline std::vector<PlotVar> defaultVariables() {
       {"pCMx", "pCMx", "p_{CM,x} [GeV/c]", 40, -0.8, 0.8},
       {"pCMy", "pCMy", "p_{CM,y} [GeV/c]", 40, -0.8, 0.8},
       {"pCMz", "pCMz", "p_{CM,z} [GeV/c]", 40, -0.8, 0.8},
-      {"alpha_1", "alpha_1", "#alpha_{1}", 40, 1.0, 2.0},
+      {"alpha_1", "alpha_1", "#alpha_{1}", 40, 1.0, 1.8},
       {"alpha_2", "alpha_2", "#alpha_{2}", 40, 0.2, 1.5},
       {"alpha_CM", "alpha_CM", "#alpha_{CM}", 40, 1.5, 3.},
       {"alpha_rel", "alpha_rel", "#alpha_{rel}", 40, 0.4, 1.5},
