@@ -1,4 +1,5 @@
 #include <cassert>
+#include <algorithm>
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
@@ -24,7 +25,6 @@ const double mP = 0.938;
 const double mU = 0.9314941024;
 const double me = 0.000511;
 const double m_4He = 4.00260325415 * mU - 2 * me;
-const int kTargetMassNumber = 4;
 const double kLightConeEdgeEpsilon = 1e-6;
 const double kLightConeRoundoffTolerance = 1e-9;
 
@@ -68,6 +68,55 @@ struct LightConeKinematics {
   double pRelPerpY = -9.;
   double pRelPerpMag = -9.;
 };
+
+struct TargetConfig {
+  int A = 0;
+  int Z = 0;
+  int N = 0;
+  double mass = -1.;
+  bool valid = false;
+};
+
+TargetConfig buildTargetConfig(int targetA)
+{
+  TargetConfig cfg;
+  cfg.A = targetA;
+  switch(targetA){
+    case 4:
+      cfg.Z = 2;
+      cfg.N = 2;
+      cfg.mass = 4.00260325415 * mU - 2 * me;
+      cfg.valid = true;
+      break;
+    case 12:
+      cfg.Z = 6;
+      cfg.N = 6;
+      cfg.mass = 12.0 * mU - 6 * me;
+      cfg.valid = true;
+      break;
+    case 40:
+      cfg.Z = 20;
+      cfg.N = 20;
+      cfg.mass = 39.962591 * mU - 20 * me;
+      cfg.valid = true;
+      break;
+    case 48:
+      cfg.Z = 20;
+      cfg.N = 20;
+      cfg.mass = 47.952523 * mU - 20 * me;
+      cfg.valid = true;
+      break;
+    case 120:
+      cfg.Z = 50;
+      cfg.N = 70;
+      cfg.mass = 119.90220163 * mU - 50 * me;
+      cfg.valid = true;
+      break;
+    default:
+      break;
+  }
+  return cfg;
+}
 
 double square(double x) { return x * x; }
 
@@ -268,7 +317,8 @@ void runLightConeSelfTests()
 
 void Usage()
 {
-  cerr << "Usage: ./code <MC=1,Data=0> <Ebeam(GeV)> <output.root> <input.hipo> [more hipo...]\n";
+  cerr << "Usage: ./code <MC=1,Data=0> <A> <Ebeam(GeV)> <output.root> <input.hipo> [more hipo...]\n";
+  cerr << "Supported A: 4, 12, 40, 48, 120\n";
 }
 
 bool inFD(int status){ return (abs(status) >= 2000 && abs(status) < 4000); }
@@ -351,12 +401,20 @@ void setProtonP4(TLorentzVector &p4, clas12::region_part_ptr proton, bool isMC)
 
 int main(int argc, char **argv)
 {
-  if(argc < 4){ Usage(); return -1; }
+  if(argc < 5){ Usage(); return -1; }
 
   bool isMC = (atoi(argv[1]) == 1);
-  double Ebeam = atof(argv[2]);
+  int targetA = atoi(argv[2]);
+  double Ebeam = atof(argv[3]);
 
-  TFile *outFile = new TFile(argv[3], "RECREATE");
+  const TargetConfig targetCfg = buildTargetConfig(targetA);
+  if(!targetCfg.valid){
+    cerr << "Unsupported target A = " << targetA << "\n";
+    Usage();
+    return -1;
+  }
+
+  TFile *outFile = new TFile(argv[4], "RECREATE");
   TTree *srcTree = new TTree("srcTree", "SRC Kinematics");
 
   // ---- output branches ----
@@ -623,8 +681,9 @@ int main(int argc, char **argv)
   TH1D *h_alpha_1 = new TH1D("h_alpha_1", "alpha_{1};alpha_{1};Events", 80, 0., 2.);
   TH1D *h_alpha_2 = new TH1D("h_alpha_2", "alpha_{2};alpha_{2};Events", 80, 0., 2.);
   TH1D *h_alpha_CM = new TH1D("h_alpha_CM", "alpha_{CM};alpha_{CM};Events", 80, 0., 4.);
+  const double alphaSpectatorMax = std::max(4.0, static_cast<double>(targetCfg.A));
   TH1D *h_alpha_spectator = new TH1D("h_alpha_spectator",
-                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., 4.);
+                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., alphaSpectatorMax);
   TH1D *h_k2 = new TH1D("h_k2", "k^{2};k^{2} [GeV^{2}];Events", 80, 0., 2.0);
   TH2D *h_k_vs_pRel = new TH2D("h_k_vs_pRel",
                                "k vs |p_{rel}^{lab}|;|p_{rel}^{lab}| [GeV/c];k [GeV/c]",
@@ -632,7 +691,7 @@ int main(int argc, char **argv)
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
-  for(int k = 4; k < argc; k++){
+  for(int k = 5; k < argc; k++){
     cout << "Input file " << argv[k] << endl;
     chain.Add(argv[k]);
   }
@@ -647,7 +706,7 @@ int main(int argc, char **argv)
   // fixed 4-vectors
   const double md = 2.01410178 * mU - me;
   TLorentzVector targP4(0., 0., 0., md);
-  TLorentzVector nucleusP4(0., 0., 0., m_4He);
+  TLorentzVector nucleusP4(0., 0., 0., targetCfg.mass);
   TLorentzVector beamP4(0., 0., Ebeam, Ebeam);
 
   TLorentzVector eP4(0., 0., 0., me);
@@ -660,7 +719,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam,6,6,kelly,"AV18",.15);
+  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
 
   int ctr = 0;
   while(chain.Next())
@@ -966,7 +1025,7 @@ int main(int argc, char **argv)
         b_phiTrento = getPhiTrentoZeroCM(lead_p3, miss_neg, recoil_p3);
 
         const LightConeKinematics lc = computeLightConeKinematics(
-            qP3, omega, lead_p3, recoil_p3, mP, mP, m_4He, kTargetMassNumber);
+          qP3, omega, lead_p3, recoil_p3, mP, mP, targetCfg.mass, targetCfg.A);
         if(lc.validBasis && lc.pairDefined){
           b_alpha_1 = lc.alpha1;
           b_alpha_2 = lc.alpha2;
@@ -993,7 +1052,7 @@ int main(int argc, char **argv)
           h_alpha_1->Fill(lc.alpha1);
           h_alpha_2->Fill(lc.alpha2);
           h_alpha_CM->Fill(lc.alphaCM);
-          h_alpha_spectator->Fill(kTargetMassNumber - lc.alphaCM);
+          h_alpha_spectator->Fill(targetCfg.A - lc.alphaCM);
           h_k2->Fill(lc.k2);
           if(b_pRel > 0. && lc.k >= 0.) h_k_vs_pRel->Fill(b_pRel, lc.k);
         }
@@ -1112,8 +1171,8 @@ int main(int argc, char **argv)
           b_phiTrento_truth = getPhiTrentoZeroCM(lead_truth, pMiss_truth, rec_truth);
 
           const LightConeKinematics lcTruth = computeLightConeKinematics(
-              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, m_4He,
-              kTargetMassNumber);
+              q_truth, omega_truth, lead_truth, rec_truth, mP, mP,
+              targetCfg.mass, targetCfg.A);
           if(lcTruth.validBasis && lcTruth.pairDefined){
             b_alpha_1_truth = lcTruth.alpha1;
             b_alpha_2_truth = lcTruth.alpha2;
