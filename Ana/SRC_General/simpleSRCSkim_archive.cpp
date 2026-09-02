@@ -682,10 +682,10 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-    char av18[] = "AV18";
-    reweighter newWeight(Ebeam, target.Z, target.N, kelly, av18, target.sigmaCM);
-    cout << "Target A = " << nucleus_A << " (" << target.name
-      << ", sigmaCM = " << target.sigmaCM << ")" << endl;
+  char av18[] = "AV18";
+  reweighter newWeight(Ebeam, targetZ, targetN, kelly, av18, targetSigmaCM);
+  cout << "Target A = " << nucleus_A << " (" << targetLabel
+       << ", sigmaCM = " << targetSigmaCM << ")" << endl;
   int ctr = 0;
   while(chain.Next())
   {
