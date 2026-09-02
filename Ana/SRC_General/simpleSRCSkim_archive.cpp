@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
@@ -7,6 +8,7 @@
 #include <TTree.h>
 #include <TLorentzVector.h>
 #include <TH1.h>
+#include <TH2.h>
 #include <TChain.h>
 
 #include "clas12reader.h"
@@ -22,8 +24,247 @@ const double mP = 0.938;
 const double mU = 0.9314941024;
 const double me = 0.000511;
 const double m_4He = 4.00260325415 * mU - 2 * me;
+const int kTargetMassNumber = 4;
+const double kLightConeEdgeEpsilon = 1e-6;
+const double kLightConeRoundoffTolerance = 1e-9;
 
 const int MAXP = 4;  // max number of proton candidates considered per event
+
+struct LightConeBasis {
+  TVector3 xHat;
+  TVector3 yHat;
+  TVector3 zHat;
+  bool valid = false;
+};
+
+struct LightConeKinematics {
+  bool validBasis = false;
+  bool pairDefined = false;
+  bool qualityBit = false;
+  bool k2Clipped = false;
+  double mBar = -9.;
+  double alpha1 = -9.;
+  double alpha2 = -9.;
+  double alphaCM = -9.;
+  double alphaRel = -9.;
+  double qMinus = -9.;
+  double k = -9.;
+  double k2 = -9.;
+  double kZ = -9.;
+  TVector3 p1Perp;
+  TVector3 p2Perp;
+  TVector3 pCMPerp;
+  TVector3 pRelPerp;
+  double p1PerpX = -9.;
+  double p1PerpY = -9.;
+  double p1PerpMag = -9.;
+  double p2PerpX = -9.;
+  double p2PerpY = -9.;
+  double p2PerpMag = -9.;
+  double pCMPerpX = -9.;
+  double pCMPerpY = -9.;
+  double pCMPerpMag = -9.;
+  double pRelPerpX = -9.;
+  double pRelPerpY = -9.;
+  double pRelPerpMag = -9.;
+};
+
+double square(double x) { return x * x; }
+
+bool nearlyEqual(double a, double b, double tol = 1e-10)
+{
+  return std::abs(a - b) <= tol;
+}
+
+bool nearlyEqualVec(const TVector3 &a, const TVector3 &b, double tol = 1e-10)
+{
+  return (a - b).Mag() <= tol;
+}
+
+LightConeBasis makeLightConeBasis(const TVector3 &qVec)
+{
+  LightConeBasis basis;
+  if(qVec.Mag2() <= 0.) return basis;
+
+  basis.zHat = qVec.Unit();
+
+  const TVector3 beamAxis(0., 0., 1.);
+  TVector3 xSeed = beamAxis - basis.zHat * beamAxis.Dot(basis.zHat);
+  if(xSeed.Mag2() <= 1e-12){
+    const TVector3 xLab(1., 0., 0.);
+    xSeed = xLab - basis.zHat * xLab.Dot(basis.zHat);
+  }
+  if(xSeed.Mag2() <= 1e-12){
+    const TVector3 yLab(0., 1., 0.);
+    xSeed = yLab - basis.zHat * yLab.Dot(basis.zHat);
+  }
+  if(xSeed.Mag2() <= 1e-12) return basis;
+
+  basis.xHat = xSeed.Unit();
+  basis.yHat = basis.zHat.Cross(basis.xHat);
+  if(basis.yHat.Mag2() <= 1e-12) return basis;
+
+  basis.yHat = basis.yHat.Unit();
+  basis.xHat = basis.yHat.Cross(basis.zHat).Unit();
+  basis.valid = true;
+  return basis;
+}
+
+/*
+ * Light-cone conventions used for the added GCF variables:
+ *   z || q on an event-by-event basis,
+ *   p^{\pm} = p^{0} \pm p^{3},
+ *   alpha = p^{-} / m_bar,
+ *   m_bar = m_A / A.
+ * Nucleon 1 is the struck initial-state nucleon and nucleon 2 is the recoil nucleon.
+ */
+LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
+                                               const TVector3 &pLead,
+                                               const TVector3 &pRec,
+                                               double mLead,
+                                               double mRec,
+                                               double targetMass,
+                                               int massNumber)
+{
+  LightConeKinematics out;
+  if(targetMass <= 0. || massNumber <= 0) return out;
+
+  out.mBar = targetMass / static_cast<double>(massNumber);
+  const LightConeBasis basis = makeLightConeBasis(qVec);
+  if(!basis.valid) return out;
+
+  out.validBasis = true;
+  out.qualityBit = true;
+
+  const double qMag = qVec.Mag();
+  out.qMinus = nu - qMag;
+
+  const double eLead = std::sqrt(pLead.Mag2() + mLead * mLead);
+  const double eRec = std::sqrt(pRec.Mag2() + mRec * mRec);
+  const double pLeadZ = pLead.Dot(basis.zHat);
+  const double pRecZ = pRec.Dot(basis.zHat);
+
+  // alpha_1 uses p_1^- = p_lead^- - q^- to avoid assigning an on-shell energy to the struck initial nucleon.
+  out.alpha1 = (eLead - pLeadZ - out.qMinus) / out.mBar;
+  out.alpha2 = (eRec - pRecZ) / out.mBar;
+
+  out.p1Perp = pLead - basis.zHat * pLeadZ;
+  out.p2Perp = pRec - basis.zHat * pRecZ;
+  out.p1PerpX = out.p1Perp.Dot(basis.xHat);
+  out.p1PerpY = out.p1Perp.Dot(basis.yHat);
+  out.p1PerpMag = out.p1Perp.Mag();
+  out.p2PerpX = out.p2Perp.Dot(basis.xHat);
+  out.p2PerpY = out.p2Perp.Dot(basis.yHat);
+  out.p2PerpMag = out.p2Perp.Mag();
+
+  out.alphaCM = out.alpha1 + out.alpha2;
+  if(std::abs(out.alphaCM) <= kLightConeRoundoffTolerance){
+    out.qualityBit = false;
+    return out;
+  }
+
+  out.pairDefined = true;
+  out.pCMPerp = out.p1Perp + out.p2Perp;
+  out.pCMPerpX = out.pCMPerp.Dot(basis.xHat);
+  out.pCMPerpY = out.pCMPerp.Dot(basis.yHat);
+  out.pCMPerpMag = out.pCMPerp.Mag();
+
+  out.alphaRel = 2. * out.alpha2 / out.alphaCM;
+  out.pRelPerp = out.p2Perp - (out.alpha2 / out.alphaCM) * out.pCMPerp;
+  out.pRelPerpX = out.pRelPerp.Dot(basis.xHat);
+  out.pRelPerpY = out.pRelPerp.Dot(basis.yHat);
+  out.pRelPerpMag = out.pRelPerp.Mag();
+
+  const double alphaFactor = out.alphaRel * (2. - out.alphaRel);
+  if(out.alphaRel <= kLightConeEdgeEpsilon || out.alphaRel >= 2. - kLightConeEdgeEpsilon){
+    out.qualityBit = false;
+  }
+  if(alphaFactor <= 0.){
+    out.qualityBit = false;
+    return out;
+  }
+
+  const double pairMass = 0.5 * (mLead + mRec);
+  const double rawK2 = (pairMass * pairMass + out.pRelPerp.Mag2()) / alphaFactor - pairMass * pairMass;
+  if(rawK2 < 0.){
+    out.k2Clipped = true;
+    if(rawK2 < -1e-7) out.qualityBit = false;
+  }
+  out.k2 = std::max(0., rawK2);
+  out.k = std::sqrt(out.k2);
+  out.kZ = (out.alphaRel - 1.) * std::sqrt(pairMass * pairMass + out.k2);
+  return out;
+}
+
+TVector3 makeLeadMomentumFromInitialState(const TVector3 &p1Initial,
+                                         double qMinus,
+                                         double mLead,
+                                         double mBar)
+{
+  const double alpha1 = (std::sqrt(p1Initial.Mag2() + mLead * mLead) - p1Initial.Z()) / mBar;
+  const double pLeadMinus = alpha1 * mBar + qMinus;
+  const double pPerp2 = square(p1Initial.X()) + square(p1Initial.Y());
+  const double pLeadZ = (mLead * mLead + pPerp2 - pLeadMinus * pLeadMinus) / (2. * pLeadMinus);
+  return TVector3(p1Initial.X(), p1Initial.Y(), pLeadZ);
+}
+
+void runLightConeSelfTests()
+{
+  const double protonMass = mP;
+  const double targetMass = 2. * protonMass;
+  const int massNumber = 2;
+
+  {
+    const TVector3 qVec(0., 0., 1.1);
+    const double nu = 1.0;
+    const TVector3 p1Initial(0., 0., 0.);
+    const TVector3 pLead = makeLeadMomentumFromInitialState(
+        p1Initial, nu - qVec.Mag(), protonMass, targetMass / massNumber);
+    const TVector3 pRec(0., 0., 0.);
+    const LightConeKinematics lc = computeLightConeKinematics(
+        qVec, nu, pLead, pRec, protonMass, protonMass, targetMass, massNumber);
+
+    assert(lc.validBasis);
+    assert(lc.pairDefined);
+    assert(nearlyEqual(lc.alpha1, 1.0, 1e-10));
+    assert(nearlyEqual(lc.alpha2, 1.0, 1e-10));
+    assert(nearlyEqual(lc.alphaRel, 1.0, 1e-10));
+    assert(nearlyEqual(lc.pRelPerpMag, 0.0, 1e-10));
+    assert(nearlyEqual(lc.k, 0.0, 1e-10));
+  }
+
+  {
+    const TVector3 qVec(0., 0., 1.1);
+    const double nu = 1.0;
+    const TVector3 p1Initial(0.06, -0.03, 0.04);
+    const TVector3 pLead = makeLeadMomentumFromInitialState(
+        p1Initial, nu - qVec.Mag(), protonMass, targetMass / massNumber);
+    const TVector3 pRec(-0.04, 0.02, -0.01);
+    const LightConeKinematics lc = computeLightConeKinematics(
+        qVec, nu, pLead, pRec, protonMass, protonMass, targetMass, massNumber);
+
+    assert(lc.validBasis);
+    assert(lc.pairDefined);
+
+    const TVector3 pRelPerpAlt =
+        (lc.alpha1 * lc.p2Perp - lc.alpha2 * lc.p1Perp) * (1. / lc.alphaCM);
+    assert(nearlyEqualVec(lc.pRelPerp, pRelPerpAlt, 1e-10));
+
+    const double alphaRelSwapped = 2. * lc.alpha1 / lc.alphaCM;
+    const TVector3 pRelPerpSwapped =
+        lc.p1Perp - (lc.alpha1 / lc.alphaCM) * lc.pCMPerp;
+    const double k2Swapped =
+        (protonMass * protonMass + pRelPerpSwapped.Mag2()) /
+            (alphaRelSwapped * (2. - alphaRelSwapped)) -
+        protonMass * protonMass;
+    assert(nearlyEqual(alphaRelSwapped, 2. - lc.alphaRel, 1e-10));
+    assert(nearlyEqualVec(pRelPerpSwapped, -lc.pRelPerp, 1e-10));
+    assert(nearlyEqual(k2Swapped, lc.k2, 1e-10));
+
+    const TVector3 pRelLab = (p1Initial - pRec) * 0.5;
+    assert(std::abs(lc.k - pRelLab.Mag()) / pRelLab.Mag() < 0.05);
+  }
+}
 
 void Usage()
 {
@@ -155,6 +396,13 @@ int main(int argc, char **argv)
   Float_t b_pcmx_lab, b_pcmy_lab, b_pcmz_lab;
   Float_t b_chi_frame;
   Float_t b_E2miss;
+  Float_t b_alpha_1, b_alpha_2, b_alpha_CM, b_alpha_rel;
+  Float_t b_p1_perp_x, b_p1_perp_y, b_p1_perp_mag;
+  Float_t b_p2_perp_x, b_p2_perp_y, b_p2_perp_mag;
+  Float_t b_pCM_perp_x, b_pCM_perp_y, b_pCM_perp_mag;
+  Float_t b_prel_perp_x, b_prel_perp_y, b_prel_perp_mag;
+  Float_t b_k, b_k2, b_k_z, b_m_bar;
+  Bool_t  b_lc_quality;
 
   // event-level summary
   Int_t  b_nGoodLeads;
@@ -188,6 +436,13 @@ int main(int argc, char **argv)
   Float_t b_pcmx_lab_truth, b_pcmy_lab_truth, b_pcmz_lab_truth;
   Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
+  Float_t b_alpha_1_truth, b_alpha_2_truth, b_alpha_CM_truth, b_alpha_rel_truth;
+  Float_t b_p1_perp_x_truth, b_p1_perp_y_truth, b_p1_perp_mag_truth;
+  Float_t b_p2_perp_x_truth, b_p2_perp_y_truth, b_p2_perp_mag_truth;
+  Float_t b_pCM_perp_x_truth, b_pCM_perp_y_truth, b_pCM_perp_mag_truth;
+  Float_t b_prel_perp_x_truth, b_prel_perp_y_truth, b_prel_perp_mag_truth;
+  Float_t b_k_truth, b_k2_truth, b_k_z_truth, b_m_bar_truth;
+  Bool_t  b_lc_quality_truth;
   Float_t b_recP_truth, b_recTheta_truth, b_recPhi_truth;
   Float_t b_theta_PmPrec_truth;
   Float_t b_theta_PrecQ_truth;
@@ -252,6 +507,27 @@ int main(int argc, char **argv)
   srcTree->Branch("pcmz_lab",    &b_pcmz_lab,    "pcmz_lab/F");
   srcTree->Branch("chi_frame",   &b_chi_frame,   "chi_frame/F");
   srcTree->Branch("E2miss",      &b_E2miss,      "E2miss/F");
+  srcTree->Branch("alpha_1",     &b_alpha_1,     "alpha_1/F");
+  srcTree->Branch("alpha_2",     &b_alpha_2,     "alpha_2/F");
+  srcTree->Branch("alpha_CM",    &b_alpha_CM,    "alpha_CM/F");
+  srcTree->Branch("alpha_rel",   &b_alpha_rel,   "alpha_rel/F");
+  srcTree->Branch("p1_perp_x",   &b_p1_perp_x,   "p1_perp_x/F");
+  srcTree->Branch("p1_perp_y",   &b_p1_perp_y,   "p1_perp_y/F");
+  srcTree->Branch("p1_perp_mag", &b_p1_perp_mag, "p1_perp_mag/F");
+  srcTree->Branch("p2_perp_x",   &b_p2_perp_x,   "p2_perp_x/F");
+  srcTree->Branch("p2_perp_y",   &b_p2_perp_y,   "p2_perp_y/F");
+  srcTree->Branch("p2_perp_mag", &b_p2_perp_mag, "p2_perp_mag/F");
+  srcTree->Branch("pCM_perp_x",  &b_pCM_perp_x,  "pCM_perp_x/F");
+  srcTree->Branch("pCM_perp_y",  &b_pCM_perp_y,  "pCM_perp_y/F");
+  srcTree->Branch("pCM_perp_mag",&b_pCM_perp_mag,"pCM_perp_mag/F");
+  srcTree->Branch("prel_perp_x", &b_prel_perp_x, "prel_perp_x/F");
+  srcTree->Branch("prel_perp_y", &b_prel_perp_y, "prel_perp_y/F");
+  srcTree->Branch("prel_perp_mag", &b_prel_perp_mag, "prel_perp_mag/F");
+  srcTree->Branch("k",           &b_k,           "k/F");
+  srcTree->Branch("k2",          &b_k2,          "k2/F");
+  srcTree->Branch("k_z",         &b_k_z,         "k_z/F");
+  srcTree->Branch("m_bar",       &b_m_bar,       "m_bar/F");
+  srcTree->Branch("lc_quality",  &b_lc_quality,  "lc_quality/O");
 
   srcTree->Branch("nGoodLeads",     &b_nGoodLeads,     "nGoodLeads/I");
   srcTree->Branch("singleGoodLead", &b_singleGoodLead, "singleGoodLead/O");
@@ -315,6 +591,27 @@ int main(int argc, char **argv)
   srcTree->Branch("pcmz_lab_truth",    &b_pcmz_lab_truth,    "pcmz_lab_truth/F");
   srcTree->Branch("chi_frame_truth",   &b_chi_frame_truth,   "chi_frame_truth/F");
   srcTree->Branch("E2miss_truth",      &b_E2miss_truth,      "E2miss_truth/F");
+  srcTree->Branch("alpha_1_truth",     &b_alpha_1_truth,     "alpha_1_truth/F");
+  srcTree->Branch("alpha_2_truth",     &b_alpha_2_truth,     "alpha_2_truth/F");
+  srcTree->Branch("alpha_CM_truth",    &b_alpha_CM_truth,    "alpha_CM_truth/F");
+  srcTree->Branch("alpha_rel_truth",   &b_alpha_rel_truth,   "alpha_rel_truth/F");
+  srcTree->Branch("p1_perp_x_truth",   &b_p1_perp_x_truth,   "p1_perp_x_truth/F");
+  srcTree->Branch("p1_perp_y_truth",   &b_p1_perp_y_truth,   "p1_perp_y_truth/F");
+  srcTree->Branch("p1_perp_mag_truth", &b_p1_perp_mag_truth, "p1_perp_mag_truth/F");
+  srcTree->Branch("p2_perp_x_truth",   &b_p2_perp_x_truth,   "p2_perp_x_truth/F");
+  srcTree->Branch("p2_perp_y_truth",   &b_p2_perp_y_truth,   "p2_perp_y_truth/F");
+  srcTree->Branch("p2_perp_mag_truth", &b_p2_perp_mag_truth, "p2_perp_mag_truth/F");
+  srcTree->Branch("pCM_perp_x_truth",  &b_pCM_perp_x_truth,  "pCM_perp_x_truth/F");
+  srcTree->Branch("pCM_perp_y_truth",  &b_pCM_perp_y_truth,  "pCM_perp_y_truth/F");
+  srcTree->Branch("pCM_perp_mag_truth",&b_pCM_perp_mag_truth,"pCM_perp_mag_truth/F");
+  srcTree->Branch("prel_perp_x_truth", &b_prel_perp_x_truth, "prel_perp_x_truth/F");
+  srcTree->Branch("prel_perp_y_truth", &b_prel_perp_y_truth, "prel_perp_y_truth/F");
+  srcTree->Branch("prel_perp_mag_truth", &b_prel_perp_mag_truth, "prel_perp_mag_truth/F");
+  srcTree->Branch("k_truth",           &b_k_truth,           "k_truth/F");
+  srcTree->Branch("k2_truth",          &b_k2_truth,          "k2_truth/F");
+  srcTree->Branch("k_z_truth",         &b_k_z_truth,         "k_z_truth/F");
+  srcTree->Branch("m_bar_truth",       &b_m_bar_truth,       "m_bar_truth/F");
+  srcTree->Branch("lc_quality_truth",  &b_lc_quality_truth,  "lc_quality_truth/O");
 
   srcTree->Branch("recP_truth",        &b_recP_truth,        "recP_truth/F");
   srcTree->Branch("recTheta_truth",    &b_recTheta_truth,    "recTheta_truth/F");
@@ -322,6 +619,16 @@ int main(int argc, char **argv)
   srcTree->Branch("theta_PmPrec_truth",&b_theta_PmPrec_truth,"theta_PmPrec_truth/F");
   srcTree->Branch("theta_PrecQ_truth", &b_theta_PrecQ_truth, "theta_PrecQ_truth/F");
   srcTree->Branch("phiTrento_truth",   &b_phiTrento_truth,   "phiTrento_truth/F");
+
+  TH1D *h_alpha_1 = new TH1D("h_alpha_1", "alpha_{1};alpha_{1};Events", 80, 0., 2.);
+  TH1D *h_alpha_2 = new TH1D("h_alpha_2", "alpha_{2};alpha_{2};Events", 80, 0., 2.);
+  TH1D *h_alpha_CM = new TH1D("h_alpha_CM", "alpha_{CM};alpha_{CM};Events", 80, 0., 4.);
+  TH1D *h_alpha_spectator = new TH1D("h_alpha_spectator",
+                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., 4.);
+  TH1D *h_k2 = new TH1D("h_k2", "k^{2};k^{2} [GeV^{2}];Events", 80, 0., 2.0);
+  TH2D *h_k_vs_pRel = new TH2D("h_k_vs_pRel",
+                               "k vs |p_{rel}^{lab}|;|p_{rel}^{lab}| [GeV/c];k [GeV/c]",
+                               80, 0., 1.2, 80, 0., 1.2);
 
   // ---- chain setup ----
   clas12root::HipoChain chain;
@@ -348,6 +655,8 @@ int main(int argc, char **argv)
   TLorentzVector missP4;
 
   TVector3 p_beam(0., 0., Ebeam);
+
+  runLightConeSelfTests();
 
   int counter = 0;
 
@@ -387,6 +696,13 @@ int main(int argc, char **argv)
     b_pcmx_lab = -9.f; b_pcmy_lab = -9.f;  b_pcmz_lab = -9.f;
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
+    b_alpha_1 = -9.f; b_alpha_2 = -9.f; b_alpha_CM = -9.f; b_alpha_rel = -9.f;
+    b_p1_perp_x = -9.f; b_p1_perp_y = -9.f; b_p1_perp_mag = -9.f;
+    b_p2_perp_x = -9.f; b_p2_perp_y = -9.f; b_p2_perp_mag = -9.f;
+    b_pCM_perp_x = -9.f; b_pCM_perp_y = -9.f; b_pCM_perp_mag = -9.f;
+    b_prel_perp_x = -9.f; b_prel_perp_y = -9.f; b_prel_perp_mag = -9.f;
+    b_k = -9.f; b_k2 = -9.f; b_k_z = -9.f; b_m_bar = -9.f;
+    b_lc_quality = false;
     b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
     b_E0miss = -9.f; b_E1miss = -9.f;
     b_theta_PmQ = -9.f;
@@ -417,6 +733,13 @@ int main(int argc, char **argv)
     b_pcmx_lab_truth = -9.f; b_pcmy_lab_truth = -9.f;  b_pcmz_lab_truth = -9.f;
     b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
+    b_alpha_1_truth = -9.f; b_alpha_2_truth = -9.f; b_alpha_CM_truth = -9.f; b_alpha_rel_truth = -9.f;
+    b_p1_perp_x_truth = -9.f; b_p1_perp_y_truth = -9.f; b_p1_perp_mag_truth = -9.f;
+    b_p2_perp_x_truth = -9.f; b_p2_perp_y_truth = -9.f; b_p2_perp_mag_truth = -9.f;
+    b_pCM_perp_x_truth = -9.f; b_pCM_perp_y_truth = -9.f; b_pCM_perp_mag_truth = -9.f;
+    b_prel_perp_x_truth = -9.f; b_prel_perp_y_truth = -9.f; b_prel_perp_mag_truth = -9.f;
+    b_k_truth = -9.f; b_k2_truth = -9.f; b_k_z_truth = -9.f; b_m_bar_truth = -9.f;
+    b_lc_quality_truth = false;
     b_E0miss_truth = -9.f; b_E1miss_truth = -9.f;
     b_recP_truth = -9.f;   b_recTheta_truth = -9.f;    b_recPhi_truth = -9.f;
     b_theta_PmPrec_truth = -9.f;
@@ -642,6 +965,39 @@ int main(int argc, char **argv)
         b_theta_PrecQ  = recoil_p3.Angle(qP3);
         b_phiTrento = getPhiTrentoZeroCM(lead_p3, miss_neg, recoil_p3);
 
+        const LightConeKinematics lc = computeLightConeKinematics(
+            qP3, omega, lead_p3, recoil_p3, mP, mP, m_4He, kTargetMassNumber);
+        if(lc.validBasis && lc.pairDefined){
+          b_alpha_1 = lc.alpha1;
+          b_alpha_2 = lc.alpha2;
+          b_alpha_CM = lc.alphaCM;
+          b_alpha_rel = lc.alphaRel;
+          b_p1_perp_x = lc.p1PerpX;
+          b_p1_perp_y = lc.p1PerpY;
+          b_p1_perp_mag = lc.p1PerpMag;
+          b_p2_perp_x = lc.p2PerpX;
+          b_p2_perp_y = lc.p2PerpY;
+          b_p2_perp_mag = lc.p2PerpMag;
+          b_pCM_perp_x = lc.pCMPerpX;
+          b_pCM_perp_y = lc.pCMPerpY;
+          b_pCM_perp_mag = lc.pCMPerpMag;
+          b_prel_perp_x = lc.pRelPerpX;
+          b_prel_perp_y = lc.pRelPerpY;
+          b_prel_perp_mag = lc.pRelPerpMag;
+          b_k = lc.k;
+          b_k2 = lc.k2;
+          b_k_z = lc.kZ;
+          b_m_bar = lc.mBar;
+          b_lc_quality = lc.qualityBit;
+
+          h_alpha_1->Fill(lc.alpha1);
+          h_alpha_2->Fill(lc.alpha2);
+          h_alpha_CM->Fill(lc.alphaCM);
+          h_alpha_spectator->Fill(kTargetMassNumber - lc.alphaCM);
+          h_k2->Fill(lc.k2);
+          if(b_pRel > 0. && lc.k >= 0.) h_k_vs_pRel->Fill(b_pRel, lc.k);
+        }
+
         break;  // one recoil per event
       }
     }
@@ -754,6 +1110,33 @@ int main(int argc, char **argv)
           b_theta_PmPrec_truth = pMiss_truth.Angle(rec_truth);
           b_theta_PrecQ_truth  = rec_truth.Angle(q_truth);
           b_phiTrento_truth = getPhiTrentoZeroCM(lead_truth, pMiss_truth, rec_truth);
+
+          const LightConeKinematics lcTruth = computeLightConeKinematics(
+              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, m_4He,
+              kTargetMassNumber);
+          if(lcTruth.validBasis && lcTruth.pairDefined){
+            b_alpha_1_truth = lcTruth.alpha1;
+            b_alpha_2_truth = lcTruth.alpha2;
+            b_alpha_CM_truth = lcTruth.alphaCM;
+            b_alpha_rel_truth = lcTruth.alphaRel;
+            b_p1_perp_x_truth = lcTruth.p1PerpX;
+            b_p1_perp_y_truth = lcTruth.p1PerpY;
+            b_p1_perp_mag_truth = lcTruth.p1PerpMag;
+            b_p2_perp_x_truth = lcTruth.p2PerpX;
+            b_p2_perp_y_truth = lcTruth.p2PerpY;
+            b_p2_perp_mag_truth = lcTruth.p2PerpMag;
+            b_pCM_perp_x_truth = lcTruth.pCMPerpX;
+            b_pCM_perp_y_truth = lcTruth.pCMPerpY;
+            b_pCM_perp_mag_truth = lcTruth.pCMPerpMag;
+            b_prel_perp_x_truth = lcTruth.pRelPerpX;
+            b_prel_perp_y_truth = lcTruth.pRelPerpY;
+            b_prel_perp_mag_truth = lcTruth.pRelPerpMag;
+            b_k_truth = lcTruth.k;
+            b_k2_truth = lcTruth.k2;
+            b_k_z_truth = lcTruth.kZ;
+            b_m_bar_truth = lcTruth.mBar;
+            b_lc_quality_truth = lcTruth.qualityBit;
+          }
         }
       }
     }
@@ -764,6 +1147,12 @@ int main(int argc, char **argv)
 
   outFile->cd();
   srcTree->Write();
+  h_alpha_1->Write();
+  h_alpha_2->Write();
+  h_alpha_CM->Write();
+  h_alpha_spectator->Write();
+  h_k2->Write();
+  h_k_vs_pRel->Write();
   outFile->Close();
 
   cout << "Done. Processed " << counter << " events.\n";
