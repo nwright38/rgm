@@ -28,23 +28,6 @@ const double m_12C = 12.0 * 0.93149410242 - 6.0 * 0.00051099895;
 const double kLightConeEdgeEpsilon = 1e-6;
 const double kLightConeRoundoffTolerance = 1e-9;
 
-struct TargetConfig {
-  const char *name;
-  double mass;
-  int massNumber;
-  int Z;
-  int N;
-  double sigmaCM;
-};
-
-TargetConfig parseTargetConfig(int nucleusA)
-{
-  if(nucleusA == 12) {
-    return {"C12", m_12C, 12, 6, 6, 0.15};
-  }
-  return {"He4", m_4He, 4, 2, 2, 0.10};
-}
-
 const int MAXP = 4;  // max number of proton candidates considered per event
 
 struct LightConeBasis {
@@ -373,7 +356,28 @@ int main(int argc, char **argv)
   bool isMC = (atoi(argv[1]) == 1);
   double Ebeam = atof(argv[2]);
   int nucleus_A = atoi(argv[4]);
-  TargetConfig target = parseTargetConfig(nucleus_A);
+  double targetMass = m_4He;
+  int targetMassNumber = 4;
+  int targetZ = 2;
+  int targetN = 2;
+  double targetSigmaCM = 0.10;
+  const char *targetLabel = "He4";
+
+  if(nucleus_A == 12) {
+    targetMass = m_12C;
+    targetMassNumber = 12;
+    targetZ = 6;
+    targetN = 6;
+    targetSigmaCM = 0.15;
+    targetLabel = "C12";
+  } else {
+    targetMass = m_4He;
+    targetMassNumber = 4;
+    targetZ = 2;
+    targetN = 2;
+    targetSigmaCM = 0.10;
+    targetLabel = "He4";
+  }
 
   TFile *outFile = new TFile(argv[3], "RECREATE");
   TTree *srcTree = new TTree("srcTree", "SRC Kinematics");
@@ -643,7 +647,7 @@ int main(int argc, char **argv)
   TH1D *h_alpha_2 = new TH1D("h_alpha_2", "alpha_{2};alpha_{2};Events", 80, 0., 2.);
   TH1D *h_alpha_CM = new TH1D("h_alpha_CM", "alpha_{CM};alpha_{CM};Events", 80, 0., 4.);
   TH1D *h_alpha_spectator = new TH1D("h_alpha_spectator",
-                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., target.massNumber);
+                                     "A-alpha_{CM};A-alpha_{CM};Events", 80, 0., targetMassNumber);
   TH1D *h_k2 = new TH1D("h_k2", "k^{2};k^{2} [GeV^{2}];Events", 80, 0., 2.0);
   TH2D *h_k_vs_pRel = new TH2D("h_k_vs_pRel",
                                "k vs |p_{rel}^{lab}|;|p_{rel}^{lab}| [GeV/c];k [GeV/c]",
@@ -664,8 +668,8 @@ int main(int argc, char **argv)
   clas12ana clasAna;
 
   // fixed 4-vectors
-  TLorentzVector targP4(0., 0., 0., target.mass);
-  TLorentzVector nucleusP4(0., 0., 0., target.mass);
+  TLorentzVector targP4(0., 0., 0., targetMass);
+  TLorentzVector nucleusP4(0., 0., 0., targetMass);
   TLorentzVector beamP4(0., 0., Ebeam, Ebeam);
 
   TLorentzVector eP4(0., 0., 0., me);
@@ -679,9 +683,9 @@ int main(int argc, char **argv)
   int counter = 0;
 
     char av18[] = "AV18";
-    reweighter newWeight(Ebeam, target.Z, target.N, kelly, av18, target.sigmaCM);
-    cout << "Target A = " << nucleus_A << " (" << target.name
-      << ", sigmaCM = " << target.sigmaCM << ")" << endl;
+    reweighter newWeight(Ebeam, targetZ, targetN, kelly, av18, targetSigmaCM);
+    cout << "Target A = " << nucleus_A << " (" << targetLabel
+      << ", sigmaCM = " << targetSigmaCM << ")" << endl;
 
   int ctr = 0;
   while(chain.Next())
@@ -987,7 +991,7 @@ int main(int argc, char **argv)
         b_phiTrento = getPhiTrentoZeroCM(lead_p3, miss_neg, recoil_p3);
 
         const LightConeKinematics lc = computeLightConeKinematics(
-          qP3, omega, lead_p3, recoil_p3, mP, mP, target.mass, target.massNumber);
+          qP3, omega, lead_p3, recoil_p3, mP, mP, targetMass, targetMassNumber);
         if(lc.validBasis && lc.pairDefined){
           b_alpha_1 = lc.alpha1;
           b_alpha_2 = lc.alpha2;
@@ -1014,7 +1018,7 @@ int main(int argc, char **argv)
           h_alpha_1->Fill(lc.alpha1);
           h_alpha_2->Fill(lc.alpha2);
           h_alpha_CM->Fill(lc.alphaCM);
-          h_alpha_spectator->Fill(target.massNumber - lc.alphaCM);
+          h_alpha_spectator->Fill(targetMassNumber - lc.alphaCM);
           h_k2->Fill(lc.k2);
           if(b_pRel > 0. && lc.k >= 0.) h_k_vs_pRel->Fill(b_pRel, lc.k);
         }
@@ -1133,8 +1137,8 @@ int main(int argc, char **argv)
           b_phiTrento_truth = getPhiTrentoZeroCM(lead_truth, pMiss_truth, rec_truth);
 
           const LightConeKinematics lcTruth = computeLightConeKinematics(
-              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, target.mass,
-              target.massNumber);
+              q_truth, omega_truth, lead_truth, rec_truth, mP, mP, targetMass,
+              targetMassNumber);
           if(lcTruth.validBasis && lcTruth.pairDefined){
             b_alpha_1_truth = lcTruth.alpha1;
             b_alpha_2_truth = lcTruth.alpha2;
