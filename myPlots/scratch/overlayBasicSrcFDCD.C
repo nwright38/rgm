@@ -111,22 +111,85 @@ double finiteMax(double x, double fallback = 0.) {
   return std::isfinite(x) ? x : fallback;
 }
 
+TString buildSelection(const char *eppCut, const char *baseCut,
+                       const char *comboCut, const char *pCMyTailCut,
+                       const char *q2Cut = nullptr,
+                       const char *extraCut = nullptr) {
+  std::vector<TString> terms;
+  if (eppCut && eppCut[0] != '\0') terms.emplace_back(eppCut);
+  if (baseCut && baseCut[0] != '\0') terms.emplace_back(baseCut);
+  if (comboCut && comboCut[0] != '\0') terms.emplace_back(comboCut);
+  if (pCMyTailCut && pCMyTailCut[0] != '\0') terms.emplace_back(pCMyTailCut);
+  if (q2Cut && q2Cut[0] != '\0') terms.emplace_back(q2Cut);
+  if (extraCut && extraCut[0] != '\0') terms.emplace_back(extraCut);
+
+  if (terms.empty()) return "1";
+
+  TString sel = "(";
+  for (std::size_t i = 0; i < terms.size(); ++i) {
+    if (i > 0) sel += " && ";
+    sel += "(";
+    sel += terms[i];
+    sel += ")";
+  }
+  sel += ")";
+  return sel;
+}
+
+TString applyWeightToSelection(const char *weightExpression,
+                               const TString &selection) {
+  if (!weightExpression || weightExpression[0] == '\0') {
+    return selection;
+  }
+  return Form("(%s) * (%s)", weightExpression, selection.Data());
+}
+
+int chooseAutoRebinFactor(int nBins, double minPositiveEntries,
+                          double targetAvgCountsPerBin = 8.0,
+                          int minFinalBins = 5,
+                          int maxRebinFactor = 2) {
+  if (nBins <= 0 || !std::isfinite(minPositiveEntries) ||
+      minPositiveEntries <= 0. || maxRebinFactor < 1) {
+    return 1;
+  }
+
+  int bestMeetingTarget = 1;
+  for (int factor = 2; factor <= nBins; ++factor) {
+    if (factor > maxRebinFactor) break;
+    if (nBins % factor != 0) continue;
+    const int finalBins = nBins / factor;
+    if (finalBins < minFinalBins) continue;
+    const double avg = minPositiveEntries / static_cast<double>(finalBins);
+    if (avg >= targetAvgCountsPerBin) {
+      bestMeetingTarget = factor;
+    }
+  }
+  return bestMeetingTarget;
+}
+
 }  // namespace
 
 void overlayBasicSrcFDCD(
-    const char *dataFileName = "~/data/RGM_DATA/c12_src_skim.root",
-    const char *simFileName = "~/data/RGM_DATA/c12_sim_skim.root",
+    const char *dataFileName = "~/data/RGM_DATA/he4_sim_skim_100MeV.root",
+    const char *simFileName = "~/data/RGM_DATA/he4_sim_skim_100MeV_allD.root",
     const char *treeName = "srcTree",
-    const char *outputPdfName = "overlay_basic_src_fdcd_byDet.pdf",
+    const char *outputPdfName = "overlay_basic_src_fdcd_he_sim.pdf",
     bool normalizeToUnity = true,
   const char *eppCut = "pCM > 0",
-  const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1. && recP > .4",
+  const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1.",
   const char *simWeightExpression = "(weight_epp)",
   const char *pCMyTailCut = "",
   bool overlayByVariableDataOnly = false,
   const char *thirdFileName = "",
   const char *thirdWeightExpression = "(weight_epp)",
-  const char *thirdLegendLabel = "Sim + FSI") {
+  const char *thirdLegendLabel = "Sim + FSI",
+  bool overlayByQ2BinsPerDetector = false,
+  bool overlayDataWithWithoutCut = false,
+  const char *dataCompareCut = "",
+  const char *dataCompareCutLabel = "",
+  const char *dataWeightExpression = "(weight_epp)",
+  const char *defaultDataOverlayLabel = "Sim Before",
+  const char *defaultSimOverlayLabel = "Sim Now") {
 
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -235,9 +298,9 @@ void overlayBasicSrcFDCD(
       {"pRelTheta", "pRelTheta*180./TMath::Pi()", "#theta_{p_{rel}} [deg]",
        36, 0.0, 180.0},
       {"pRel", "pRel", "p_{rel} [GeV/c]", 40, 0.0, 1.2},
-      {"pRelx", "pRelx", "p_{rel,x} [GeV/c]", 40, -0.8, 0.8},
-      {"pRely", "pRely", "p_{rel,y} [GeV/c]", 40, -0.8, 0.8},
-      {"pRelz", "pRelz", "p_{rel,z} [GeV/c]", 40, -0.8, 0.8},
+      {"pRelx", "pRelx", "p_{rel,x} [GeV/c]", 40, -0.5, 0.5},
+      {"pRely", "pRely", "p_{rel,y} [GeV/c]", 40, -0.5, 0.5},
+      {"pRelz", "pRelz", "p_{rel,z} [GeV/c]", 40, 0., 1.},
       {"pLeadPlusRecOver2", "pLeadPlusRecOver2",
        "|p_{lead}+p_{rec}|/2 [GeV/c]", 40, 0.0, 1.6},
       {"pLeadMinusRec", "pLeadMinusRec",
@@ -270,7 +333,7 @@ void overlayBasicSrcFDCD(
       {"phiTrento", "phiTrento", "#phi_{Trento} [rad]",
        36, 0.0, TMath::Pi()},
       {"theta_PleadQ", "theta_PleadQ*180./TMath::Pi()",
-       "#theta_{p_{lead},q} [deg]", 36, 0.0, 180.0},
+       "#theta_{p_{lead},q} [deg]", 36, 0.0, 60.0},
       {"theta_PmPlead", "theta_PmPlead*180./TMath::Pi()",
        "#theta_{p_{miss},p_{lead}} [deg]", 36, 0.0, 180.0},
       {"theta_PmQ", "theta_PmQ*180./TMath::Pi()", "#theta_{p_{miss},q} [deg]",
@@ -299,7 +362,146 @@ void overlayBasicSrcFDCD(
   for (const PlotVar &v : variables) {
     canvas->Clear();
 
-    if (overlayByVariableDataOnly) {
+    const bool dataOnlyMode = overlayByVariableDataOnly;
+    const bool q2ByDetectorMode =
+        dataOnlyMode && overlayByQ2BinsPerDetector && !overlayDataWithWithoutCut;
+    const bool cutCompareMode = dataOnlyMode && overlayDataWithWithoutCut;
+    const bool normalizeInCutCompare = false;
+
+    if (cutCompareMode) {
+      canvas->Divide(2, 2);
+
+      std::vector<int> activeIndices;
+      activeIndices.reserve(3);
+      for (int idx = 0; idx < 4; ++idx) {
+        if (idx == 0) continue;  // omit FD+FD
+        activeIndices.push_back(idx);
+      }
+
+      for (std::size_t drawIdx = 0; drawIdx < activeIndices.size(); ++drawIdx) {
+        const int idx = activeIndices[drawIdx];
+        const DetectorCombination &combo = combinations[idx];
+        canvas->cd(static_cast<int>(drawIdx) + 1);
+        gPad->SetLeftMargin(0.13);
+        gPad->SetBottomMargin(0.12);
+
+        TH1D *hNoCut = new TH1D(
+            Form("h_data_nocut_%s_%s", v.name, combo.key), "", v.bins,
+            v.xmin, v.xmax);
+        TH1D *hWithCut = new TH1D(
+            Form("h_data_withcut_%s_%s", v.name, combo.key), "", v.bins,
+            v.xmin, v.xmax);
+        hNoCut->Sumw2();
+        hWithCut->Sumw2();
+        styleData(hNoCut);
+        styleSim(hWithCut);
+
+        const TString noCutSel =
+            buildSelection(eppCut, baseCut, combo.cut, pCMyTailCut);
+        const TString withCutSel =
+            buildSelection(eppCut, baseCut, combo.cut, pCMyTailCut,
+                           nullptr, dataCompareCut);
+        const TString noCutSelWeighted =
+          applyWeightToSelection(dataWeightExpression, noCutSel);
+        const TString withCutSelWeighted =
+          applyWeightToSelection(dataWeightExpression, withCutSel);
+
+        if (!std::strcmp(v.name, "xB")) {
+          const Long64_t nNoCutSel = dataTree->GetEntries(noCutSel.Data());
+          const Long64_t nWithCutSel = dataTree->GetEntries(withCutSel.Data());
+          std::cout << "cutCompare " << combo.key
+              << " | noCut selected=" << nNoCutSel
+              << " | withCut selected=" << nWithCutSel
+              << " | extraCut="
+              << ((dataCompareCut && dataCompareCut[0] != '\0')
+                  ? dataCompareCut
+                  : "<none>")
+              << '\n';
+        }
+
+        dataTree->Project(hNoCut->GetName(), v.expr, noCutSelWeighted.Data());
+        dataTree->Project(hWithCut->GetName(), v.expr,
+              withCutSelWeighted.Data());
+
+        const double rawNoCut = hNoCut->Integral(0, hNoCut->GetNbinsX() + 1);
+        const double rawWithCut =
+            hWithCut->Integral(0, hWithCut->GetNbinsX() + 1);
+
+        if (normalizeInCutCompare) {
+          const double noCutInt = hNoCut->Integral();
+          const double withCutInt = hWithCut->Integral();
+          if (noCutInt > 0.) hNoCut->Scale(1. / noCutInt);
+          if (withCutInt > 0.) hWithCut->Scale(1. / withCutInt);
+        }
+
+        double yMax = std::max(finiteMax(hNoCut->GetMaximum()),
+                               finiteMax(hWithCut->GetMaximum()));
+        if (yMax <= 0.) yMax = 1.;
+        hNoCut->SetMinimum(0.);
+        hNoCut->SetMaximum(1.25 * yMax);
+        hNoCut->GetXaxis()->SetTitle(v.xTitle);
+        hNoCut->GetYaxis()->SetTitle("Counts");
+        hNoCut->GetXaxis()->SetTitleSize(0.050);
+        hNoCut->GetYaxis()->SetTitleSize(0.050);
+        hNoCut->GetXaxis()->SetLabelSize(0.043);
+        hNoCut->GetYaxis()->SetLabelSize(0.043);
+        hNoCut->GetYaxis()->SetTitleOffset(1.20);
+
+        hNoCut->Draw("E");
+        hWithCut->Draw("E SAME");
+
+        TLegend *legend = new TLegend(0.53, 0.68, 0.90, 0.89);
+        legend->SetBorderSize(0);
+        legend->SetFillStyle(0);
+        legend->SetTextSize(0.028);
+        legend->AddEntry(hNoCut, Form("No extra cut (N=%.0f)", rawNoCut), "lep");
+        legend->AddEntry(hWithCut,
+                         Form("%s (N=%.0f)",
+                              (dataCompareCutLabel && dataCompareCutLabel[0] != '\0')
+                                  ? dataCompareCutLabel
+                                  : "With extra cut",
+                              rawWithCut),
+                         "lep");
+        legend->Draw();
+
+        TLatex label;
+        label.SetNDC();
+        label.SetTextSize(0.040);
+        label.SetTextFont(42);
+        label.DrawLatex(0.14, 0.92, combo.label);
+
+        if (rawNoCut <= 0. && rawWithCut <= 0.) {
+          TLatex empty;
+          empty.SetNDC();
+          empty.SetTextSize(0.042);
+          empty.SetTextColor(kGray + 2);
+          empty.DrawLatex(0.20, 0.52, "No entries after cuts");
+        }
+      }
+
+      canvas->cd(4);
+      gPad->SetLeftMargin(0.13);
+      gPad->SetBottomMargin(0.12);
+      TLatex omitted;
+      omitted.SetNDC();
+      omitted.SetTextSize(0.040);
+      omitted.SetTextColor(kGray + 1);
+      omitted.DrawLatex(0.18, 0.52, "FD+FD omitted");
+
+      canvas->cd(0);
+      TLatex pageTitle;
+      pageTitle.SetNDC();
+      pageTitle.SetTextSize(0.028);
+      pageTitle.SetTextFont(62);
+      pageTitle.DrawLatex(0.10, 0.985,
+                          Form("%s: data overlay (with vs without extra cut)",
+                               v.name));
+
+      canvas->Print(pdfName, "pdf");
+      continue;
+    }
+
+    if (dataOnlyMode && !overlayByQ2BinsPerDetector && !overlayDataWithWithoutCut) {
       canvas->cd(1);
       gPad->SetLeftMargin(0.13);
       gPad->SetBottomMargin(0.12);
@@ -313,9 +515,8 @@ void overlayBasicSrcFDCD(
       double yMax = 0.;
       double totalRawIntegral = 0.;
 
-      // In data-only overlay mode, suppress FD+FD as requested.
       for (int idx = 0; idx < 4; ++idx) {
-        if (idx == 0) continue;
+        if (idx == 0) continue;  // omit FD+FD
         overlayIndices.push_back(idx);
       }
 
@@ -334,7 +535,9 @@ void overlayBasicSrcFDCD(
                        combo.cut, pCMyTailCut)
                 : Form("((%s) && (%s) && (%s))", eppCut, baseCut, combo.cut);
 
-        dataTree->Project(hData->GetName(), v.expr, boolSel.Data());
+        const TString dataSelWeighted =
+          applyWeightToSelection(dataWeightExpression, boolSel);
+        dataTree->Project(hData->GetName(), v.expr, dataSelWeighted.Data());
         const double rawDataIntegral =
             hData->Integral(0, hData->GetNbinsX() + 1);
         totalRawIntegral += rawDataIntegral;
@@ -354,6 +557,7 @@ void overlayBasicSrcFDCD(
       }
 
       if (yMax <= 0.) yMax = 1.;
+      hDataByCombo.front()->SetMinimum(0.);
       hDataByCombo.front()->SetMaximum(1.3 * yMax);
       hDataByCombo.front()->GetXaxis()->SetTitle(v.xTitle);
       hDataByCombo.front()->GetYaxis()->SetTitle(normalizeToUnity
@@ -403,6 +607,172 @@ void overlayBasicSrcFDCD(
       continue;
     }
 
+    if (q2ByDetectorMode) {
+      canvas->Divide(2, 2);
+
+      const std::vector<double> q2Edges = {1.5, 1.80, 2.10, 2.40, 3.00, 5.0};
+      const std::vector<int> q2Colors = {
+          kBlack, kRed + 1, kBlue + 1, kGreen + 2, kOrange + 7, kMagenta + 1, kCyan + 2};
+      const std::vector<int> q2Markers = {20, 21, 22, 23, 24, 25, 26};
+
+      // Choose one shared rebin factor per variable so all 4 detector pads
+      // have identical binning for visual comparison.
+      double positiveRawSum = 0.;
+      int positiveRawCount = 0;
+      for (int idx = 0; idx < 4; ++idx) {
+        if (idx == 0) continue;  // omit FD+FD
+        const DetectorCombination &combo = combinations[idx];
+        for (std::size_t iq2 = 0; iq2 + 1 < q2Edges.size(); ++iq2) {
+          const bool usePCMyTailCut = pCMyTailCut && pCMyTailCut[0] != '\0';
+          const TString boolSel = usePCMyTailCut
+                                      ? Form("((%s) && (%s) && (%s) && (%s) && (Q2>=%g) && (Q2<%g))",
+                                             eppCut, baseCut, combo.cut, pCMyTailCut,
+                                             q2Edges[iq2], q2Edges[iq2 + 1])
+                                      : Form("((%s) && (%s) && (%s) && (Q2>=%g) && (Q2<%g))",
+                                             eppCut, baseCut, combo.cut,
+                                             q2Edges[iq2], q2Edges[iq2 + 1]);
+          const Long64_t nSel = dataTree->GetEntries(boolSel.Data());
+          if (nSel > 0) {
+            positiveRawSum += static_cast<double>(nSel);
+            ++positiveRawCount;
+          }
+        }
+      }
+      const double representativeEntries =
+          (positiveRawCount > 0) ? (positiveRawSum / static_cast<double>(positiveRawCount)) : 0.;
+      const int globalRebinFactor = chooseAutoRebinFactor(v.bins, representativeEntries);
+
+      std::vector<int> activeIndices;
+      activeIndices.reserve(3);
+      for (int idx = 0; idx < 4; ++idx) {
+        if (idx == 0) continue;  // omit FD+FD
+        activeIndices.push_back(idx);
+      }
+
+      for (std::size_t drawIdx = 0; drawIdx < activeIndices.size(); ++drawIdx) {
+        const int idx = activeIndices[drawIdx];
+        const DetectorCombination &combo = combinations[idx];
+        canvas->cd(static_cast<int>(drawIdx) + 1);
+        gPad->SetLeftMargin(0.13);
+        gPad->SetBottomMargin(0.12);
+
+        std::vector<TH1D *> hQ2;
+        std::vector<double> rawIntegrals;
+        hQ2.reserve(q2Edges.size() - 1);
+        rawIntegrals.reserve(q2Edges.size() - 1);
+
+        for (std::size_t iq2 = 0; iq2 + 1 < q2Edges.size(); ++iq2) {
+          TH1D *hData = new TH1D(
+              Form("h_data_q2_%s_%s_bin%zu", v.name, combo.key, iq2), "", v.bins,
+              v.xmin, v.xmax);
+          hData->Sumw2();
+          hData->SetStats(false);
+          hData->SetLineColor(q2Colors[iq2 % q2Colors.size()]);
+          hData->SetMarkerColor(q2Colors[iq2 % q2Colors.size()]);
+          hData->SetMarkerStyle(q2Markers[iq2 % q2Markers.size()]);
+          hData->SetMarkerSize(0.75);
+          hData->SetLineWidth(2);
+
+          const bool usePCMyTailCut = pCMyTailCut && pCMyTailCut[0] != '\0';
+          const TString boolSel = usePCMyTailCut
+                                      ? Form("((%s) && (%s) && (%s) && (%s) && (Q2>=%g) && (Q2<%g))",
+                                             eppCut, baseCut, combo.cut, pCMyTailCut,
+                                             q2Edges[iq2], q2Edges[iq2 + 1])
+                                      : Form("((%s) && (%s) && (%s) && (Q2>=%g) && (Q2<%g))",
+                                             eppCut, baseCut, combo.cut,
+                                             q2Edges[iq2], q2Edges[iq2 + 1]);
+
+            const TString dataSelWeighted =
+              applyWeightToSelection(dataWeightExpression, boolSel);
+            dataTree->Project(hData->GetName(), v.expr, dataSelWeighted.Data());
+          const double rawInt = hData->Integral(0, hData->GetNbinsX() + 1);
+          rawIntegrals.push_back(rawInt);
+          hQ2.push_back(hData);
+        }
+
+        if (hQ2.empty()) continue;
+
+        const int rebinFactor = globalRebinFactor;
+        double yMax = 0.;
+        for (TH1D *h : hQ2) {
+          if (rebinFactor > 1) h->Rebin(rebinFactor);
+          if (normalizeToUnity) {
+            const double dataInt = h->Integral();
+            if (dataInt > 0.) h->Scale(1. / dataInt);
+          }
+          yMax = std::max(yMax, finiteMax(h->GetMaximum()));
+        }
+
+        if (yMax <= 0.) yMax = 1.;
+        hQ2.front()->SetMinimum(0.);
+        hQ2.front()->SetMaximum(1.25 * yMax);
+        hQ2.front()->GetXaxis()->SetTitle(v.xTitle);
+        hQ2.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts" : "Counts");
+        hQ2.front()->GetXaxis()->SetTitleSize(0.050);
+        hQ2.front()->GetYaxis()->SetTitleSize(0.050);
+        hQ2.front()->GetXaxis()->SetLabelSize(0.043);
+        hQ2.front()->GetYaxis()->SetLabelSize(0.043);
+        hQ2.front()->GetYaxis()->SetTitleOffset(1.20);
+
+        hQ2.front()->Draw("E");
+        for (std::size_t iq2 = 1; iq2 < hQ2.size(); ++iq2) {
+          hQ2[iq2]->Draw("E SAME");
+        }
+
+        TLegend *legend = new TLegend(0.60, 0.52, 0.90, 0.89);
+        legend->SetBorderSize(0);
+        legend->SetFillStyle(0);
+        legend->SetTextSize(0.022);
+        for (std::size_t iq2 = 0; iq2 < hQ2.size(); ++iq2) {
+          legend->AddEntry(hQ2[iq2],
+                           Form("%.2f<Q^{2}<%.2f (N=%.0f)", q2Edges[iq2], q2Edges[iq2 + 1], rawIntegrals[iq2]),
+                           "lep");
+        }
+        legend->Draw();
+
+        TLatex label;
+        label.SetNDC();
+        label.SetTextSize(0.040);
+        label.SetTextFont(42);
+        label.DrawLatex(0.14, 0.92, combo.label);
+        if (rebinFactor > 1) {
+          label.SetTextSize(0.030);
+          label.DrawLatex(0.14, 0.86, Form("auto rebin x%d", rebinFactor));
+        }
+
+        double totalRaw = 0.;
+        for (double n : rawIntegrals) totalRaw += n;
+        if (totalRaw <= 0.) {
+          TLatex empty;
+          empty.SetNDC();
+          empty.SetTextSize(0.042);
+          empty.SetTextColor(kGray + 2);
+          empty.DrawLatex(0.20, 0.52, "No entries after cuts");
+        }
+      }
+
+      canvas->cd(4);
+      gPad->SetLeftMargin(0.13);
+      gPad->SetBottomMargin(0.12);
+      TLatex omitted;
+      omitted.SetNDC();
+      omitted.SetTextSize(0.040);
+      omitted.SetTextColor(kGray + 1);
+      omitted.DrawLatex(0.18, 0.52, "FD+FD omitted");
+
+      canvas->cd(0);
+      TLatex pageTitle;
+      pageTitle.SetNDC();
+      pageTitle.SetTextSize(0.028);
+      pageTitle.SetTextFont(62);
+      pageTitle.DrawLatex(0.10, 0.985,
+                          Form("%s: data-only overlays by Q^{2} bin (per detector topology)",
+                               v.name));
+
+      canvas->Print(pdfName, "pdf");
+      continue;
+    }
+
     canvas->Divide(2, 2);
 
     for (int idx = 0; idx < 4; ++idx) {
@@ -433,7 +803,8 @@ void overlayBasicSrcFDCD(
                       pCMyTailCut)
                     : Form("((%s) && (%s) && (%s))", eppCut,
                       baseCut, combo.cut);
-      const TString dataSel = boolSel;
+        const TString dataSel =
+          applyWeightToSelection(dataWeightExpression, boolSel);
       const TString simSel =
           Form("(%s) * (%s)", simWeightExpression, boolSel.Data());
         const TString thirdSel =
@@ -536,6 +907,7 @@ void overlayBasicSrcFDCD(
                              finiteMax(hSim->GetMaximum()));
       if (hThird) yMax = std::max(yMax, finiteMax(hThird->GetMaximum()));
       if (yMax <= 0.) yMax = 1.;
+      hData->SetMinimum(0.);
       hData->SetMaximum(1.25 * yMax);
 
       hData->GetXaxis()->SetTitle(v.xTitle);
@@ -559,8 +931,13 @@ void overlayBasicSrcFDCD(
       legend->SetFillStyle(0);
       legend->SetTextSize(0.035);
       if (normalizeToUnity) {
-        legend->AddEntry(hData, Form("Data c12 (N=%.0f)", rawDataIntegral), "lep");
-        legend->AddEntry(hSim, Form("Sim c12  (sumW=%.1f)", rawSimIntegral),
+         legend->AddEntry(hData,
+              Form("%s (sumW=%.1f)", defaultDataOverlayLabel,
+                rawDataIntegral),
+              "lep");
+         legend->AddEntry(hSim,
+              Form("%s (sumW=%.1f)", defaultSimOverlayLabel,
+                rawSimIntegral),
       //  legend->AddEntry(hSim, Form("Sim weighted (sumW=%.1f)", rawSimIntegral),
                          "lep");
            if (hThird) {
@@ -570,8 +947,13 @@ void overlayBasicSrcFDCD(
                   "lep");
            }
       } else {
-        legend->AddEntry(hData, Form("Data (N=%.0f)", rawDataIntegral), "lep");
-        legend->AddEntry(hSim, Form("Sim weighted (sumW=%.1f)", rawSimIntegral),
+         legend->AddEntry(hData,
+              Form("%s (sumW=%.1f)", defaultDataOverlayLabel,
+                rawDataIntegral),
+              "lep");
+         legend->AddEntry(hSim,
+              Form("%s (sumW=%.1f)", defaultSimOverlayLabel,
+                rawSimIntegral),
                          "lep");
            if (hThird) {
           legend->AddEntry(hThird,
@@ -624,6 +1006,34 @@ void overlayBasicSrcFDCD(
             << ((pCMyTailCut && pCMyTailCut[0] != '\0') ? pCMyTailCut
                                                          : "<none>")
             << '\n';
+  std::cout << "overlayByQ2BinsPerDetector = "
+            << (overlayByQ2BinsPerDetector ? "true" : "false") << '\n';
+    std::cout << "overlayDataWithWithoutCut = "
+        << (overlayDataWithWithoutCut ? "true" : "false") << '\n';
+    std::cout << "dataCompareCut = "
+        << ((dataCompareCut && dataCompareCut[0] != '\0') ? dataCompareCut
+                  : "<none>")
+        << '\n';
+    std::cout << "dataCompareCutLabel = "
+        << ((dataCompareCutLabel && dataCompareCutLabel[0] != '\0')
+          ? dataCompareCutLabel
+          : "<none>")
+        << '\n';
+      std::cout << "dataWeightExpression = "
+          << ((dataWeightExpression && dataWeightExpression[0] != '\0')
+            ? dataWeightExpression
+            : "<none>")
+          << '\n';
+      std::cout << "defaultDataOverlayLabel = "
+          << ((defaultDataOverlayLabel && defaultDataOverlayLabel[0] != '\0')
+            ? defaultDataOverlayLabel
+            : "<none>")
+          << '\n';
+      std::cout << "defaultSimOverlayLabel = "
+          << ((defaultSimOverlayLabel && defaultSimOverlayLabel[0] != '\0')
+            ? defaultSimOverlayLabel
+            : "<none>")
+          << '\n';
 
   if (!overlayByVariableDataOnly) {
     TString summaryFileName(outputPdfName);

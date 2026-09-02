@@ -108,7 +108,7 @@ std::vector<HistPair> makeHistograms(const char *variable,
 }  // namespace
 
 void fillCMByMiss(
-    const char *inputFileName = "~/data/RGM_DATA/c12_src_skim.root",
+    const char *inputFileName = "~/data/RGM_DATA/c12_sim_skim.root",
     const char *outputFileName = "cm_by_miss.root",
     const char *treeName = "srcTree") {
 

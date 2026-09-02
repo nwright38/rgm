@@ -149,7 +149,7 @@ TGraphErrors *makeGraph(const std::vector<FitPoint> &points, int color,
 }  // namespace
 
 void plotCMByMiss(const char *inputFileNames = "cm_by_miss.root",
-                  const char *outputPdf = "cm_by_miss.pdf") {
+                  const char *outputPdf = "cm_by_miss_c12_sim.pdf") {
   gStyle->SetOptStat(0);
   std::vector<std::unique_ptr<TFile>> ownedFiles;
   std::vector<TFile *> files;
