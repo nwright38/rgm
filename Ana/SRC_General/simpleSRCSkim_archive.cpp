@@ -159,6 +159,46 @@ LightConeBasis makeLightConeBasis(const TVector3 &qVec)
   return basis;
 }
 
+LightConeBasis makeLightConeBasisPmiss(const TVector3 &qVec,
+                                       const TVector3 &pLeadVec)
+{
+  // Relative tolerance on sin(theta) between p_miss and q. Scale-free, so it
+  // behaves identically whether momenta are in MeV or GeV.
+  const double sinThetaTol = 1e-6;
+  // Absolute floor, in the same units as the momenta, to reject p_miss ~ 0.
+  const double pMissMinMag = 1e-9;
+ 
+  LightConeBasis basis;
+  if(qVec.Mag2() <= 0.) return basis;
+ 
+  basis.zHat = qVec.Unit();
+ 
+  // Project p_miss into the plane transverse to q.
+  const TVector3 pMissVec = pLeadVec - qVec;
+  const double pMissMag2 = pMissVec.Mag2();
+  if(pMissMag2 <= pMissMinMag * pMissMinMag) return basis;
+
+  const TVector3 xSeed = pMissVec - basis.zHat * pMissVec.Dot(basis.zHat);
+ 
+  // Test on sin^2(theta) = |p_miss_perp|^2 / |p_miss|^2 so the cut does not
+  // depend on the momentum scale.
+  if(xSeed.Mag2() <= sinThetaTol * sinThetaTol * pMissMag2) return basis;
+ 
+  basis.xHat = xSeed.Unit();
+  basis.yHat = basis.zHat.Cross(basis.xHat);
+  if(basis.yHat.Mag2() <= 1e-12) return basis;
+ 
+  // Re-derive xHat from the cross products to scrub residual
+  // non-orthogonality from the floating-point subtraction above, and to
+  // guarantee a right-handed triad with zHat = xHat x yHat.
+  basis.yHat = basis.yHat.Unit();
+  basis.xHat = basis.yHat.Cross(basis.zHat).Unit();
+ 
+  basis.valid = true;
+  return basis;
+}
+
+
 /*
  * Light-cone conventions used for the added GCF variables:
  *   z || q on an event-by-event basis,
@@ -179,7 +219,8 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   if(targetMass <= 0. || massNumber <= 0) return out;
 
   out.mBar = targetMass / static_cast<double>(massNumber);
-  const LightConeBasis basis = makeLightConeBasis(qVec);
+  //const LightConeBasis basis = makeLightConeBasis(qVec);
+  const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
   if(!basis.valid) return out;
 
   out.validBasis = true;
