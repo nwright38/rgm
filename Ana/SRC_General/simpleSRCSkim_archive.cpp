@@ -683,10 +683,9 @@ int main(int argc, char **argv)
   int counter = 0;
 
     char av18[] = "AV18";
-    reweighter newWeight(Ebeam, targetZ, targetN, kelly, av18, targetSigmaCM);
-    cout << "Target A = " << nucleus_A << " (" << targetLabel
-      << ", sigmaCM = " << targetSigmaCM << ")" << endl;
-
+    reweighter newWeight(Ebeam, target.Z, target.N, kelly, av18, target.sigmaCM);
+    cout << "Target A = " << nucleus_A << " (" << target.name
+      << ", sigmaCM = " << target.sigmaCM << ")" << endl;
   int ctr = 0;
   while(chain.Next())
   {
@@ -858,7 +857,7 @@ int main(int argc, char **argv)
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
-      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
