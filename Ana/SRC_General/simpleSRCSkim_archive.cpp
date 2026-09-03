@@ -184,15 +184,18 @@ LightConeBasis makeLightConeBasisPmiss(const TVector3 &qVec,
   const double pMissMag2 = pMissVec.Mag2();
   if(pMissMag2 <= pMissMinMag * pMissMinMag) return basis;
 
+
   const TVector3 xSeed = pMissVec - basis.zHat * pMissVec.Dot(basis.zHat);
  
   // Test on sin^2(theta) = |p_miss_perp|^2 / |p_miss|^2 so the cut does not
   // depend on the momentum scale.
   if(xSeed.Mag2() <= sinThetaTol * sinThetaTol * pMissMag2) return basis;
+
  
   basis.xHat = xSeed.Unit();
   basis.yHat = basis.zHat.Cross(basis.xHat);
   if(basis.yHat.Mag2() <= 1e-12) return basis;
+
  
   // Re-derive xHat from the cross products to scrub residual
   // non-orthogonality from the floating-point subtraction above, and to
@@ -229,8 +232,8 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   if(targetMass <= 0. || massNumber <= 0) return out;
 
   out.mBar = targetMass / static_cast<double>(massNumber);
-  const LightConeBasis basis = makeLightConeBasis(qVec);
-  //const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
+ // const LightConeBasis basis = makeLightConeBasis(qVec);
+  const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
   if(!basis.valid) return out;
 
   out.validBasis = true;
