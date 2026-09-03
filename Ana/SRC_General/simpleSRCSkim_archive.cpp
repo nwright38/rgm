@@ -941,13 +941,13 @@ int main(int argc, char **argv)
       double EMiss = sqrt(pLead3.Mag2() + mP*mP) - omega;
       double E0miss = sqrt(pMissV.Mag2() + mN*mN) - mN;
       double TP = leadP4.E() - leadP4.M();
-      double TB = missP4.E() - missP4.M();
+      double TB = omega - targetCfg.mass - leadP4.E() - sqrt((omega + targetCfg.mass - leadP4.E())*(omega + targetCfg.mass - leadP4.E()) - pMissV.Mag2());
       double E1miss = omega - TP - TB;
 
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
-      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 

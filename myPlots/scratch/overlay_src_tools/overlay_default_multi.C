@@ -20,8 +20,8 @@ void overlay_default_multi(
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
-    const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1.",
-    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp<200)",
+    const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1. && mMiss < 1.1 && mMiss > .65",
+    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 200.)",
     const char *labelsCsv = "C12 Data,C12 Sim",
     const char *pCMyTailCut = "",
     bool includeFdFd = false) {
