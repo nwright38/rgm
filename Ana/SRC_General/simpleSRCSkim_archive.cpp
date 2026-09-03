@@ -484,6 +484,7 @@ int main(int argc, char **argv)
   Float_t b_leadBeta, b_leadToF;
   Float_t b_leadVz;
   Float_t b_pMiss, b_pMissTheta, b_pMissPhi;
+  Float_t b_mMissP, b_mMissTheta, b_mMissPhi;
   Float_t b_mMiss;
   Float_t b_kMiss;
   Float_t b_EMiss, b_E0miss, b_E1miss;
@@ -528,6 +529,7 @@ int main(int argc, char **argv)
   Float_t b_qP_truth, b_qTheta_truth, b_qPhi_truth;
   Float_t b_leadP_truth, b_leadTheta_truth, b_leadPhi_truth;
   Float_t b_pMiss_truth, b_pMissTheta_truth, b_pMissPhi_truth;
+  Float_t b_mMissP_truth, b_mMissTheta_truth, b_mMissPhi_truth;
   Float_t b_mMiss_truth;
   Float_t b_kMiss_truth;
   Float_t b_EMiss_truth, b_E0miss_truth, b_E1miss_truth;
@@ -583,6 +585,9 @@ int main(int argc, char **argv)
   srcTree->Branch("pMiss",       &b_pMiss,       "pMiss/F");
   srcTree->Branch("pMissTheta",  &b_pMissTheta,  "pMissTheta/F");
   srcTree->Branch("pMissPhi",    &b_pMissPhi,    "pMissPhi/F");
+  srcTree->Branch("mMissP",      &b_mMissP,      "mMissP/F");
+  srcTree->Branch("mMissTheta",  &b_mMissTheta,  "mMissTheta/F");
+  srcTree->Branch("mMissPhi",    &b_mMissPhi,    "mMissPhi/F");
 
   srcTree->Branch("mMiss",       &b_mMiss,       "mMiss/F");
   srcTree->Branch("kMiss",       &b_kMiss,       "kMiss/F");
@@ -670,6 +675,9 @@ int main(int argc, char **argv)
   srcTree->Branch("pMiss_truth",       &b_pMiss_truth,       "pMiss_truth/F");
   srcTree->Branch("pMissTheta_truth",  &b_pMissTheta_truth,  "pMissTheta_truth/F");
   srcTree->Branch("pMissPhi_truth",    &b_pMissPhi_truth,    "pMissPhi_truth/F");
+  srcTree->Branch("mMissP_truth",      &b_mMissP_truth,      "mMissP_truth/F");
+  srcTree->Branch("mMissTheta_truth",  &b_mMissTheta_truth,  "mMissTheta_truth/F");
+  srcTree->Branch("mMissPhi_truth",    &b_mMissPhi_truth,    "mMissPhi_truth/F");
 
   srcTree->Branch("mMiss_truth",       &b_mMiss_truth,       "mMiss_truth/F");
   srcTree->Branch("kMiss_truth",       &b_kMiss_truth,       "kMiss_truth/F");
@@ -800,6 +808,7 @@ int main(int argc, char **argv)
     b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;
     b_leadBeta = -9.f;  b_leadToF = -9.f;  b_leadVz = -99.f;
     b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
+    b_mMissP = -9.f;  b_mMissTheta = -9.f;  b_mMissPhi = -9.f;
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pRelx = -9.f;  b_pRely = -9.f;       b_pRelz = -9.f;
     b_pLeadPlusRecOver2 = -9.f;
@@ -833,6 +842,7 @@ int main(int argc, char **argv)
     b_qP_truth = -9.f;  b_qTheta_truth = -9.f;  b_qPhi_truth = -9.f;
     b_leadP_truth = -9.f;  b_leadTheta_truth = -9.f;  b_leadPhi_truth = -9.f;
     b_pMiss_truth = -9.f;  b_pMissTheta_truth = -9.f;  b_pMissPhi_truth = -9.f;
+    b_mMissP_truth = -9.f;  b_mMissTheta_truth = -9.f;  b_mMissPhi_truth = -9.f;
     b_mMiss_truth = -9.f;  b_kMiss_truth = -9.f;  b_EMiss_truth = -9.f;
     b_theta_PmQ_truth = -9.f;
     b_theta_PmPlead_truth = -9.f;
@@ -990,6 +1000,9 @@ int main(int argc, char **argv)
       b_pMiss       = cand_pMissV[leadIdx].Mag();
       b_pMissTheta  = cand_pMissV[leadIdx].Theta();
       b_pMissPhi    = cand_pMissV[leadIdx].Phi();
+      b_mMissP      = b_pMiss;
+      b_mMissTheta  = b_pMissTheta;
+      b_mMissPhi    = b_pMissPhi;
       b_mMiss       = cand_mMiss[leadIdx];
       b_kMiss       = cand_kMiss[leadIdx];
       b_EMiss       = cand_EMiss[leadIdx];
@@ -1174,6 +1187,9 @@ int main(int argc, char **argv)
         b_pMiss_truth      = pMiss_truth.Mag();
         b_pMissTheta_truth = pMiss_truth.Theta();
         b_pMissPhi_truth   = pMiss_truth.Phi();
+        b_mMissP_truth     = b_pMiss_truth;
+        b_mMissTheta_truth = b_pMissTheta_truth;
+        b_mMissPhi_truth   = b_pMissPhi_truth;
         b_mMiss_truth      = missP4_truth.M();
         b_kMiss_truth      = kMiss_truth;
         b_EMiss_truth      = EMiss_truth;
