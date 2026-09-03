@@ -232,8 +232,8 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   if(targetMass <= 0. || massNumber <= 0) return out;
 
   out.mBar = targetMass / static_cast<double>(massNumber);
- // const LightConeBasis basis = makeLightConeBasis(qVec);
-  const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
+  const LightConeBasis basis = makeLightConeBasis(qVec);
+ // const LightConeBasis basis = makeLightConeBasisPmiss(qVec, pLead);
   if(!basis.valid) return out;
 
   out.validBasis = true;
@@ -1041,7 +1041,7 @@ int main(int argc, char **argv)
       double EMiss = sqrt(pLead3.Mag2() + mP*mP) - omega;
       double E0miss = sqrt(pMissV.Mag2() + mN*mN) - mN;
       double TP = leadP4.E() - leadP4.M();
-      double TB = omega - targetCfg.mass - leadP4.E() - sqrt((omega + targetCfg.mass - leadP4.E())*(omega + targetCfg.mass - leadP4.E()) - pMissV.Mag2());
+      double TB = omega + targetCfg.mass - leadP4.E() - sqrt((omega + targetCfg.mass - leadP4.E())*(omega + targetCfg.mass - leadP4.E()) - pMissV.Mag2());
       double E1miss = omega - TP - TB;
 
       // SRC lead cuts
