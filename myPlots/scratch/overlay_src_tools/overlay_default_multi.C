@@ -15,16 +15,18 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim_FSI.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim.root",
     const char *treeName = "srcTree",
-    const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_FSI.pdf",
+    const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
     const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1.",
-    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 2000.)",
-    const char *labelsCsv = "C12 Data,C12 Sim",
+    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 200.)",
+    const char *labelsCsv = "C12 Data,C12 PWIA,C12 FSI",
     const char *pCMyTailCut = "",
-    bool includeFdFd = false) {
+    bool includeFdFd = false,
+    Long64_t maxEvents = -1,
+    Long64_t firstEvent = 0) {
 
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -105,7 +107,12 @@ void overlay_default_multi(
         const TString weightedSel =
             overlay_src::applyWeightToSelection(weights[is].Data(), boolSel);
 
-        trees[is]->Project(h->GetName(), v.expr, weightedSel.Data());
+        if (maxEvents > 0) {
+          trees[is]->Project(h->GetName(), v.expr, weightedSel.Data(), "", maxEvents,
+                             firstEvent);
+        } else {
+          trees[is]->Project(h->GetName(), v.expr, weightedSel.Data());
+        }
         const double rawInt = h->Integral(0, h->GetNbinsX() + 1);
         rawIntegrals.push_back(rawInt);
 

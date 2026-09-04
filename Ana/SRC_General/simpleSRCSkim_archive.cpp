@@ -1114,8 +1114,8 @@ int main(int argc, char **argv)
           b_alpha_2 = lc.alpha2;
           b_alpha_CM = lc.alphaCM;
           b_alpha_rel = lc.alphaRel;
-          b_alpha_q = (q.E() - q.Vect().Dot(qP3.Unit())) / mN;
-          b_alpha_pLead = (leadP4.E() - lead_p3.Dot(qP3.Unit())) / mN;
+          b_alpha_q = (q.E() - q.Vect().Dot(qP3.Unit())) / lc.mBar;
+          b_alpha_pLead = (sqrt(lead_p3.Mag2() + mP*mP) - lead_p3.Dot(qP3.Unit())) / lc.mBar;
           b_p1_plus = lc.p1Plus;
           b_p2_plus = lc.p2Plus;
           b_p1_perp_x = lc.p1PerpX;
