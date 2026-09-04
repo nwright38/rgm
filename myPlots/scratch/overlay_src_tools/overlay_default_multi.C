@@ -15,9 +15,9 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim_FSI.root",
     const char *treeName = "srcTree",
-    const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi.pdf",
+    const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_FSI.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
     const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1.",

@@ -504,6 +504,7 @@ int main(int argc, char **argv)
   Float_t b_chi_frame;
   Float_t b_E2miss;
   Float_t b_alpha_1, b_alpha_2, b_alpha_CM, b_alpha_rel;
+  Float_t b_alpha_q, b_alpha_pLead;
   Float_t b_p1_plus, b_p2_plus;
   Float_t b_p1_perp_x, b_p1_perp_y, b_p1_perp_mag;
   Float_t b_p2_perp_x, b_p2_perp_y, b_p2_perp_mag;
@@ -547,6 +548,7 @@ int main(int argc, char **argv)
   Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
   Float_t b_alpha_1_truth, b_alpha_2_truth, b_alpha_CM_truth, b_alpha_rel_truth;
+  Float_t b_alpha_q_truth, b_alpha_pLead_truth;
   Float_t b_p1_plus_truth, b_p2_plus_truth;
   Float_t b_p1_perp_x_truth, b_p1_perp_y_truth, b_p1_perp_mag_truth;
   Float_t b_p2_perp_x_truth, b_p2_perp_y_truth, b_p2_perp_mag_truth;
@@ -626,6 +628,8 @@ int main(int argc, char **argv)
   srcTree->Branch("alpha_2",     &b_alpha_2,     "alpha_2/F");
   srcTree->Branch("alpha_CM",    &b_alpha_CM,    "alpha_CM/F");
   srcTree->Branch("alpha_rel",   &b_alpha_rel,   "alpha_rel/F");
+  srcTree->Branch("alpha_q",     &b_alpha_q,     "alpha_q/F");
+  srcTree->Branch("alpha_pLead", &b_alpha_pLead, "alpha_pLead/F");
   srcTree->Branch("p1_plus",     &b_p1_plus,     "p1_plus/F");
   srcTree->Branch("p2_plus",     &b_p2_plus,     "p2_plus/F");
   srcTree->Branch("p1_perp_x",   &b_p1_perp_x,   "p1_perp_x/F");
@@ -716,6 +720,8 @@ int main(int argc, char **argv)
   srcTree->Branch("alpha_2_truth",     &b_alpha_2_truth,     "alpha_2_truth/F");
   srcTree->Branch("alpha_CM_truth",    &b_alpha_CM_truth,    "alpha_CM_truth/F");
   srcTree->Branch("alpha_rel_truth",   &b_alpha_rel_truth,   "alpha_rel_truth/F");
+  srcTree->Branch("alpha_q_truth",     &b_alpha_q_truth,     "alpha_q_truth/F");
+  srcTree->Branch("alpha_pLead_truth", &b_alpha_pLead_truth, "alpha_pLead_truth/F");
   srcTree->Branch("p1_plus_truth",     &b_p1_plus_truth,     "p1_plus_truth/F");
   srcTree->Branch("p2_plus_truth",     &b_p2_plus_truth,     "p2_plus_truth/F");
   srcTree->Branch("p1_perp_x_truth",   &b_p1_perp_x_truth,   "p1_perp_x_truth/F");
@@ -822,6 +828,7 @@ int main(int argc, char **argv)
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
     b_alpha_1 = -9.f; b_alpha_2 = -9.f; b_alpha_CM = -9.f; b_alpha_rel = -9.f;
+    b_alpha_q = -9.f; b_alpha_pLead = -9.f;
     b_p1_plus = -9.f; b_p2_plus = -9.f;
     b_p1_perp_x = -9.f; b_p1_perp_y = -9.f; b_p1_perp_mag = -9.f;
     b_p2_perp_x = -9.f; b_p2_perp_y = -9.f; b_p2_perp_mag = -9.f;
@@ -863,6 +870,7 @@ int main(int argc, char **argv)
     b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
     b_alpha_1_truth = -9.f; b_alpha_2_truth = -9.f; b_alpha_CM_truth = -9.f; b_alpha_rel_truth = -9.f;
+    b_alpha_q_truth = -9.f; b_alpha_pLead_truth = -9.f;
     b_p1_plus_truth = -9.f; b_p2_plus_truth = -9.f;
     b_p1_perp_x_truth = -9.f; b_p1_perp_y_truth = -9.f; b_p1_perp_mag_truth = -9.f;
     b_p2_perp_x_truth = -9.f; b_p2_perp_y_truth = -9.f; b_p2_perp_mag_truth = -9.f;
@@ -1106,6 +1114,8 @@ int main(int argc, char **argv)
           b_alpha_2 = lc.alpha2;
           b_alpha_CM = lc.alphaCM;
           b_alpha_rel = lc.alphaRel;
+          b_alpha_q = (q.E() - q.Vect().Dot(qP3.Unit())) / mN;
+          b_alpha_pLead = (leadP4.E() - lead_p3.Dot(qP3.Unit())) / mN;
           b_p1_plus = lc.p1Plus;
           b_p2_plus = lc.p2Plus;
           b_p1_perp_x = lc.p1PerpX;
@@ -1259,6 +1269,8 @@ int main(int argc, char **argv)
             b_alpha_2_truth = lcTruth.alpha2;
             b_alpha_CM_truth = lcTruth.alphaCM;
             b_alpha_rel_truth = lcTruth.alphaRel;
+            b_alpha_q_truth = (q_truth.E() - q_truth.Vect().Dot(q_truth.Vect().Unit())) / mN;
+            b_alpha_pLead_truth = (lead_truth.E() - lead_truth.Vect().Dot(q_truth.Vect().Unit())) / mN;
             b_p1_plus_truth = lcTruth.p1Plus;
             b_p2_plus_truth = lcTruth.p2Plus;
             b_p1_perp_x_truth = lcTruth.p1PerpX;

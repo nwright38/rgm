@@ -192,6 +192,8 @@ inline std::vector<PlotVar> defaultVariables() {
       {"alpha_2", "alpha_2", "#alpha_{2}", 40, 0.2, 1.5},
       {"alpha_CM", "alpha_CM", "#alpha_{CM}", 40, 1.5, 3.},
       {"alpha_rel", "alpha_rel", "#alpha_{rel}", 40, 0.4, 1.5},
+      {"alpha_q", "alpha_q", "#alpha_{q}", 40, -1.0, 1.0},
+      {"alpha_pLead", "alpha_pLead", "#alpha_{p_{lead}}", 40, 0.0, 2.0},
       {"p1_plus", "p1_plus", "p_{1}^{+} [GeV]", 40, -0.5, 2.5},
       {"p2_plus", "p2_plus", "p_{2}^{+} [GeV]", 40, -0.5, 2.5},
       {"p1_perp_x", "p1_perp_x", "p_{1,T,x} [GeV/c]", 40, -0.8, 0.8},
