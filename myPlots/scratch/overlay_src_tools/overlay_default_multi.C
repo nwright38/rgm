@@ -21,7 +21,7 @@ void overlay_default_multi(
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
     const char *baseCut = "pCM > 0 && pMiss < 1. && recP < 1.",
-    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 200.)",
+    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 2000.)",
     const char *labelsCsv = "C12 Data,C12 Sim",
     const char *pCMyTailCut = "",
     bool includeFdFd = false) {

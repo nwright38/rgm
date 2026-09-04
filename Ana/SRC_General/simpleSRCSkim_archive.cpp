@@ -1265,12 +1265,13 @@ int main(int argc, char **argv)
               q_truth, omega_truth, lead_truth, rec_truth, mP, mP,
               targetCfg.mass, targetCfg.A);
           if(lcTruth.validBasis && lcTruth.pairDefined){
+            const TVector3 qhat_truth = q_truth.Unit();
             b_alpha_1_truth = lcTruth.alpha1;
             b_alpha_2_truth = lcTruth.alpha2;
             b_alpha_CM_truth = lcTruth.alphaCM;
             b_alpha_rel_truth = lcTruth.alphaRel;
-            b_alpha_q_truth = (q_truth.E() - q_truth.Vect().Dot(q_truth.Vect().Unit())) / mN;
-            b_alpha_pLead_truth = (lead_truth.E() - lead_truth.Vect().Dot(q_truth.Vect().Unit())) / mN;
+            b_alpha_q_truth = (q4_truth.E() - q_truth.Dot(qhat_truth)) / mN;
+            b_alpha_pLead_truth = (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / mN;
             b_p1_plus_truth = lcTruth.p1Plus;
             b_p2_plus_truth = lcTruth.p2Plus;
             b_p1_perp_x_truth = lcTruth.p1PerpX;
