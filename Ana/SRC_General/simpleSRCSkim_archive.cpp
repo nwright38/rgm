@@ -207,6 +207,10 @@ LightConeBasis makeLightConeBasisPmiss(const TVector3 &qVec,
  *   p^{\pm} = p^{0} \pm p^{3},
  *   alpha = p^{-} / m_bar,
  *   m_bar = m_A / A.
+ * With these conventions,
+ *   alpha_q = (omega - |q|) / m_bar,
+ *   alpha_N = (E_N - p_N·qhat) / m_bar,
+ *   alpha_miss = alpha_N - alpha_q.
  * Nucleon 1 is the struck initial-state nucleon and nucleon 2 is the recoil nucleon.
  */
 LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
@@ -236,12 +240,14 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   const double eRec = std::sqrt(pRec.Mag2() + mRec * mRec);
   const double pLeadZ = pLead.Dot(basis.zHat);
   const double pRecZ = pRec.Dot(basis.zHat);
+  const double alphaQ = out.qMinus / out.mBar;
+  const double alphaLead = (eLead - pLeadZ) / out.mBar;
 
   out.p1Plus = eLead + pLeadZ - qPlus;
   out.p2Plus = eRec + pRecZ;
 
-  // alpha_1 uses p_1^- = p_lead^- - q^- to avoid assigning an on-shell energy to the struck initial nucleon.
-  out.alpha1 = (eLead - pLeadZ - out.qMinus) / out.mBar;
+  // alpha_1 is alpha_miss = alpha_N - alpha_q for the struck initial-state nucleon.
+  out.alpha1 = alphaLead - alphaQ;
   out.alpha2 = (eRec - pRecZ) / out.mBar;
 
   out.p1Perp = pLead - basis.zHat * pLeadZ;
@@ -314,9 +320,11 @@ LightConeKinematics computeLeadOnlyLightConeKinematics(const TVector3 &qVec,
 
   const double eLead = std::sqrt(pLead.Mag2() + mLead * mLead);
   const double pLeadZ = pLead.Dot(basis.zHat);
+  const double alphaQ = out.qMinus / out.mBar;
+  const double alphaLead = (eLead - pLeadZ) / out.mBar;
 
   out.p1Plus = eLead + pLeadZ - qPlus;
-  out.alpha1 = (eLead - pLeadZ - out.qMinus) / out.mBar;
+  out.alpha1 = alphaLead - alphaQ;
 
   out.p1Perp = pLead - basis.zHat * pLeadZ;
   out.p1PerpX = out.p1Perp.Dot(basis.xHat);
@@ -1065,11 +1073,11 @@ int main(int argc, char **argv)
           qP3, omega, cand_p3[leadIdx], mP, targetCfg.mass, targetCfg.A);
       if(leadOnlyLc.validBasis){
         const TVector3 qHat = qP3.Unit();
-        b_alpha_1 = leadOnlyLc.alpha1;
         b_alpha_q = (q.E() - q.Vect().Dot(qHat)) / leadOnlyLc.mBar;
         b_alpha_pLead =
             (std::sqrt(cand_p3[leadIdx].Mag2() + mP * mP) - cand_p3[leadIdx].Dot(qHat)) /
             leadOnlyLc.mBar;
+        b_alpha_1 = b_alpha_pLead - b_alpha_q;
         b_p1_plus = leadOnlyLc.p1Plus;
         b_p1_perp_x = leadOnlyLc.p1PerpX;
         b_p1_perp_y = leadOnlyLc.p1PerpY;
@@ -1159,12 +1167,12 @@ int main(int argc, char **argv)
         const LightConeKinematics lc = computeLightConeKinematics(
           qP3, omega, lead_p3, recoil_p3, mP, mP, targetCfg.mass, targetCfg.A);
         if(lc.validBasis && lc.pairDefined){
-          b_alpha_1 = lc.alpha1;
+          b_alpha_q = (q.E() - q.Vect().Dot(qP3.Unit())) / lc.mBar;
+          b_alpha_pLead = (sqrt(lead_p3.Mag2() + mP*mP) - lead_p3.Dot(qP3.Unit())) / lc.mBar;
+          b_alpha_1 = b_alpha_pLead - b_alpha_q;
           b_alpha_2 = lc.alpha2;
           b_alpha_CM = lc.alphaCM;
           b_alpha_rel = lc.alphaRel;
-          b_alpha_q = (q.E() - q.Vect().Dot(qP3.Unit())) / lc.mBar;
-          b_alpha_pLead = (sqrt(lead_p3.Mag2() + mP*mP) - lead_p3.Dot(qP3.Unit())) / lc.mBar;
           b_p1_plus = lc.p1Plus;
           b_p2_plus = lc.p2Plus;
           b_p1_perp_x = lc.p1PerpX;
@@ -1270,11 +1278,11 @@ int main(int argc, char **argv)
             q_truth, omega_truth, lead_truth, mP, targetCfg.mass, targetCfg.A);
         if(leadOnlyTruthLc.validBasis){
           const TVector3 qhat_truth = q_truth.Unit();
-          b_alpha_1_truth = leadOnlyTruthLc.alpha1;
           b_alpha_q_truth =
-              (q4_truth.E() - q_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
+            (q4_truth.E() - q_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
           b_alpha_pLead_truth =
-              (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
+            (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
+          b_alpha_1_truth = b_alpha_pLead_truth - b_alpha_q_truth;
           b_p1_plus_truth = leadOnlyTruthLc.p1Plus;
           b_p1_perp_x_truth = leadOnlyTruthLc.p1PerpX;
           b_p1_perp_y_truth = leadOnlyTruthLc.p1PerpY;
@@ -1331,12 +1339,12 @@ int main(int argc, char **argv)
               targetCfg.mass, targetCfg.A);
           if(lcTruth.validBasis && lcTruth.pairDefined){
             const TVector3 qhat_truth = q_truth.Unit();
-            b_alpha_1_truth = lcTruth.alpha1;
+            b_alpha_q_truth = (q4_truth.E() - q_truth.Dot(qhat_truth)) / lcTruth.mBar;
+            b_alpha_pLead_truth = (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / lcTruth.mBar;
+            b_alpha_1_truth = b_alpha_pLead_truth - b_alpha_q_truth;
             b_alpha_2_truth = lcTruth.alpha2;
             b_alpha_CM_truth = lcTruth.alphaCM;
             b_alpha_rel_truth = lcTruth.alphaRel;
-            b_alpha_q_truth = (q4_truth.E() - q_truth.Dot(qhat_truth)) / mN;
-            b_alpha_pLead_truth = (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / mN;
             b_p1_plus_truth = lcTruth.p1Plus;
             b_p2_plus_truth = lcTruth.p2Plus;
             b_p1_perp_x_truth = lcTruth.p1PerpX;
