@@ -2,15 +2,9 @@
 #define __EN_CROSS_SECTIONS_H__
 
 #include "TVector3.h"
-#include "gcfSRC.hh"
-#include "functions.h"
 
-enum ffModel {dipole, kelly};
+enum ffModel {dipole, kelly,ye};
 enum csMethod {onshell, cc1, cc2};
-inline double sq(double x){
-  return x*x;
-}
-
 
 class eNCrossSection
 {
@@ -34,7 +28,8 @@ class eNCrossSection
   csMethod myMethod;
   static double Gdipole(double QSq);
   static double Gkelly(double QSq,double a1, double b1, double b2, double b3);
-
+  static double Gye(double QSq, const double params[13]);
+  
 };
 
 #endif

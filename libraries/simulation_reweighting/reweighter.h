@@ -39,6 +39,7 @@ public:
   double get_weight_ep(clas12::mcparticle* mcInfo);
   double get_weight_epp(clas12::mcparticle* mcInfo);
   double Gauss(double x, double mu, double sigma);
+  TVector3 uncoulomb(TVector3 p, int pid);
     
 private:
   

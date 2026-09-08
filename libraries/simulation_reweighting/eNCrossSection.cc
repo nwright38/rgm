@@ -1,6 +1,15 @@
 #include <iostream>
 #include <math.h>
 #include "eNCrossSection.hh"
+#include "/work/clas12/users/nwright/GCF_Generator_Suite/src/include/constants.hh"
+#include "/work/clas12/users/nwright/GCF_Generator_Suite/src/include/helpers.hh"
+
+// Parameters for Ye
+const double params_ye_GEp[13]={0.239163298067,-1.109858574410,1.444380813060,0.479569465603,-2.286894741870,1.126632984980,1.250619843540,-3.631020471590,4.082217023790,0.504097346499,-5.085120460510,3.967742543950,-0.981529071103};
+const double params_ye_GEn[13]={0.048919981379,-0.064525053912,-0.240825897382,0.392108744873,0.300445258602,-0.661888687179,-0.175639769687,0.624691724461,-0.077684299367,-0.236003975259,0.090401973470,0.,0.};
+const double params_ye_GMp[13]={0.264142994136,-1.095306122120,1.218553781780,0.661136493537,-1.405678925030,-1.356418438880,1.447029155340,4.235669735900,-5.334045653410,-2.916300520960,8.707403067570,-5.706999943750,1.280814375890};
+const double params_ye_GMn[13]={0.257758326959,-1.079540642058,1.182183812195,0.711015085833,-1.348080936796,-1.662444025208,2.624354426029,1.751234494568,-4.922300878888,3.197892727312,-0.712072389946,0.,0.};
+
 
 eNCrossSection::eNCrossSection()
 {
@@ -165,6 +174,8 @@ double eNCrossSection::GEp(double QSq)
       return Gdipole(QSq);
     case kelly:
       return Gkelly(QSq,-0.24,10.98,12.82,21.97);
+    case ye:
+      return Gye(QSq,params_ye_GEp);	
     default:
       std::cerr << "Error in GEp: invalid form factor model!\n";
       exit(-1);
@@ -175,8 +186,20 @@ double eNCrossSection::GEp(double QSq)
 double eNCrossSection::GEn(double QSq) // This will use the Galster parameterization
 {
   double tau = QSq/(4.*mN*mN);
-  return 1.70 * tau / (1. + 3.3 * tau) * Gdipole(QSq); // params from Kelly paper
-  //return mu_n * tau / (1. + 5.6 * tau) * Gdipole(QSq); // the original Galster numbers
+
+  switch (myModel)
+    {
+    case dipole:
+      return -mu_n * tau / (1. + 5.6 * tau) * Gdipole(QSq); // the original Galster numbers
+    case kelly:
+      return 1.70 * tau / (1. + 3.3 * tau) * Gdipole(QSq); // params from Kelly paper
+    case ye:
+      return Gye(QSq,params_ye_GEn);
+    default:
+      std::cerr << "Error in GEn: invalid form factor model!\n";
+      exit(-1);
+    }
+  return 0;
 }
 
 double eNCrossSection::GMp(double QSq)
@@ -187,6 +210,8 @@ double eNCrossSection::GMp(double QSq)
       return mu_p * Gdipole(QSq);
     case kelly:
       return mu_p * Gkelly(QSq,0.12,10.97,18.86,6.55);
+    case ye:
+      return mu_p * Gye(QSq,params_ye_GMp);
     default:
       std::cerr << "Error in GMp: invalid form factor model!\n";
       exit(-1);
@@ -202,6 +227,8 @@ double eNCrossSection::GMn(double QSq)
       return mu_n * Gdipole(QSq);
     case kelly:
       return mu_n * Gkelly(QSq,2.33,14.72,24.20,84.1);
+    case ye:
+      return mu_n * Gye(QSq,params_ye_GMn);
     default:
       std::cerr << "Error in GMn: invalid form factor model!\n";
       exit(-1);
@@ -219,3 +246,17 @@ double eNCrossSection::Gkelly(double QSq,double a1, double b1, double b2, double
   return numer/denom;
 }
 
+double eNCrossSection::Gye(double QSq, const double params[13])
+{
+  const double mPi=0.13957;
+  const double tCut=4.*mPi*mPi;
+  const double t0=-0.7;
+  const double z=(sqrt(tCut+QSq)-sqrt(tCut-t0))/(sqrt(tCut+QSq)+sqrt(tCut-t0));
+
+  double result=0;
+  for (int i=0 ; i<13 ; i++)
+    {
+      result += params[i]*pow(z,i);
+    }
+  return result;
+}
