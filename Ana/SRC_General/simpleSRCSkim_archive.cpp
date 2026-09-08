@@ -76,7 +76,8 @@ struct TargetConfig {
   int Z = 0;
   int N = 0;
   double mass = -1.;
-  double eStarOffset = -1.;
+  double eStarParentMass = -1.;
+  double eStarResidualMass = -1.;
   bool valid = false;
 };
 
@@ -95,7 +96,8 @@ TargetConfig buildTargetConfig(int targetA)
       cfg.Z = 6;
       cfg.N = 6;
       cfg.mass = 12.0 * mU - 6 * me;
-      cfg.eStarOffset = 11.18 - 9.328;
+      cfg.eStarParentMass = 11.1749;
+      cfg.eStarResidualMass = 9.3255;
       cfg.valid = true;
       break;
     case 40:
@@ -336,18 +338,19 @@ LightConeKinematics computeLeadOnlyLightConeKinematics(const TVector3 &qVec,
 }
 
 double computeEStar(double leadMomentum, double recMomentum, double omega,
-                    double pCMMag, double eStarOffset)
+                    double pCMMag, double parentMass,
+                    double residualMass)
 {
-  if(eStarOffset <= 0.) return -9.;
+  if(parentMass <= 0. || residualMass <= 0.) return -9.;
 
-  const double energyTerm = std::sqrt(leadMomentum * leadMomentum + mP * mP)
-                          - omega
-                          + std::sqrt(recMomentum * recMomentum + mP * mP);
-  const double invariantArg = energyTerm * energyTerm - pCMMag * pCMMag;
+  const double leadEnergy = std::sqrt(leadMomentum * leadMomentum + 0.938272 * 0.938272);
+  const double recEnergy = std::sqrt(recMomentum * recMomentum + 0.938272 * 0.938272);
+  const double invariantMass = parentMass + omega - leadEnergy - recEnergy;
+  const double invariantArg = invariantMass * invariantMass - pCMMag * pCMMag;
   if(invariantArg < 0.){
     if(invariantArg < -1e-7) return -9.;
   }
-  return std::sqrt(std::max(0., invariantArg)) - eStarOffset;
+  return std::sqrt(std::max(0., invariantArg)) - residualMass;
 }
 
 TVector3 makeLeadMomentumFromInitialState(const TVector3 &p1Initial,
@@ -1173,7 +1176,8 @@ int main(int argc, char **argv)
         double TB2 = miss_Am2.E() - miss_Am2.M();
         b_E2miss = q.E() - TP - TP2 - TB2;
         b_EStar = computeEStar(lead_p3.Mag(), recoil_p3.Mag(), omega, v_cm.Mag(),
-                   targetCfg.eStarOffset);
+                   targetCfg.eStarParentMass,
+                   targetCfg.eStarResidualMass);
 
         // recoil summary kinematics
         b_recP     = recoil_p3.Mag();
@@ -1352,7 +1356,8 @@ int main(int argc, char **argv)
           b_E2miss_truth = q4_truth.E() - TP_truth - TP2_truth - TB2_truth;
           b_EStar_truth = computeEStar(lead_truth.Mag(), rec_truth.Mag(),
                                        omega_truth, pCM_truth.Mag(),
-                                       targetCfg.eStarOffset);
+                                       targetCfg.eStarParentMass,
+                                       targetCfg.eStarResidualMass);
 
           b_recP_truth     = rec_truth.Mag();
           b_recTheta_truth = rec_truth.Theta();
