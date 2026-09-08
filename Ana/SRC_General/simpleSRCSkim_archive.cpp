@@ -292,6 +292,39 @@ LightConeKinematics computeLightConeKinematics(const TVector3 &qVec, double nu,
   return out;
 }
 
+LightConeKinematics computeLeadOnlyLightConeKinematics(const TVector3 &qVec,
+                                                       double nu,
+                                                       const TVector3 &pLead,
+                                                       double mLead,
+                                                       double targetMass,
+                                                       int massNumber)
+{
+  LightConeKinematics out;
+  if(targetMass <= 0. || massNumber <= 0) return out;
+
+  out.mBar = targetMass / static_cast<double>(massNumber);
+  const LightConeBasis basis = makeLightConeBasis(qVec);
+  if(!basis.valid) return out;
+
+  out.validBasis = true;
+
+  const double qMag = qVec.Mag();
+  out.qMinus = nu - qMag;
+  const double qPlus = nu + qMag;
+
+  const double eLead = std::sqrt(pLead.Mag2() + mLead * mLead);
+  const double pLeadZ = pLead.Dot(basis.zHat);
+
+  out.p1Plus = eLead + pLeadZ - qPlus;
+  out.alpha1 = (eLead - pLeadZ - out.qMinus) / out.mBar;
+
+  out.p1Perp = pLead - basis.zHat * pLeadZ;
+  out.p1PerpX = out.p1Perp.Dot(basis.xHat);
+  out.p1PerpY = out.p1Perp.Dot(basis.yHat);
+  out.p1PerpMag = out.p1Perp.Mag();
+  return out;
+}
+
 TVector3 makeLeadMomentumFromInitialState(const TVector3 &p1Initial,
                                          double qMinus,
                                          double mLead,
@@ -1027,6 +1060,22 @@ int main(int argc, char **argv)
       b_goodLead    = cand_goodLead[leadIdx];
       b_theta_PleadQ = cand_p3[leadIdx].Angle(qP3);
       b_chi = getChi(cand_pMissV[leadIdx], qP3);
+
+      const LightConeKinematics leadOnlyLc = computeLeadOnlyLightConeKinematics(
+          qP3, omega, cand_p3[leadIdx], mP, targetCfg.mass, targetCfg.A);
+      if(leadOnlyLc.validBasis){
+        const TVector3 qHat = qP3.Unit();
+        b_alpha_1 = leadOnlyLc.alpha1;
+        b_alpha_q = (q.E() - q.Vect().Dot(qHat)) / leadOnlyLc.mBar;
+        b_alpha_pLead =
+            (std::sqrt(cand_p3[leadIdx].Mag2() + mP * mP) - cand_p3[leadIdx].Dot(qHat)) /
+            leadOnlyLc.mBar;
+        b_p1_plus = leadOnlyLc.p1Plus;
+        b_p1_perp_x = leadOnlyLc.p1PerpX;
+        b_p1_perp_y = leadOnlyLc.p1PerpY;
+        b_p1_perp_mag = leadOnlyLc.p1PerpMag;
+        b_m_bar = leadOnlyLc.mBar;
+      }
     }
 
     // ---- pass 2: find recoil and fill pRel / pCM (using the lead identified above) ----
@@ -1216,6 +1265,22 @@ int main(int argc, char **argv)
         b_theta_PmPlead_truth = pMiss_truth.Angle(lead_truth);
         b_theta_PleadQ_truth = lead_truth.Angle(q_truth);
         b_chi_truth = getChi(pMiss_truth, q_truth);
+
+        const LightConeKinematics leadOnlyTruthLc = computeLeadOnlyLightConeKinematics(
+            q_truth, omega_truth, lead_truth, mP, targetCfg.mass, targetCfg.A);
+        if(leadOnlyTruthLc.validBasis){
+          const TVector3 qhat_truth = q_truth.Unit();
+          b_alpha_1_truth = leadOnlyTruthLc.alpha1;
+          b_alpha_q_truth =
+              (q4_truth.E() - q_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
+          b_alpha_pLead_truth =
+              (leadP4_truth.E() - lead_truth.Dot(qhat_truth)) / leadOnlyTruthLc.mBar;
+          b_p1_plus_truth = leadOnlyTruthLc.p1Plus;
+          b_p1_perp_x_truth = leadOnlyTruthLc.p1PerpX;
+          b_p1_perp_y_truth = leadOnlyTruthLc.p1PerpY;
+          b_p1_perp_mag_truth = leadOnlyTruthLc.p1PerpMag;
+          b_m_bar_truth = leadOnlyTruthLc.mBar;
+        }
 
         if(mcInfo->getRows() >= 3)
         {

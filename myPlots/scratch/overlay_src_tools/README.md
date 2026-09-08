@@ -26,6 +26,20 @@ To draw only a subset of entries, pass `maxEvents` and `firstEvent` at the end:
 root -l -b -q 'myPlots/scratch/overlay_src_tools/overlay_default_multi.C("~/data/RGM_DATA/events_2N_srcTree.root,~/data/RGM_DATA/events_2N_srcTree.root","srcTree","overlay_default_limited.pdf",true,"pCM > 0","pCM > 0 && pMiss < 1. && recP < 1.","(weight_epp),(weight_epp)","2N-A,2N-B","",false,200000,0)'
 ```
 
+`overlay_default_multi.C` now does a split for variables that do not require recoil quantities:
+- First page: e'p selection (lead-detector panels)
+- Following page: e'pp selection (lead/recoil detector-combination panels)
+
+You can control the e'p page selection with trailing args `epCut` and `epBaseCut`:
+
+```bash
+root -l -b -q 'myPlots/scratch/overlay_src_tools/overlay_default_multi.C("~/data/RGM_DATA/events_2N_srcTree.root,~/data/RGM_DATA/events_2N_srcTree.root","srcTree","overlay_default_ep_epp_split.pdf",true,"pCM > 0","pMiss < 1. && recP < 1.","(weight_epp),(weight_epp)","2N-A,2N-B","",false,-1,0,"1","pMiss < 1.","(weight_ep),(weight_ep)")'
+```
+
+Notes:
+- e'pp pages use `weightsCsv` (typically `weight_epp`-based).
+- e'p pages use `epWeightsCsv`, which defaults to `weight_ep`-based weights.
+
 ## 2) Data detector overlays
 
 ```bash
