@@ -155,6 +155,7 @@ inline std::vector<PlotVar> defaultVariables() {
       {"E0miss", "E0miss", "E_{0,miss} [GeV]", 40, 0.0, 0.5},
       {"E1miss", "E1miss", "E_{1,miss} [GeV]", 50, -.2, .7},
       {"E2miss", "E2miss", "E_{2,miss} [GeV]", 50, -0.5, 0.5},
+      {"EStar", "EStar", "E^{*} [GeV]", 50, -0.2, 1.0},
       {"leadTheta", "leadTheta*180./TMath::Pi()", "#theta_{lead} [deg]", 36,
        0.0, 110.0},
       {"recTheta", "recTheta*180./TMath::Pi()", "#theta_{rec} [deg]", 36, 0.0,

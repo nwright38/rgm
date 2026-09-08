@@ -76,6 +76,7 @@ struct TargetConfig {
   int Z = 0;
   int N = 0;
   double mass = -1.;
+  double eStarOffset = -1.;
   bool valid = false;
 };
 
@@ -94,6 +95,7 @@ TargetConfig buildTargetConfig(int targetA)
       cfg.Z = 6;
       cfg.N = 6;
       cfg.mass = 12.0 * mU - 6 * me;
+      cfg.eStarOffset = 11.18 - 9.328;
       cfg.valid = true;
       break;
     case 40:
@@ -333,6 +335,21 @@ LightConeKinematics computeLeadOnlyLightConeKinematics(const TVector3 &qVec,
   return out;
 }
 
+double computeEStar(double leadMomentum, double recMomentum, double omega,
+                    double pCMMag, double eStarOffset)
+{
+  if(eStarOffset <= 0.) return -9.;
+
+  const double energyTerm = std::sqrt(leadMomentum * leadMomentum + mP * mP)
+                          - omega
+                          + std::sqrt(recMomentum * recMomentum + mP * mP);
+  const double invariantArg = energyTerm * energyTerm - pCMMag * pCMMag;
+  if(invariantArg < 0.){
+    if(invariantArg < -1e-7) return -9.;
+  }
+  return std::sqrt(std::max(0., invariantArg)) - eStarOffset;
+}
+
 TVector3 makeLeadMomentumFromInitialState(const TVector3 &p1Initial,
                                          double qMinus,
                                          double mLead,
@@ -544,6 +561,7 @@ int main(int argc, char **argv)
   Float_t b_pcmx_lab, b_pcmy_lab, b_pcmz_lab;
   Float_t b_chi_frame;
   Float_t b_E2miss;
+  Float_t b_EStar;
   Float_t b_alpha_1, b_alpha_2, b_alpha_CM, b_alpha_rel;
   Float_t b_alpha_q, b_alpha_pLead;
   Float_t b_p1_plus, b_p2_plus;
@@ -588,6 +606,7 @@ int main(int argc, char **argv)
   Float_t b_pcmx_lab_truth, b_pcmy_lab_truth, b_pcmz_lab_truth;
   Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
+  Float_t b_EStar_truth;
   Float_t b_alpha_1_truth, b_alpha_2_truth, b_alpha_CM_truth, b_alpha_rel_truth;
   Float_t b_alpha_q_truth, b_alpha_pLead_truth;
   Float_t b_p1_plus_truth, b_p2_plus_truth;
@@ -665,6 +684,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pcmz_lab",    &b_pcmz_lab,    "pcmz_lab/F");
   srcTree->Branch("chi_frame",   &b_chi_frame,   "chi_frame/F");
   srcTree->Branch("E2miss",      &b_E2miss,      "E2miss/F");
+  srcTree->Branch("EStar",       &b_EStar,       "EStar/F");
   srcTree->Branch("alpha_1",     &b_alpha_1,     "alpha_1/F");
   srcTree->Branch("alpha_2",     &b_alpha_2,     "alpha_2/F");
   srcTree->Branch("alpha_CM",    &b_alpha_CM,    "alpha_CM/F");
@@ -757,6 +777,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pcmz_lab_truth",    &b_pcmz_lab_truth,    "pcmz_lab_truth/F");
   srcTree->Branch("chi_frame_truth",   &b_chi_frame_truth,   "chi_frame_truth/F");
   srcTree->Branch("E2miss_truth",      &b_E2miss_truth,      "E2miss_truth/F");
+  srcTree->Branch("EStar_truth",       &b_EStar_truth,       "EStar_truth/F");
   srcTree->Branch("alpha_1_truth",     &b_alpha_1_truth,     "alpha_1_truth/F");
   srcTree->Branch("alpha_2_truth",     &b_alpha_2_truth,     "alpha_2_truth/F");
   srcTree->Branch("alpha_CM_truth",    &b_alpha_CM_truth,    "alpha_CM_truth/F");
@@ -868,6 +889,7 @@ int main(int argc, char **argv)
     b_pcmx_lab = -9.f; b_pcmy_lab = -9.f;  b_pcmz_lab = -9.f;
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
+    b_EStar = -9.f;
     b_alpha_1 = -9.f; b_alpha_2 = -9.f; b_alpha_CM = -9.f; b_alpha_rel = -9.f;
     b_alpha_q = -9.f; b_alpha_pLead = -9.f;
     b_p1_plus = -9.f; b_p2_plus = -9.f;
@@ -910,6 +932,7 @@ int main(int argc, char **argv)
     b_pcmx_lab_truth = -9.f; b_pcmy_lab_truth = -9.f;  b_pcmz_lab_truth = -9.f;
     b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
+    b_EStar_truth = -9.f;
     b_alpha_1_truth = -9.f; b_alpha_2_truth = -9.f; b_alpha_CM_truth = -9.f; b_alpha_rel_truth = -9.f;
     b_alpha_q_truth = -9.f; b_alpha_pLead_truth = -9.f;
     b_p1_plus_truth = -9.f; b_p2_plus_truth = -9.f;
@@ -1149,6 +1172,8 @@ int main(int argc, char **argv)
         TLorentzVector miss_Am2 = q + nucleusP4 - selectedLeadP4 - recoilP4;
         double TB2 = miss_Am2.E() - miss_Am2.M();
         b_E2miss = q.E() - TP - TP2 - TB2;
+        b_EStar = computeEStar(lead_p3.Mag(), recoil_p3.Mag(), omega, v_cm.Mag(),
+                   targetCfg.eStarOffset);
 
         // recoil summary kinematics
         b_recP     = recoil_p3.Mag();
@@ -1325,6 +1350,9 @@ int main(int argc, char **argv)
           TLorentzVector miss_Am2_truth = q4_truth + nucleusP4 - leadP4_truth - recP4_truth;
           double TB2_truth = miss_Am2_truth.E() - miss_Am2_truth.M();
           b_E2miss_truth = q4_truth.E() - TP_truth - TP2_truth - TB2_truth;
+          b_EStar_truth = computeEStar(lead_truth.Mag(), rec_truth.Mag(),
+                                       omega_truth, pCM_truth.Mag(),
+                                       targetCfg.eStarOffset);
 
           b_recP_truth     = rec_truth.Mag();
           b_recTheta_truth = rec_truth.Theta();
