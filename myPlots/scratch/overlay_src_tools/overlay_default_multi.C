@@ -29,7 +29,7 @@ void overlay_default_multi(
     bool includeFdFd = false,
     Long64_t maxEvents = -1,
     Long64_t firstEvent = 0,
-    const char *epCut = "1",
+    const char *epCut = "goodLead",
     const char *epBaseCut = "pMiss < 1.",
     const char *epWeightsCsv = "(weight_ep),(weight_ep)*(weight_ep < 200.)") {
 

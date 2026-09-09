@@ -561,6 +561,7 @@ int main(int argc, char **argv)
   Float_t b_pRelx, b_pRely, b_pRelz;
   Float_t b_pLeadPlusRecOver2, b_pLeadMinusRec;
   Float_t b_pCM, b_pCMx, b_pCMy, b_pCMz;
+  Float_t b_p2miss;
   Float_t b_pcmx_lab, b_pcmy_lab, b_pcmz_lab;
   Float_t b_chi_frame;
   Float_t b_E2miss;
@@ -606,6 +607,7 @@ int main(int argc, char **argv)
   Float_t b_pRelx_truth, b_pRely_truth, b_pRelz_truth;
   Float_t b_pLeadPlusRecOver2_truth, b_pLeadMinusRec_truth;
   Float_t b_pCM_truth, b_pCMx_truth, b_pCMy_truth, b_pCMz_truth;
+  Float_t b_p2miss_truth;
   Float_t b_pcmx_lab_truth, b_pcmy_lab_truth, b_pcmz_lab_truth;
   Float_t b_chi_frame_truth;
   Float_t b_E2miss_truth;
@@ -682,6 +684,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx",        &b_pCMx,        "pCMx/F");
   srcTree->Branch("pCMy",        &b_pCMy,        "pCMy/F");
   srcTree->Branch("pCMz",        &b_pCMz,        "pCMz/F");
+  srcTree->Branch("p2miss",      &b_p2miss,      "p2miss/F");
   srcTree->Branch("pcmx_lab",    &b_pcmx_lab,    "pcmx_lab/F");
   srcTree->Branch("pcmy_lab",    &b_pcmy_lab,    "pcmy_lab/F");
   srcTree->Branch("pcmz_lab",    &b_pcmz_lab,    "pcmz_lab/F");
@@ -775,6 +778,7 @@ int main(int argc, char **argv)
   srcTree->Branch("pCMx_truth",        &b_pCMx_truth,        "pCMx_truth/F");
   srcTree->Branch("pCMy_truth",        &b_pCMy_truth,        "pCMy_truth/F");
   srcTree->Branch("pCMz_truth",        &b_pCMz_truth,        "pCMz_truth/F");
+  srcTree->Branch("p2miss_truth",      &b_p2miss_truth,      "p2miss_truth/F");
   srcTree->Branch("pcmx_lab_truth",    &b_pcmx_lab_truth,    "pcmx_lab_truth/F");
   srcTree->Branch("pcmy_lab_truth",    &b_pcmy_lab_truth,    "pcmy_lab_truth/F");
   srcTree->Branch("pcmz_lab_truth",    &b_pcmz_lab_truth,    "pcmz_lab_truth/F");
@@ -889,6 +893,7 @@ int main(int argc, char **argv)
     b_pLeadPlusRecOver2 = -9.f;
     b_pLeadMinusRec = -9.f;
     b_pCM = -9.f;    b_pCMx = -9.f;        b_pCMy = -9.f;    b_pCMz = -9.f;
+    b_p2miss = -9.f;
     b_pcmx_lab = -9.f; b_pcmy_lab = -9.f;  b_pcmz_lab = -9.f;
     b_chi_frame = -9.f;
     b_E2miss = -9.f;
@@ -932,6 +937,7 @@ int main(int argc, char **argv)
     b_pLeadPlusRecOver2_truth = -9.f;
     b_pLeadMinusRec_truth = -9.f;
     b_pCM_truth = -9.f;    b_pCMx_truth = -9.f;        b_pCMy_truth = -9.f;    b_pCMz_truth = -9.f;
+    b_p2miss_truth = -9.f;
     b_pcmx_lab_truth = -9.f; b_pcmy_lab_truth = -9.f;  b_pcmz_lab_truth = -9.f;
     b_chi_frame_truth = -9.f;
     b_E2miss_truth = -9.f;
@@ -1148,6 +1154,7 @@ int main(int argc, char **argv)
         // ---- pCM: pair CM momentum projected onto the (miss_neg, q) frame ----
         TVector3 v_rec = recoil_p3;
         TVector3 v_cm  = miss_neg + v_rec;
+        TVector3 p2miss_v = qP3 - lead_p3 - recoil_p3;
 
         TVector3 vz = miss_neg.Unit();
         TVector3 vy = miss_neg.Cross(qP3).Unit();
@@ -1160,6 +1167,7 @@ int main(int argc, char **argv)
         b_pCMx = v_cm.Dot(vx);
         b_pCMy = v_cm.Dot(vy);
         b_pCMz = v_cm.Dot(vz);
+        b_p2miss = p2miss_v.Mag();
         b_pcmx_lab = v_cm.X();
         b_pcmy_lab = v_cm.Y();
         b_pcmz_lab = v_cm.Z();
@@ -1329,6 +1337,7 @@ int main(int argc, char **argv)
           TVector3 vy_truth = pMiss_truth.Cross(q_truth).Unit();
           TVector3 vx_truth = vz_truth.Cross(vy_truth).Unit();
           TVector3 v_cm_truth = pMiss_truth + rec_truth;
+          TVector3 p2miss_truth_v = q_truth - lead_truth - rec_truth;
 
           b_pRel_truth      = pRel_truth.Mag();
           b_pRelTheta_truth = pRel_truth.Theta();
@@ -1343,6 +1352,7 @@ int main(int argc, char **argv)
           b_pCMx_truth = pCM_truth.Dot(vx_truth);
           b_pCMy_truth = pCM_truth.Dot(vy_truth);
           b_pCMz_truth = pCM_truth.Dot(vz_truth);
+          b_p2miss_truth = p2miss_truth_v.Mag();
           b_pcmx_lab_truth = v_cm_truth.X();
           b_pcmy_lab_truth = v_cm_truth.Y();
           b_pcmz_lab_truth = v_cm_truth.Z();
