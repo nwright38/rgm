@@ -183,7 +183,6 @@ inline std::vector<PlotVar> defaultVariables() {
     //   {"pLeadMinusRec", "pLeadMinusRec", "|p_{lead}-p_{rec}| [GeV/c]", 40, 0.0,
     //    2.4},
       {"pCM", "pCM", "p_{CM} [GeV/c]", 40, 0.0, 1.2},
-      {"p2miss", "p2miss", "p_{2,miss} [GeV/c]", 40, 0.0, 1.2},
       {"pCMx", "pCMx", "p_{CM,x} [GeV/c]", 40, -0.8, 0.8},
       {"pCMy", "pCMy", "p_{CM,y} [GeV/c]", 40, -0.8, 0.8},
       {"pCMz", "pCMz", "p_{CM,z} [GeV/c]", 40, -0.8, 0.8},
