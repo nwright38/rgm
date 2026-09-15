@@ -12,7 +12,7 @@ reweighter::reweighter(double E, int Z, int N, ffModel thisMod, char * input_uTy
   uType_init="AV18";
   gcf_config_init = new gcfSRC(Z,N,uType_init);
   sigma_cm_init = 0.2;
-  CS_config_init = new eNCrossSection(cc1,ye);
+  CS_config_init = new eNCrossSection(cc1,kelly);
 
   uType_fin=input_uType_fin;
   gcf_config_fin = new gcfSRC(Z_nuc,N_nuc,uType_fin);
@@ -44,7 +44,7 @@ reweighter::reweighter(double E, int Z, int N, ffModel thisMod, char * input_uTy
   uType_init="AV18";
   gcf_config_init = new gcfSRC(Z,N,uType_init);
   sigma_cm_init = 0.2;
-  CS_config_init = new eNCrossSection(cc1,ye);
+  CS_config_init = new eNCrossSection(cc1,kelly);
 
   uType_fin=input_uType_fin;
   gcf_config_fin = new gcfSRC(Z_nuc,N_nuc,uType_fin);
@@ -124,8 +124,10 @@ TVector3 reweighter::uncoulomb(TVector3 p, int pid)
 
 double reweighter::get_weight_noT(clas12::mcparticle* mcInfo)
 {
-  if(!mcInfo || mcInfo->getRows() < 5) return 0.;
- // if(!mcInfo || mcInfo->getRows() < 3) return 0.;
+  if(!mcInfo || mcInfo->getRows() < 3) return 0.;
+  bool hasPrel = false;
+ // if(mcInfo && mcInfo->getRows() >= 5) hasPrel=true;
+
 
   double den = 1;
   double num = 1;
@@ -139,19 +141,29 @@ double reweighter::get_weight_noT(clas12::mcparticle* mcInfo)
 
 
   //Grabe the momentum values
+  TVector3 vbeam(0,0,Ebeam);
   TVector3 ve(mcInfo->getPx(0),mcInfo->getPy(0),mcInfo->getPz(0));
   TVector3 vlead_raw(mcInfo->getPx(1),mcInfo->getPy(1),mcInfo->getPz(1));
   TVector3 vrec_raw(mcInfo->getPx(2),mcInfo->getPy(2),mcInfo->getPz(2));
-  TVector3 vrel(mcInfo->getPx(4),mcInfo->getPy(4),mcInfo->getPz(4));
+  
+  TVector3 vrel(0,0,0);
+  TVector3 vcm(0,0,0);
+  if(hasPrel) vrel.SetXYZ(mcInfo->getPx(4),mcInfo->getPy(4),mcInfo->getPz(4));
 
   TVector3 vrec  = uncoulomb(vrec_raw,  recCode);
   TVector3 vlead = uncoulomb(vlead_raw, leadCode);
-  TVector3 vcm   = 2.0*(vrec + vrel);
 
-  // TVector3 vcm = vmiss + vrec;
-  // TVector3 vrel = 0.5 * (vmiss - vrec);
+  TVector3 vq = vbeam - ve;
+  TVector3 vmiss = vlead - vq;
 
-
+  if(!hasPrel){
+    vcm = vmiss + vrec;
+    vrel = 0.5 * (vmiss - vrec);
+  } else {
+    vcm   = 2.0*(vrec + vrel);
+  }
+  
+  
 
   //Grab the correct index of the 2d array
   //pp=0

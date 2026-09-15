@@ -862,13 +862,14 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
+  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .1);
 
   int ctr = 0;
   while(chain.Next())
   {
-    if(counter % 100000 == 0)
+    if(counter % 100000 == 0){
       cout << "Processing event " << counter << "\t" << ctr << " saved." << endl;
+    }
     counter++;
 
     if(ctr > 1000000) break;  // for testing
@@ -988,6 +989,13 @@ int main(int argc, char **argv)
       b_weight     = c12->mcevent()->getWeight();
       b_weight_ep  = b_weight * newWeight.get_weight_ep(c12->mcparts());
       b_weight_epp = b_weight * newWeight.get_weight_epp(c12->mcparts());
+
+      // b_weight_ep = b_weight;
+      // b_weight_epp = b_weight;
+    }
+
+    if(counter % 10000 == 0){
+      cout << "Last weight = " << b_weight_epp << endl;
     }
 
     b_eP     = eP3.Mag();
@@ -1046,9 +1054,9 @@ int main(int argc, char **argv)
 
       // SRC lead cuts
       bool passCuts = true;
-      if(pLead3.Mag() < 1.)                        passCuts = false;
-      if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
-      if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
+      if(pLead3.Mag() < .8)                        passCuts = false;
+      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      // if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
       cand_p3.push_back(pLead3);
