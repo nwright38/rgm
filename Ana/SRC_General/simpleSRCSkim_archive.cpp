@@ -543,21 +543,21 @@ int main(int argc, char **argv)
 
   Int_t   b_nProtons;
 
-  // lead proton (first candidate passing all SRC lead cuts)
-  Float_t b_leadP, b_leadTheta, b_leadPhi;
-  Float_t b_leadBeta, b_leadToF;
-  Float_t b_leadVz;
-  Float_t b_pMiss, b_pMissTheta, b_pMissPhi;
-  Float_t b_mMissP, b_mMissTheta, b_mMissPhi;
-  Float_t b_mMiss;
-  Float_t b_kMiss;
-  Float_t b_EMiss, b_E0miss, b_E1miss;
-  Float_t b_theta_PmQ;    // angle between pMiss and q
-  Float_t b_theta_PmPlead; // angle between pMiss and lead proton momentum
-  Float_t b_theta_PleadQ; // angle between lead proton momentum and q
+  // proton-candidate arrays (up to MAXP per event)
+  Float_t b_leadP[MAXP], b_leadTheta[MAXP], b_leadPhi[MAXP];
+  Float_t b_leadBeta[MAXP], b_leadToF[MAXP];
+  Float_t b_leadVz[MAXP];
+  Float_t b_pMiss[MAXP], b_pMissTheta[MAXP], b_pMissPhi[MAXP];
+  Float_t b_mMissP[MAXP], b_mMissTheta[MAXP], b_mMissPhi[MAXP];
+  Float_t b_mMiss[MAXP];
+  Float_t b_kMiss[MAXP];
+  Float_t b_EMiss[MAXP], b_E0miss[MAXP], b_E1miss[MAXP];
+  Float_t b_theta_PmQ[MAXP];    // angle between pMiss and q
+  Float_t b_theta_PmPlead[MAXP]; // angle between pMiss and lead proton momentum
+  Float_t b_theta_PleadQ[MAXP]; // angle between lead proton momentum and q
   Float_t b_theta_mMissPrec; // angle between missing vector and recoil momentum
-  Float_t b_chi;          // dihedral angle about pMiss
-  Bool_t  b_goodLead;     // lead passes all SRC lead cuts
+  Float_t b_chi[MAXP];          // dihedral angle about pMiss
+  Bool_t  b_goodLead[MAXP];     // lead passes all SRC lead cuts
 
   // pRel and pCM (filled only when a recoil partner exists)
   Float_t b_pRel, b_pRelTheta, b_pRelPhi;
@@ -645,31 +645,31 @@ int main(int argc, char **argv)
 
   srcTree->Branch("nProtons",    &b_nProtons,    "nProtons/I");
 
-  srcTree->Branch("leadP",       &b_leadP,       "leadP/F");
-  srcTree->Branch("leadTheta",   &b_leadTheta,   "leadTheta/F");
-  srcTree->Branch("leadPhi",     &b_leadPhi,     "leadPhi/F");
-  srcTree->Branch("leadBeta",    &b_leadBeta,    "leadBeta/F");
-  srcTree->Branch("leadToF",     &b_leadToF,     "leadToF/F");
-  srcTree->Branch("leadVz",      &b_leadVz,      "leadVz/F");
+  srcTree->Branch("leadP",       b_leadP,        "leadP[nProtons]/F");
+  srcTree->Branch("leadTheta",   b_leadTheta,    "leadTheta[nProtons]/F");
+  srcTree->Branch("leadPhi",     b_leadPhi,      "leadPhi[nProtons]/F");
+  srcTree->Branch("leadBeta",    b_leadBeta,     "leadBeta[nProtons]/F");
+  srcTree->Branch("leadToF",     b_leadToF,      "leadToF[nProtons]/F");
+  srcTree->Branch("leadVz",      b_leadVz,       "leadVz[nProtons]/F");
 
-  srcTree->Branch("pMiss",       &b_pMiss,       "pMiss/F");
-  srcTree->Branch("pMissTheta",  &b_pMissTheta,  "pMissTheta/F");
-  srcTree->Branch("pMissPhi",    &b_pMissPhi,    "pMissPhi/F");
-  srcTree->Branch("mMissP",      &b_mMissP,      "mMissP/F");
-  srcTree->Branch("mMissTheta",  &b_mMissTheta,  "mMissTheta/F");
-  srcTree->Branch("mMissPhi",    &b_mMissPhi,    "mMissPhi/F");
+  srcTree->Branch("pMiss",       b_pMiss,        "pMiss[nProtons]/F");
+  srcTree->Branch("pMissTheta",  b_pMissTheta,   "pMissTheta[nProtons]/F");
+  srcTree->Branch("pMissPhi",    b_pMissPhi,     "pMissPhi[nProtons]/F");
+  srcTree->Branch("mMissP",      b_mMissP,       "mMissP[nProtons]/F");
+  srcTree->Branch("mMissTheta",  b_mMissTheta,   "mMissTheta[nProtons]/F");
+  srcTree->Branch("mMissPhi",    b_mMissPhi,     "mMissPhi[nProtons]/F");
 
-  srcTree->Branch("mMiss",       &b_mMiss,       "mMiss/F");
-  srcTree->Branch("kMiss",       &b_kMiss,       "kMiss/F");
-  srcTree->Branch("EMiss",       &b_EMiss,       "EMiss/F");
-  srcTree->Branch("E0miss",      &b_E0miss,      "E0miss/F");
-  srcTree->Branch("E1miss",      &b_E1miss,      "E1miss/F");
-  srcTree->Branch("theta_PmQ",   &b_theta_PmQ,   "theta_PmQ/F");
-  srcTree->Branch("theta_PmPlead",&b_theta_PmPlead,"theta_PmPlead/F");
-  srcTree->Branch("theta_PleadQ",&b_theta_PleadQ,"theta_PleadQ/F");
+  srcTree->Branch("mMiss",       b_mMiss,        "mMiss[nProtons]/F");
+  srcTree->Branch("kMiss",       b_kMiss,        "kMiss[nProtons]/F");
+  srcTree->Branch("EMiss",       b_EMiss,        "EMiss[nProtons]/F");
+  srcTree->Branch("E0miss",      b_E0miss,       "E0miss[nProtons]/F");
+  srcTree->Branch("E1miss",      b_E1miss,       "E1miss[nProtons]/F");
+  srcTree->Branch("theta_PmQ",   b_theta_PmQ,    "theta_PmQ[nProtons]/F");
+  srcTree->Branch("theta_PmPlead",b_theta_PmPlead,"theta_PmPlead[nProtons]/F");
+  srcTree->Branch("theta_PleadQ",b_theta_PleadQ, "theta_PleadQ[nProtons]/F");
   srcTree->Branch("theta_mMissPrec", &b_theta_mMissPrec, "theta_mMissPrec/F");
-  srcTree->Branch("chi",         &b_chi,         "chi/F");
-  srcTree->Branch("goodLead",    &b_goodLead,    "goodLead/O");
+  srcTree->Branch("chi",         b_chi,          "chi[nProtons]/F");
+  srcTree->Branch("goodLead",    b_goodLead,     "goodLead[nProtons]/O");
 
   srcTree->Branch("pRel",        &b_pRel,        "pRel/F");
   srcTree->Branch("pRelTheta",   &b_pRelTheta,   "pRelTheta/F");
@@ -884,10 +884,19 @@ int main(int argc, char **argv)
     b_recP       = -9.f;  b_recTheta = -9.f;  b_recPhi = -9.f;
     b_recBeta    = -9.f;  b_recToF = -9.f;
 
-    b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;
-    b_leadBeta = -9.f;  b_leadToF = -9.f;  b_leadVz = -99.f;
-    b_pMiss = -9.f;  b_pMissTheta = -9.f;  b_pMissPhi = -9.f;
-    b_mMissP = -9.f;  b_mMissTheta = -9.f;  b_mMissPhi = -9.f;
+    for(int i = 0; i < MAXP; i++){
+      b_leadP[i] = -9.f;  b_leadTheta[i] = -9.f;  b_leadPhi[i] = -9.f;
+      b_leadBeta[i] = -9.f;  b_leadToF[i] = -9.f;  b_leadVz[i] = -99.f;
+      b_pMiss[i] = -9.f;  b_pMissTheta[i] = -9.f;  b_pMissPhi[i] = -9.f;
+      b_mMissP[i] = -9.f;  b_mMissTheta[i] = -9.f;  b_mMissPhi[i] = -9.f;
+      b_mMiss[i] = -9.f;  b_kMiss[i] = -9.f;  b_EMiss[i] = -9.f;
+      b_E0miss[i] = -9.f; b_E1miss[i] = -9.f;
+      b_theta_PmQ[i] = -9.f;
+      b_theta_PmPlead[i] = -9.f;
+      b_theta_PleadQ[i] = -9.f;
+      b_chi[i] = -9.f;
+      b_goodLead[i] = false;
+    }
     b_pRel = -9.f;   b_pRelTheta = -9.f;   b_pRelPhi = -9.f;
     b_pRelx = -9.f;  b_pRely = -9.f;       b_pRelz = -9.f;
     b_pLeadPlusRecOver2 = -9.f;
@@ -906,18 +915,12 @@ int main(int argc, char **argv)
     b_prel_perp_x = -9.f; b_prel_perp_y = -9.f; b_prel_perp_mag = -9.f;
     b_k = -9.f; b_k2 = -9.f; b_k_z = -9.f; b_m_bar = -9.f;
     b_lc_quality = false;
-    b_mMiss = -9.f;  b_kMiss = -9.f;       b_EMiss = -9.f;
-    b_E0miss = -9.f; b_E1miss = -9.f;
-    b_theta_PmQ = -9.f;
-    b_theta_PmPlead = -9.f;
-    b_theta_PleadQ = -9.f;
+    b_mMiss[0] = b_mMiss[0];
     b_theta_mMissPrec = -9.f;
-    b_chi = -9.f;
     b_theta_PleadPrec = -9.f;
     b_theta_PmPrec = -9.f;
     b_theta_PrecQ  = -9.f;
     b_phiTrento = -9.f;
-    b_goodLead = false;
 
     b_xB_truth = -9.f;  b_Q2_truth = -9.f;  b_omega_truth = -9.f;
     b_eP_truth = -9.f;  b_eTheta_truth = -9.f;  b_ePhi_truth = -9.f;
@@ -1013,7 +1016,8 @@ int main(int argc, char **argv)
     vector<float>    cand_vz;
     vector<TVector3> cand_pMissV;
     vector<float>    cand_mMiss, cand_kMiss, cand_EMiss, cand_E0miss,
-             cand_E1miss, cand_theta_PmQ;
+         cand_E1miss, cand_theta_PmQ, cand_theta_PmPlead,
+         cand_theta_PleadQ, cand_chi;
     vector<bool>     cand_goodLead;
 
     for(int pr = 0; pr < (int)protons.size(); pr++)
@@ -1064,6 +1068,9 @@ int main(int argc, char **argv)
       cand_E0miss.push_back(E0miss);
       cand_E1miss.push_back(E1miss);
       cand_theta_PmQ.push_back(pMissV.Angle(qP3));
+      cand_theta_PmPlead.push_back(pMissV.Angle(pLead3));
+      cand_theta_PleadQ.push_back(pLead3.Angle(qP3));
+      cand_chi.push_back(getChi(pMissV, qP3));
       cand_goodLead.push_back(passCuts);
 
       if(passCuts) b_nGoodLeads++;
@@ -1074,6 +1081,31 @@ int main(int argc, char **argv)
     b_nProtons      = nFilled;
     b_singleGoodLead = (b_nGoodLeads == 1);
 
+    for(int i = 0; i < nFilled; i++){
+      b_leadP[i] = cand_p3[i].Mag();
+      b_leadTheta[i] = cand_p3[i].Theta();
+      b_leadPhi[i] = cand_p3[i].Phi();
+      b_leadBeta[i] = cand_beta[i];
+      b_leadToF[i] = cand_tof[i];
+      b_leadVz[i] = cand_vz[i];
+      b_pMiss[i] = cand_pMissV[i].Mag();
+      b_pMissTheta[i] = cand_pMissV[i].Theta();
+      b_pMissPhi[i] = cand_pMissV[i].Phi();
+      b_mMissP[i] = b_pMiss[i];
+      b_mMissTheta[i] = b_pMissTheta[i];
+      b_mMissPhi[i] = b_pMissPhi[i];
+      b_mMiss[i] = cand_mMiss[i];
+      b_kMiss[i] = cand_kMiss[i];
+      b_EMiss[i] = cand_EMiss[i];
+      b_E0miss[i] = cand_E0miss[i];
+      b_E1miss[i] = cand_E1miss[i];
+      b_theta_PmQ[i] = cand_theta_PmQ[i];
+      b_theta_PmPlead[i] = cand_theta_PmPlead[i];
+      b_theta_PleadQ[i] = cand_theta_PleadQ[i];
+      b_chi[i] = cand_chi[i];
+      b_goodLead[i] = cand_goodLead[i];
+    }
+
     // ---- identify the lead: first candidate passing all SRC lead cuts ----
     int leadIdx = -1;
     for(int i = 0; i < nFilled; i++){
@@ -1082,30 +1114,6 @@ int main(int argc, char **argv)
 
     if(leadIdx >= 0)
     {
-      b_leadP       = cand_p3[leadIdx].Mag();
-      b_leadTheta   = cand_p3[leadIdx].Theta();
-      b_leadPhi     = cand_p3[leadIdx].Phi();
-      b_leadBeta    = cand_beta[leadIdx];
-      b_leadToF     = cand_tof[leadIdx];
-      b_leadVz      = cand_vz[leadIdx];
-
-      b_pMiss       = cand_pMissV[leadIdx].Mag();
-      b_pMissTheta  = cand_pMissV[leadIdx].Theta();
-      b_pMissPhi    = cand_pMissV[leadIdx].Phi();
-      b_mMissP      = b_pMiss;
-      b_mMissTheta  = b_pMissTheta;
-      b_mMissPhi    = b_pMissPhi;
-      b_mMiss       = cand_mMiss[leadIdx];
-      b_kMiss       = cand_kMiss[leadIdx];
-      b_EMiss       = cand_EMiss[leadIdx];
-      b_E0miss      = cand_E0miss[leadIdx];
-      b_E1miss      = cand_E1miss[leadIdx];
-      b_theta_PmQ   = cand_theta_PmQ[leadIdx];
-      b_theta_PmPlead = cand_pMissV[leadIdx].Angle(cand_p3[leadIdx]);
-      b_goodLead    = cand_goodLead[leadIdx];
-      b_theta_PleadQ = cand_p3[leadIdx].Angle(qP3);
-      b_chi = getChi(cand_pMissV[leadIdx], qP3);
-
       const LightConeKinematics leadOnlyLc = computeLeadOnlyLightConeKinematics(
           qP3, omega, cand_p3[leadIdx], mP, targetCfg.mass, targetCfg.A);
       if(leadOnlyLc.validBasis){
