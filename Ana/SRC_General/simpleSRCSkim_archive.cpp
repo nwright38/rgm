@@ -915,7 +915,6 @@ int main(int argc, char **argv)
     b_prel_perp_x = -9.f; b_prel_perp_y = -9.f; b_prel_perp_mag = -9.f;
     b_k = -9.f; b_k2 = -9.f; b_k_z = -9.f; b_m_bar = -9.f;
     b_lc_quality = false;
-    b_mMiss[0] = b_mMiss[0];
     b_theta_mMissPrec = -9.f;
     b_theta_PleadPrec = -9.f;
     b_theta_PmPrec = -9.f;
