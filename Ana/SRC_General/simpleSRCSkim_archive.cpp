@@ -1122,6 +1122,8 @@ int main(int argc, char **argv)
       if(cand_goodLead[i]){ leadIdx = i; break; }
     }
 
+    if(leadIdx < 0) continue;
+
     if(leadIdx >= 0)
     {
       const LightConeKinematics leadOnlyLc = computeLeadOnlyLightConeKinematics(
@@ -1141,31 +1143,26 @@ int main(int argc, char **argv)
       }
     }
 
-    // ---- pass 2: find recoil and fill pRel / pCM (using the lead identified above) ----
+    // ---- pass 2: find the highest-momentum non-lead proton as recoil and fill e'pp variables ----
     if(leadIdx >= 0 && nFilled >= 2)
     {
-      // The lead proton's pMiss vector (miss_neg)
       TVector3 miss_neg = cand_pMissV[leadIdx];
+      int recoilIdx = -1;
+      double maxRecoilMomentum = -1.;
 
-      // Search for a recoil: any other proton with p > 0.3
-      // Recoil angular cuts: open (no FD theta < 37 restriction); require CD (or simply p > 0.3).
       for(int j = 0; j < nFilled; j++)
       {
         if(j == leadIdx) continue;
+        const double recoilMomentum = cand_p3[j].Mag();
+        if(recoilMomentum > maxRecoilMomentum){
+          maxRecoilMomentum = recoilMomentum;
+          recoilIdx = j;
+        }
+      }
 
-        // cand_p3[j].SetMag(cand_p3[j].Mag() - .03); // apply nA potential correction 
-        
-        if(cand_p3[j].Mag() < 0.3) continue;   // recoil momentum cut
-
-        // Optional recoil angular cut — looser than lead, accept both FD and CD.
-        // Add detector-based cuts here if needed via protons[j]->getStatus().
-
-        TVector3 recoil_p3 = cand_p3[j];
-
-        // ---- pRel: relative momentum in the pair CM frame ----
-        // pRel = (p_lead - p_recoil) / 2  in the pair rest frame; approximate as half the
-        // difference of lab momenta (standard SRC convention).
+      if(recoilIdx >= 0) {
         TVector3 lead_p3 = cand_p3[leadIdx];
+        TVector3 recoil_p3 = cand_p3[recoilIdx];
 
         TVector3 pRelV = (miss_neg - recoil_p3) * 0.5;
         b_pRel      = pRelV.Mag();
@@ -1174,7 +1171,6 @@ int main(int argc, char **argv)
         b_pLeadPlusRecOver2 = 0.5f * static_cast<Float_t>((lead_p3 + recoil_p3).Mag());
         b_pLeadMinusRec = static_cast<Float_t>((lead_p3 - recoil_p3).Mag());
 
-        // ---- pCM: pair CM momentum projected onto the (miss_neg, q) frame ----
         TVector3 v_rec = recoil_p3;
         TVector3 v_cm  = miss_neg + v_rec;
 
@@ -1194,7 +1190,6 @@ int main(int argc, char **argv)
         b_pcmz_lab = v_cm.Z();
         b_chi_frame = getChiFrame(miss_neg, qP3, recoil_p3);
 
-        // Same E2miss definition used by Main_Figs_Binned.cpp.
         TLorentzVector selectedLeadP4;
         selectedLeadP4.SetVectM(cand_p3[leadIdx], mP);
         TLorentzVector recoilP4;
@@ -1208,14 +1203,12 @@ int main(int argc, char **argv)
                    targetCfg.eStarParentMass,
                    targetCfg.eStarResidualMass);
 
-        // recoil summary kinematics
         b_recP     = recoil_p3.Mag();
         b_recTheta = recoil_p3.Theta();
         b_recPhi   = recoil_p3.Phi();
-        b_recBeta  = cand_beta[j];
-        b_recToF   = cand_tof[j];
+        b_recBeta  = cand_beta[recoilIdx];
+        b_recToF   = cand_tof[recoilIdx];
 
-        // additional angles
         b_theta_PleadPrec = lead_p3.Angle(recoil_p3);
         b_theta_PmPrec = miss_neg.Angle(recoil_p3);
         b_theta_mMissPrec = b_theta_PmPrec;
@@ -1258,8 +1251,6 @@ int main(int argc, char **argv)
           h_k2->Fill(lc.k2);
           if(b_pRel > 0. && lc.k >= 0.) h_k_vs_pRel->Fill(b_pRel, lc.k);
         }
-
-        break;  // one recoil per event
       }
     }
 
