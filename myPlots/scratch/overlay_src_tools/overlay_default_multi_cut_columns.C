@@ -18,7 +18,7 @@
 
 void overlay_default_multi_cut_columns(
     const char *fileNamesCsv =
-        "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim.root",
+        "~/data/RGM_DATA/c12_src_skim_noKmiss.root,~/data/RGM_DATA/c12_sim_skim_noKmiss.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_cut_columns.pdf",
     bool normalizeToUnity = true,
@@ -31,10 +31,11 @@ void overlay_default_multi_cut_columns(
     Long64_t maxEvents = -1,
     Long64_t firstEvent = 0,
     const char *epCut = "goodLead",
-    const char *epBaseCut = "pMiss < 1.",
     const char *epWeightsCsv = "(weight_ep),(weight_ep)",
-    const char *extraCut = "xB > 1.3",
-    const char *extraCutLabel = "xB > 1.3",
+    const char *leftSideCut = "kMiss > .3",
+    const char *rightSideCut = "pMiss > .3",
+    const char *leftSelectionLabel = "kmiss > .3",
+    const char *rightSelectionLabel = "pmiss > .3",
     bool omitLeadCdRecFd = true) {
 
   gROOT->SetBatch(kTRUE);
@@ -125,6 +126,13 @@ void overlay_default_multi_cut_columns(
   TString pdfName(outputPdfName);
   c->Print(pdfName + "[", "pdf");
 
+  const TString leftSideExpr =
+      (leftSideCut && leftSideCut[0] != '\0') ? TString(leftSideCut) : "";
+  const TString rightSideExpr =
+      (rightSideCut && rightSideCut[0] != '\0') ? TString(rightSideCut) : "";
+  const TString sharedBaseCutExpr =
+      (baseCut && baseCut[0] != '\0') ? TString(baseCut) : TString("");
+
   const auto drawCutColumns = [&](const overlay_src::PlotVar &v,
                                   const std::vector<overlay_src::DetectorCombination> &pageCombos,
                                   const char *selCut,
@@ -146,7 +154,8 @@ void overlay_default_multi_cut_columns(
       rawNominal.reserve(fileNames.size());
       rawExtra.reserve(fileNames.size());
 
-      double yMax = 0.;
+      double yMaxNominal = 0.;
+      double yMaxExtra = 0.;
 
       for (std::size_t is = 0; is < trees.size(); ++is) {
         TH1D *hLeft = new TH1D(Form("h_nom_%s_%s_s%zu", v.name, combo.key, is), "",
@@ -158,15 +167,17 @@ void overlay_default_multi_cut_columns(
         overlay_src::styleTopologyData(hLeft, static_cast<int>(is));
         overlay_src::styleTopologyData(hRight, static_cast<int>(is));
 
-        const TString nominalSel =
-          overlay_src::buildSelection(selCut, selBaseCut, combo.cut, pCMyTailCut);
-        const TString extraSel = overlay_src::buildSelection(
-          selCut, selBaseCut, combo.cut, pCMyTailCut, nullptr, extraCut);
+        const TString leftSel = overlay_src::buildSelection(
+          selCut, selBaseCut, combo.cut, pCMyTailCut, nullptr,
+          leftSideExpr.Data());
+        const TString rightSel = overlay_src::buildSelection(
+          selCut, selBaseCut, combo.cut, pCMyTailCut, nullptr,
+          rightSideExpr.Data());
 
         const TString nominalWeighted =
-          overlay_src::applyWeightToSelection(pageWeights[is].Data(), nominalSel);
+          overlay_src::applyWeightToSelection(pageWeights[is].Data(), leftSel);
         const TString extraWeighted =
-          overlay_src::applyWeightToSelection(pageWeights[is].Data(), extraSel);
+          overlay_src::applyWeightToSelection(pageWeights[is].Data(), rightSel);
 
         if (maxEvents > 0) {
           trees[is]->Project(hLeft->GetName(), v.expr, nominalWeighted.Data(), "",
@@ -188,15 +199,16 @@ void overlay_default_multi_cut_columns(
           if (extraInRange > 0.) hRight->Scale(1. / extraInRange);
         }
 
-        yMax = std::max(yMax, overlay_src::finiteMax(hLeft->GetMaximum()));
-        yMax = std::max(yMax, overlay_src::finiteMax(hRight->GetMaximum()));
+        yMaxNominal = std::max(yMaxNominal, overlay_src::finiteMax(hLeft->GetMaximum()));
+        yMaxExtra = std::max(yMaxExtra, overlay_src::finiteMax(hRight->GetMaximum()));
 
         hNominal.push_back(hLeft);
         hExtra.push_back(hRight);
       }
 
       if (hNominal.empty()) continue;
-      if (yMax <= 0.) yMax = 1.;
+      if (yMaxNominal <= 0.) yMaxNominal = 1.;
+      if (yMaxExtra <= 0.) yMaxExtra = 1.;
 
       const int leftPad = 1 + 2 * static_cast<int>(ic);
       const int rightPad = leftPad + 1;
@@ -207,8 +219,8 @@ void overlay_default_multi_cut_columns(
       gPad->SetTopMargin(0.10);
 
       hNominal.front()->SetMinimum(0.);
-      hNominal.front()->SetMaximum(1.25 * yMax);
-      hNominal.front()->SetTitle(Form("%s (%s) | Nominal", v.name, pageTag));
+      hNominal.front()->SetMaximum(1.25 * yMaxNominal);
+      hNominal.front()->SetTitle(Form("%s (%s) | %s", v.name, pageTag, leftSelectionLabel));
       hNominal.front()->GetXaxis()->SetTitle(v.xTitle);
       hNominal.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts"
                                                               : "Counts");
@@ -244,10 +256,8 @@ void overlay_default_multi_cut_columns(
         gPad->SetTopMargin(0.10);
 
       hExtra.front()->SetMinimum(0.);
-      hExtra.front()->SetMaximum(1.25 * yMax);
-      hExtra.front()->SetTitle(
-          Form("%s (%s) | Nominal + %s", v.name, pageTag,
-               (extraCutLabel && extraCutLabel[0] != '\0') ? extraCutLabel : extraCut));
+      hExtra.front()->SetMaximum(1.25 * yMaxExtra);
+      hExtra.front()->SetTitle(Form("%s (%s) | %s", v.name, pageTag, rightSelectionLabel));
       hExtra.front()->GetXaxis()->SetTitle(v.xTitle);
       hExtra.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts"
                                                             : "Counts");
@@ -305,11 +315,15 @@ void overlay_default_multi_cut_columns(
   };
 
   for (const auto &v : vars) {
+    const TString eppCutWithEp = overlay_src::buildSelection(eppCut, epCut, nullptr, nullptr);
+
     if (isEpCompatible(v.name)) {
-      drawCutColumns(v, epCombos, epCut, epBaseCut, "e'p", epWeights);
-      drawCutColumns(v, eppCombos, eppCut, baseCut, "e'pp", weights);
+      drawCutColumns(v, epCombos, epCut, sharedBaseCutExpr.Data(), "e'p", epWeights);
+      drawCutColumns(v, eppCombos, eppCutWithEp.Data(), sharedBaseCutExpr.Data(),
+                     "e'pp", weights);
     } else {
-      drawCutColumns(v, eppCombos, eppCut, baseCut, "e'pp", weights);
+      drawCutColumns(v, eppCombos, eppCutWithEp.Data(), sharedBaseCutExpr.Data(),
+                     "e'pp", weights);
     }
   }
 

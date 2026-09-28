@@ -17,14 +17,14 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim_onlyPlead.root,~/data/RGM_DATA/c12_sim_skim_onlyPlead.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/he4_src_skim.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_ep_test.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
-    const char *baseCut = "Q2 < 5.",
+    const char *baseCut = "Q2 < 5. && leadP > 1.",
     const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 150.)",
-    const char *labelsCsv = "C12 Data,C12 PWIA,C12 FSI",
+    const char *labelsCsv = "C12 Data,He4 Data",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
     Long64_t maxEvents = -1,
@@ -124,7 +124,6 @@ void overlay_default_multi(
       std::vector<double> rawIntegrals;
       hs.reserve(fileNames.size());
       rawIntegrals.reserve(fileNames.size());
-      double yMax = 0.;
 
       for (std::size_t is = 0; is < trees.size(); ++is) {
         TH1D *h = new TH1D(Form("h_%s_%s_%s_s%zu", v.name, pageTag, combo.key, is), "",
@@ -151,15 +150,19 @@ void overlay_default_multi(
           if (intInRange > 0.) h->Scale(1. / intInRange);
         }
 
-        yMax = std::max(yMax, overlay_src::finiteMax(h->GetMaximum()));
         hs.push_back(h);
       }
 
       if (hs.empty()) continue;
 
-      if (yMax <= 0.) yMax = 1.;
+      double panelYMax = 0.;
+      for (TH1D *h : hs) {
+        panelYMax = std::max(panelYMax, overlay_src::finiteMax(h->GetMaximum()));
+      }
+
+      if (panelYMax <= 0.) panelYMax = 1.;
       hs.front()->SetMinimum(0.);
-      hs.front()->SetMaximum(1.25 * yMax);
+      hs.front()->SetMaximum(1.25 * panelYMax);
       hs.front()->GetXaxis()->SetTitle(v.xTitle);
       hs.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts" : "Counts");
       hs.front()->GetXaxis()->SetTitleSize(0.050);
