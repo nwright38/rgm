@@ -86,6 +86,12 @@ TargetConfig buildTargetConfig(int targetA)
   TargetConfig cfg;
   cfg.A = targetA;
   switch(targetA){
+    case 1:
+      cfg.Z = 2;
+      cfg.N = 2;
+      cfg.mass = 1.007276466621 * mU - me;
+      cfg.valid = true;
+      break;
     case 4:
       cfg.Z = 2;
       cfg.N = 2;
@@ -858,7 +864,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .1);
+  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
 
   int ctr = 0;
   while(chain.Next())
@@ -868,7 +874,7 @@ int main(int argc, char **argv)
     }
     counter++;
 
-    if(ctr > 1000000) break;  // for testing
+    if(ctr > 10000000) break;  // for testing
 
     // ---- defaults ----
     b_weight = 1.f;
@@ -978,8 +984,13 @@ int main(int argc, char **argv)
     double Q2    = qP3.Mag2() - omega * omega;
     double xB    = Q2 / (2. * mP * omega);
 
-    if(xB < 1.2) continue;
-    if(Q2 < 1.5) continue;
+    double W = sqrt(mP*mP + 2.*mP*omega - Q2);
+    if(W > 1.3) continue;
+
+    // if(xB < 1.1) continue;
+    // if(Q2 < 1.) continue;
+
+  
 
     if(isMC){
       b_weight     = c12->mcevent()->getWeight();
@@ -990,9 +1001,9 @@ int main(int argc, char **argv)
       // b_weight_epp = b_weight;
     }
 
-    if(counter % 10000 == 0){
-      cout << "Last weight = " << b_weight_epp << endl;
-    }
+    // if(counter % 10000 == 0){
+    //   cout << "Last weight = " << b_weight_epp << endl;
+    // }
 
     b_eP     = eP3.Mag();
     b_eTheta = eP3.Theta();
@@ -1051,7 +1062,7 @@ int main(int argc, char **argv)
 
       // SRC lead cuts
       bool passCuts = true;
-      if(pLead3.Mag() < .8)                        passCuts = false;
+      if(pLead3.Mag() < 1.)                        passCuts = false;
       // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
       // if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
  //     if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
