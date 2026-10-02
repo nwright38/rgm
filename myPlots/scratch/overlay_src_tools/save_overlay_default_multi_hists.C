@@ -16,10 +16,10 @@
 
 void save_overlay_default_multi_hists(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/he4_src_skim_100MeV.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/he4_src_skim.root",
     const char *treeName = "srcTree",
     const char *outputRootName =
-      "scratch/overlay_src_tools/c12_he4_src_skim_hists.root",
+      "c12_he4_src_skim_hists.root",
   const char *runTag = "",
   bool appendToFile = false,
     bool normalizeToUnity = true,

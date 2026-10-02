@@ -17,20 +17,20 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/he4_src_skim.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim.root,~/data/RGM_DATA/he4_src_skim.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_ep_test.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
-    const char *baseCut = "Q2 < 5. && leadP > 1.",
+    const char *baseCut = "Q2 < 5. && leadP > 1. && xB > 1.3 && mMiss > .8",
     const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 150.)",
-    const char *labelsCsv = "C12 Data,He4 Data",
+    const char *labelsCsv = "C12 Data,C12 Sim,He4 Data",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
     Long64_t maxEvents = -1,
     Long64_t firstEvent = 0,
     const char *epCut = "goodLead",
-    const char *epBaseCut = "Q2 < 5.",
+    const char *epBaseCut = "Q2 < 5.&& xB > 1.3&& mMiss > .8",
     const char *epWeightsCsv = "(weight_ep),(weight_ep)*(weight_ep < 200.)") {
 
   gROOT->SetBatch(kTRUE);
