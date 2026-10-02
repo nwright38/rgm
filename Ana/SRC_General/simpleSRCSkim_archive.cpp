@@ -1058,8 +1058,6 @@ int main(int argc, char **argv)
       double TB = omega + targetCfg.mass - leadP4.E() - sqrt((omega + targetCfg.mass - leadP4.E())*(omega + targetCfg.mass - leadP4.E()) - pMissV.Mag2());
       double E1miss = omega - TP - TB;
 
-      // Possible lead definition: any proton above threshold.
-      const bool passCuts = (pLead3.Mag() > 0.8);
       // SRC lead cuts
       bool passCuts = true;
       if(pLead3.Mag() < 1.)                        passCuts = false;
