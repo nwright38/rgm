@@ -147,19 +147,31 @@ int main(int argc, char ** argv)
       if(Q2 < 1.5){continue;}
       if(Q2 > 5){continue;}
 
-      // --- Find lead (and recoil) SRC candidates ---
-      clasAna.getLeadRecoilSRC(beam,deut_ptr,el);
-      auto lead   = clasAna.getLeadSRC();
-      auto recoil = clasAna.getRecoilSRC();
+      // --- Build lead/recoil directly from reconstructed protons ---
+      int lead_idx = -1;
+      double max_lead_mom = -1.;
 
-      if(lead.size() != 1){continue;}
+      std::vector<TLorentzVector> proton_p4;
+      proton_p4.reserve(protons.size());
 
-      // --- Lead proton 4-vector + corrections ---
-      GetLorentzVector_ReconVector(lead_ptr,lead[0]);
-      if(!isMC){SetLorentzVector_ThetaCorrection(lead_ptr,lead[0]);}
-      if(!isMC){SetLorentzVector_MomentumCorrection(lead_ptr,lead[0]);}
-      if(isMC){SetLorentzVector_MomentumSimulationSmear(lead_ptr,lead[0]);}
-      SetLorentzVector_EnergyLossCorrection(lead_ptr,lead[0]);
+      for(int ip = 0; ip < (int)protons.size(); ip++){
+        TLorentzVector p4(0,0,0,mass_p);
+        GetLorentzVector_ReconVector(p4,protons[ip]);
+        if(!isMC){SetLorentzVector_ThetaCorrection(p4,protons[ip]);}
+        SetLorentzVector_EnergyLossCorrection(p4,protons[ip]);
+        if(!isMC){SetLorentzVector_MomentumCorrection(p4,protons[ip]);}
+        if(isMC){SetLorentzVector_MomentumSimulationSmear(p4,protons[ip]);}
+        proton_p4.push_back(p4);
+
+        const double pMag = p4.P();
+        if(pMag > 0.8 && pMag > max_lead_mom){
+          max_lead_mom = pMag;
+          lead_idx = ip;
+        }
+      }
+
+      if(lead_idx < 0){continue;}
+      lead_ptr = proton_p4[lead_idx];
 
 
       TLorentzVector miss = q + deut_ptr - lead_ptr;
@@ -173,20 +185,13 @@ int main(int argc, char ** argv)
       double pmp_ZQ = miss_LC.Vect().Perp(u_ZQ);
       double kmiss_ZQ = sqrt(mass_p*mass_p*((pmp_ZQ*pmp_ZQ + mass_p*mass_p)/(pmm_ZQ*(2*mass_p - pmm_ZQ))) - mass_p*mass_p);
 
-      if(mom_lead < 1.0){continue;}
-      if(kmiss_ZQ < 0.3){continue;}
-      if(mmiss < 0.65){continue;}
-      if(mmiss > 1.1){continue;}
+      if(mom_lead < 0.8){continue;}
       
   //    if(theta_lead > 37){continue;}
 
-      // Only keep FD-region leads (matches the analysis code's treatment;
-      // CD-region leads are dropped there too).
-    //  if(lead[0]->getRegion() != FD){continue;}
-
       // Tag (logged only, not written into the hipo file) for whether
       // this event also has a reconstructed recoil -> e'pp.
-      bool is_epp = (recoil.size() == 1);
+      bool is_epp = (protons.size() >= 2);
       if(is_epp){ n_epp_written++; }
       else      { n_ep_written++;  }
 

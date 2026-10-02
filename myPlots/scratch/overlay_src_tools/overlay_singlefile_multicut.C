@@ -132,19 +132,19 @@ void styleOverlaySeries(TH1D *hist, int idx) {
 
 void overlay_singlefile_multicut(
     const char *fileNamesCsv =
-        "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim.root",
+        "~/data/RGM_DATA/c12_src_skim_noMmiss.root,~/data/RGM_DATA/c12_sim_skim_noMmiss.root",
     const char *treeName = "srcTree",
-    const char *outputPdfName = "pdf/c12_overlay_multicut_test.pdf",
+    const char *outputPdfName = "pdf/c12_overlay_multicut_recP.pdf",
     const char *fileLabelsCsv = "C12 Data,C12 Sim",
     const char *eppWeightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 150.)",
     const char *epWeightsCsv = "(weight_ep),(weight_ep)*(weight_ep < 200.)",
     const char *cutsCsv = "mMiss > 0.65, leadP/qP < 0.95",
     const char *cutLabelsCsv = "mMiss > 0.65, p/q < 0.95",
     const char *fileCutPairsCsv = "",
-    const char *epCut = "Q2 > 1.5 && leadP > 1. && xB > 1.2 && mMiss < 1.1 && kMiss > 0.3",
+    const char *epCut = "goodLead && mMiss < 1.1 && pMiss < 1.",
     const char *eppExtraCut = "pCM > 0 && recP > .35",
     const char *baseCut =
-        "Q2 > 1.5 && leadP > 1. && xB > 1.2 && mMiss < 1.1 && kMiss > 0.3",
+        "goodLead && mMiss < 1.1 && pMiss < 1.",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
     bool normalizeToUnity = true,
