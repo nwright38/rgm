@@ -981,12 +981,13 @@ int main(int argc, char **argv)
     double xB    = Q2 / (2. * mP * omega);
 
     double W = sqrt(mP*mP + 2.*mP*omega - Q2);
-    if(W > 1.3) continue;
+   // if(W > 1.3) continue;
 
-    // if(xB < 1.1) continue;
+    if(xB < 1.2) continue;
+    if(Q2 < 1.5) continue;
+
+    // if(xB < 1.) continue;
     // if(Q2 < 1.) continue;
-
-  
 
     if(isMC){
       b_weight     = c12->mcevent()->getWeight();
@@ -1059,6 +1060,19 @@ int main(int argc, char **argv)
 
       // Possible lead definition: any proton above threshold.
       const bool passCuts = (pLead3.Mag() > 0.8);
+      // SRC lead cuts
+      bool passCuts = true;
+      if(pLead3.Mag() < 1.)                        passCuts = false;
+      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+      if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
+    //  if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
+
+      // if(pMissV.Mag() < 0.4)                passCuts = false;
+      // if(missP4.M() > 1.1)   passCuts = false;
+      // if(pLead3.Angle(qP3)*180./M_PI > 25.)             passCuts = false;
+      // if(pLead3.Mag()/qP3.Mag() < 0.62 || pLead3.Mag()/qP3.Mag() > .96) passCuts = false;
+
+
 
       cand_p3.push_back(pLead3);
       cand_beta.push_back(protons[pr]->par()->getBeta());
@@ -1141,7 +1155,7 @@ int main(int argc, char **argv)
     {
       TVector3 miss_neg = cand_pMissV[leadIdx];
       int recoilIdx = -1;
-      double maxRecoilMomentum = -1.;
+      double maxRecoilMomentum = 0.3;
 
       for(int j = 0; j < nFilled; j++)
       {
@@ -1154,6 +1168,8 @@ int main(int argc, char **argv)
       }
 
       if(recoilIdx >= 0) {
+
+        if(maxRecoilMomentum < 0.3) cout << "Max momentum = " << maxRecoilMomentum << " GeV/c" << endl;
         TVector3 lead_p3 = cand_p3[leadIdx];
         TVector3 recoil_p3 = cand_p3[recoilIdx];
 
