@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <vector>
 
@@ -62,31 +63,33 @@ int main(int argc, char ** argv)
 
   // Writer chain
   clas12root::HipoChainWriter chain(outName);
+  int n_inputs_added = 0;
   for(int k = 3; k < argc; k++){
     std::string fname = argv[k];
 
-    bool ok = true;
-    try {
-      hipo::reader testReader;
-      testReader.open(fname.c_str());   // void return; bad files throw or leave reader empty
-      if(testReader.getEntries() <= 0){
-        ok = false;
-      }
-    } catch (const std::exception &e) {
-      cerr << "WARNING: exception opening " << fname << ": " << e.what() << endl;
-      ok = false;
-    } catch (...) {
-      cerr << "WARNING: unknown error opening " << fname << endl;
-      ok = false;
+    std::error_code ec;
+    if(!std::filesystem::exists(fname, ec) || ec){
+      cerr << "WARNING: skipping missing/unreadable file: " << fname << endl;
+      continue;
     }
-
-    if(!ok){
-      cerr << "SKIPPING bad/corrupt file: " << fname << endl;
+    if(!std::filesystem::is_regular_file(fname, ec) || ec){
+      cerr << "WARNING: skipping non-regular file: " << fname << endl;
+      continue;
+    }
+    auto sz = std::filesystem::file_size(fname, ec);
+    if(ec || sz == 0){
+      cerr << "WARNING: skipping empty/unreadable file: " << fname << endl;
       continue;
     }
 
     cout << "Input file " << fname << endl;
     chain.Add(fname.c_str());
+    n_inputs_added++;
+  }
+
+  if(n_inputs_added == 0){
+    cerr << "ERROR: no valid input files were added." << endl;
+    return -1;
   }
 
 
