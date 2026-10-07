@@ -63,6 +63,48 @@ def _drop_extreme_ytick(ax, which):
     ax.set_yticks(ticks)
 
 
+def _auto_ylim(values, pad_fraction=0.12, min_pad=0.02):
+    """Return padded y-limits that keep plotted data and labels off the edge."""
+    finite = [v for v in values if v is not None and math.isfinite(v)]
+    if not finite:
+        return (0.0, 1.0)
+
+    y_low = min(finite)
+    y_high = max(finite)
+    span = y_high - y_low
+    pad = max(span * pad_fraction, min_pad)
+    if span == 0.0:
+        pad = max(max(abs(y_low), abs(y_high)) * pad_fraction, min_pad)
+    return (y_low - pad, y_high + pad)
+
+
+def _mean_band_ylim(values, band_fraction=0.1):
+    """Return y-limits centered on the mean with a relative band width."""
+    finite = [v for v in values if v is not None and math.isfinite(v)]
+    if not finite:
+        return (0.0, 1.0)
+
+    mean_value = sum(finite) / float(len(finite))
+    half_span = abs(mean_value) * band_fraction
+    if half_span == 0.0:
+        half_span = 0.05
+    return (mean_value - half_span, mean_value + half_span)
+
+
+def _set_panel_yaxis(ax, side='left'):
+    """Place a panel's y axis on the requested side."""
+    if side == 'right':
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position('right')
+        ax.tick_params(axis='y', which='both', left=False, labelleft=False,
+                       right=True, labelright=True)
+    else:
+        ax.yaxis.tick_left()
+        ax.yaxis.set_label_position('left')
+        ax.tick_params(axis='y', which='both', left=True, labelleft=True,
+                       right=False, labelright=False)
+
+
 def _auto_panel_label(ax, text, fontsize=9, manual_pos=None):
     """Places a panel label in a low-density corner in axes coordinates.
 
@@ -638,6 +680,7 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sims,
                                          label_xy=(2.3, 1.35), ylabel_size=13,
                                          big_label=None,
                                          big_label_xy=(1.7, 1.12),
+                                         right_column_on_right_axis=False,
                                          label_positions=None, save_as=None):
     """2x2 panel of (data/sim) for a ratio quantity vs Q^2.
 
@@ -648,13 +691,12 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sims,
     """
     ratio_task = numerator_task + '_over_' + denominator_task
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
-                           sharex=True, sharey=True)
+                           sharex=True, sharey=False)
     ax[0, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
     ax[1, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
     ax[1, 0].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[1, 1].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[0, 0].set_xlim(*xlim)
-    ax[0, 0].set_ylim(*ylim)
     if big_label is not None:
         ax[0, 0].text(big_label_xy[0], big_label_xy[1], big_label, fontsize=25)
 
@@ -662,6 +704,7 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sims,
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
         ref_x, ref_y, ref_err = get_xy_err(
             ref, ratio_task, 'ratio', axis_bin=[bin_idx])
+        ratio_values = []
         for sim in sims:
             sim_x, sim_y, sim_err = get_xy_err(
                 sim, ratio_task, 'ratio', axis_bin=[bin_idx])
@@ -675,8 +718,13 @@ def plot_q2_2x2_data_over_sim_ratio_only(pdf, ref, sims,
             ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
                               color=sim.color, linestyle='', marker='o',
                               markersize=3)
+            ratio_values.extend(ratio_y)
+        panel_ylim = _mean_band_ylim(ratio_values) if ylim is None else ylim
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+        ax[r, c].set_ylim(*panel_ylim)
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        if right_column_on_right_axis:
+            _set_panel_yaxis(ax[r, c], 'right' if c == 1 else 'left')
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
@@ -703,9 +751,22 @@ def plot_q2_single(pdf, ref, sims, task_name, ylabel,
 
     ax.set_ylabel(ylabel, fontsize=ylabel_size)
     ax.set_xlim(*xlim)
-    if ylim is not None:
-        ax.set_ylim(*ylim)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+
+    if ylim is None:
+        y_values = []
+        _, ref_y, ref_yerr_low, ref_yerr_high = get_xy_err_asymm(
+            ref, task_name, selection, axis_bin=axis_bin, unit_scale=unit_scale)
+        y_values.extend([y - e for y, e in zip(ref_y, ref_yerr_low)])
+        y_values.extend([y + e for y, e in zip(ref_y, ref_yerr_high)])
+        for sim in sims:
+            _, sim_y, sim_yerr_low, sim_yerr_high = get_xy_err_asymm(
+                sim, task_name, selection, axis_bin=axis_bin, unit_scale=unit_scale)
+            y_values.extend([y - e for y, e in zip(sim_y, sim_yerr_low)])
+            y_values.extend([y + e for y, e in zip(sim_y, sim_yerr_high)])
+        ylim = _auto_ylim(y_values)
+
+    ax.set_ylim(*ylim)
 
     ref_xy = draw(ax, ref, task_name, selection, axis_bin=axis_bin,
                   q2_panel=True, unit_scale=unit_scale)
@@ -741,30 +802,49 @@ def plot_q2_2x2(pdf, ref, sims, task_name, ylabel,
                 label_xy=(2.3, 0.2), ylabel_size=15,
                 big_label=None, big_label_xy=(1.7, 0.12),
                 unit_scale=False, suptitle=None,
+                right_column_on_right_axis=False,
                 label_positions=None, save_as=None):
     """2x2 panel of one vs-Q^2 quantity in pMiss bins 0..3.
 
     `sims` is a list of 'sim'-kind Series (0 or more) overlaid on `ref`.
     """
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
-                           sharex=True, sharey=True)
+                           sharex=True, sharey=False)
     ax[0, 0].set_ylabel(ylabel, fontsize=ylabel_size)
     ax[1, 0].set_ylabel(ylabel, fontsize=ylabel_size)
     ax[1, 0].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[1, 1].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[0, 0].set_xlim(*xlim)
-    ax[0, 0].set_ylim(*ylim)
+
     if big_label is not None:
         ax[0, 0].text(big_label_xy[0], big_label_xy[1], big_label, fontsize=25)
 
     positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
     for bin_idx, ((r, c), label) in enumerate(zip(positions, pmiss_labels)):
+        if ylim is None:
+            y_values = []
+            _, ref_y, ref_yerr_low, ref_yerr_high = get_xy_err_asymm(
+                ref, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
+            y_values.extend([y - e for y, e in zip(ref_y, ref_yerr_low)])
+            y_values.extend([y + e for y, e in zip(ref_y, ref_yerr_high)])
+            for sim in sims:
+                _, sim_y, sim_yerr_low, sim_yerr_high = get_xy_err_asymm(
+                    sim, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
+                y_values.extend([y - e for y, e in zip(sim_y, sim_yerr_low)])
+                y_values.extend([y + e for y, e in zip(sim_y, sim_yerr_high)])
+            panel_ylim = _auto_ylim(y_values)
+        else:
+            panel_ylim = ylim
+
         draw(ax[r, c], ref, task_name, selection, axis_bin=[bin_idx],
              q2_panel=True, unit_scale=unit_scale)
         for sim in sims:
             draw(ax[r, c], sim, task_name, selection, axis_bin=[bin_idx],
                    q2_panel=True, unit_scale=unit_scale)
+        ax[r, c].set_ylim(*panel_ylim)
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        if right_column_on_right_axis:
+            _set_panel_yaxis(ax[r, c], 'right' if c == 1 else 'left')
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
@@ -781,6 +861,7 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sims, task_name,
                               label_xy=(2.3, 1.35), ylabel_size=13,
                               big_label=None, big_label_xy=(1.7, 1.12),
                               unit_scale=False, suptitle=None,
+                              right_column_on_right_axis=False,
                               label_positions=None, save_as=None):
     """2x2 panel of Data/Sim for one vs-Q^2 quantity in pMiss bins 0..3.
 
@@ -788,13 +869,13 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sims, task_name,
     overlaid trace per panel.
     """
     fig, ax = plt.subplots(2, 2, gridspec_kw={'wspace': 0, 'hspace': 0},
-                           sharex=True, sharey=True)
+                           sharex=True, sharey=False)
     ax[0, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
     ax[1, 0].set_ylabel('Data/Sim', fontsize=ylabel_size)
     ax[1, 0].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[1, 1].set_xlabel(r'$Q^{2}$', fontsize=15)
     ax[0, 0].set_xlim(*xlim)
-    ax[0, 0].set_ylim(*ylim)
+
     if big_label is not None:
         ax[0, 0].text(big_label_xy[0], big_label_xy[1], big_label, fontsize=25)
 
@@ -815,8 +896,24 @@ def plot_q2_2x2_data_over_sim(pdf, ref, sims, task_name,
             ax[r, c].errorbar(ref_x, ratio_y, ratio_err,
                               color=sim.color, linestyle='', marker='o',
                               markersize=3)
+
+        if ylim is None:
+            y_values = []
+            for sim in sims:
+                sim_x, sim_y, sim_err = get_xy_err(
+                    sim, task_name, selection, axis_bin=[bin_idx], unit_scale=unit_scale)
+                ratio_y, ratio_err = ratio.ratio_series_with_error(ref_y, ref_err, sim_y, sim_err)
+                y_values.extend([y - e for y, e in zip(ratio_y, ratio_err)])
+                y_values.extend([y + e for y, e in zip(ratio_y, ratio_err)])
+            panel_ylim = _auto_ylim(y_values)
+        else:
+            panel_ylim = ylim
+
         ax[r, c].axhline(1.0, color='gray', linewidth=0.5, linestyle='--')
+        ax[r, c].set_ylim(*panel_ylim)
         ax[r, c].yaxis.set_major_locator(MaxNLocator(nbins=4))
+        if right_column_on_right_axis:
+            _set_panel_yaxis(ax[r, c], 'right' if c == 1 else 'left')
         manual = None if label_positions is None else label_positions.get(bin_idx)
         _auto_panel_label(ax[r, c], label, fontsize=13, manual_pos=manual)
 
@@ -838,13 +935,11 @@ def plot_sig_waterfall(pdf, q2_bins, ref, sims, axis='x',
     """
     if len(q2_bins) < 2:
         raise ValueError('q2_bins must contain at least two edges')
-
     q2_start = [0.4, 0.5]
     q2_end = [0.07, 0.02]
 
     fig = plt.figure()
     ax_back = fig.add_axes([0.0, 0.0, 1.0, 1.0])
-    ax_back.set_ylim(0.0, 1.0)
     ax_back.set_xlim(0.0, 1.0)
     ax_back.plot([q2_start[0], q2_end[0]], [q2_start[1], q2_end[1]], 'k', linewidth=1)
     ax_back.text(0.1, 0.35, r'$Q^{2} [GeV]$', fontsize=15)

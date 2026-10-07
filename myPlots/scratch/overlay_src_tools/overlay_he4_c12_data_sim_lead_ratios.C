@@ -142,7 +142,7 @@ void setPadStyle() {
 }  // namespace
 
 void overlay_he4_c12_data_sim_lead_ratios(
-    const char *heDataFileName = "~/data/RGM_DATA/he4_src_skim_100MeV.root",
+    const char *heDataFileName = "~/data/RGM_DATA/he4_src_skim.root",
     const char *c12DataFileName = "~/data/RGM_DATA/c12_src_skim.root",
     const char *heSimFileName = "~/data/RGM_DATA/he4_sim_skim_allD.root",
     const char *c12SimFileName = "~/data/RGM_DATA/c12_sim_skim.root",

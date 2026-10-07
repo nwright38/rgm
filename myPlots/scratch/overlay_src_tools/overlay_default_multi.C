@@ -17,21 +17,21 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim_noMmiss.root,~/data/RGM_DATA/c12_sim_skim_noMmiss.root",
+    "~/data/RGM_DATA/c12_sim_skim.root,~/data/RGM_DATA/c12_sim_skim_noPS.root,~/data/RGM_DATA/c12_src_skim.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_ep_test.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0",
-    const char *baseCut = "Q2 < 5.&& mMiss > .65 && mMiss < 1.1 && pMiss < 1.",
-    const char *weightsCsv = "(weight_epp),(weight_epp)*(weight_epp < 150.)",
-    const char *labelsCsv = "C12 Data,C12 Sim",
+    const char *baseCut = "Q2 < 5. && pMiss < 1.",
+    const char *weightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
+    const char *labelsCsv = "PS cut, no PS cut,Data",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
     Long64_t maxEvents = -1,
     Long64_t firstEvent = 0,
     const char *epCut = "goodLead",
-    const char *epBaseCut = "Q2 < 5.&& mMiss > .65 && mMiss < 1.1 && pMiss < 1.",
-    const char *epWeightsCsv = "(weight_ep),(weight_ep)*(weight_ep < 200.)") {
+    const char *epBaseCut = "Q2 < 5. && pMiss < 1.",
+    const char *epWeightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)") {
 
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -76,11 +76,6 @@ void overlay_default_multi(
     trees.push_back(t);
   }
 
-  const std::vector<overlay_src::DetectorCombination> combos =
-      overlay_src::detectorCombinations(includeFdFd);
-  const std::vector<overlay_src::DetectorCombination> epCombos = {
-      {"lead_fd", "Lead FD", "(leadTheta*180./TMath::Pi()<37.)"},
-      {"lead_cd", "Lead CD", "(leadTheta*180./TMath::Pi()>45.)"}};
   const std::vector<overlay_src::PlotVar> vars = overlay_src::defaultVariables();
 
   const std::vector<std::string> epCompatibleVars = {
@@ -105,119 +100,100 @@ void overlay_default_multi(
   c->Print(pdfName + "[", "pdf");
 
   const auto drawPage = [&](const overlay_src::PlotVar &v,
-                            const std::vector<overlay_src::DetectorCombination> &pageCombos,
                             const char *selCut,
                             const char *selBaseCut,
                             const char *pageTag,
                             const std::vector<TString> &pageWeights) {
     c->Clear();
-    c->Divide(2, 2);
+    c->cd();
+    gPad->SetLeftMargin(0.13);
+    gPad->SetBottomMargin(0.12);
+    gPad->SetTopMargin(0.10);
 
-    for (std::size_t ic = 0; ic < pageCombos.size() && ic < 4; ++ic) {
-      const auto &combo = pageCombos[ic];
-      c->cd(static_cast<int>(ic) + 1);
-      gPad->SetLeftMargin(0.13);
-      gPad->SetBottomMargin(0.12);
-      gPad->SetTopMargin(0.10);
+    std::vector<TH1D *> hs;
+    std::vector<double> rawIntegrals;
+    hs.reserve(fileNames.size());
+    rawIntegrals.reserve(fileNames.size());
 
-      std::vector<TH1D *> hs;
-      std::vector<double> rawIntegrals;
-      hs.reserve(fileNames.size());
-      rawIntegrals.reserve(fileNames.size());
+    for (std::size_t is = 0; is < trees.size(); ++is) {
+      TH1D *h = new TH1D(Form("h_%s_%s_s%zu", v.name, pageTag, is), "",
+                         v.bins, v.xmin, v.xmax);
+      h->Sumw2();
+      overlay_src::styleTopologyData(h, static_cast<int>(is));
 
-      for (std::size_t is = 0; is < trees.size(); ++is) {
-        TH1D *h = new TH1D(Form("h_%s_%s_%s_s%zu", v.name, pageTag, combo.key, is), "",
-                           v.bins, v.xmin, v.xmax);
-        h->Sumw2();
-        overlay_src::styleTopologyData(h, static_cast<int>(is));
+      const TString boolSel =
+          overlay_src::buildSelection(selCut, selBaseCut, nullptr, pCMyTailCut);
+      const TString weightedSel =
+        overlay_src::applyWeightToSelection(pageWeights[is].Data(), boolSel);
 
-        const TString boolSel =
-            overlay_src::buildSelection(selCut, selBaseCut, combo.cut, pCMyTailCut);
-        const TString weightedSel =
-          overlay_src::applyWeightToSelection(pageWeights[is].Data(), boolSel);
+      if (maxEvents > 0) {
+        trees[is]->Project(h->GetName(), v.expr, weightedSel.Data(), "", maxEvents,
+                           firstEvent);
+      } else {
+        trees[is]->Project(h->GetName(), v.expr, weightedSel.Data());
+      }
+      const double rawInt = h->Integral(0, h->GetNbinsX() + 1);
+      rawIntegrals.push_back(rawInt);
 
-        if (maxEvents > 0) {
-          trees[is]->Project(h->GetName(), v.expr, weightedSel.Data(), "", maxEvents,
-                             firstEvent);
-        } else {
-          trees[is]->Project(h->GetName(), v.expr, weightedSel.Data());
-        }
-        const double rawInt = h->Integral(0, h->GetNbinsX() + 1);
-        rawIntegrals.push_back(rawInt);
-
-        if (normalizeToUnity) {
-          const double intInRange = h->Integral();
-          if (intInRange > 0.) h->Scale(1. / intInRange);
-        }
-
-        hs.push_back(h);
+      if (normalizeToUnity) {
+        const double intInRange = h->Integral();
+        if (intInRange > 0.) h->Scale(1. / intInRange);
       }
 
-      if (hs.empty()) continue;
-
-      double panelYMax = 0.;
-      for (TH1D *h : hs) {
-        panelYMax = std::max(panelYMax, overlay_src::finiteMax(h->GetMaximum()));
-      }
-
-      if (panelYMax <= 0.) panelYMax = 1.;
-      hs.front()->SetMinimum(0.);
-      hs.front()->SetMaximum(1.25 * panelYMax);
-      hs.front()->GetXaxis()->SetTitle(v.xTitle);
-      hs.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts" : "Counts");
-      hs.front()->GetXaxis()->SetTitleSize(0.050);
-      hs.front()->GetYaxis()->SetTitleSize(0.050);
-      hs.front()->GetXaxis()->SetLabelSize(0.043);
-      hs.front()->GetYaxis()->SetLabelSize(0.043);
-      hs.front()->GetYaxis()->SetTitleOffset(1.20);
-
-      hs.front()->Draw("E");
-      for (std::size_t is = 1; is < hs.size(); ++is) hs[is]->Draw("E SAME");
-
-      TLegend *leg = new TLegend(0.50, 0.64, 0.90, 0.89);
-      leg->SetBorderSize(0);
-      leg->SetFillStyle(0);
-      leg->SetTextSize(0.030);
-      for (std::size_t is = 0; is < hs.size(); ++is) {
-        leg->AddEntry(hs[is], Form("%s (sumW=%.1f)", labels[is].Data(), rawIntegrals[is]), "lep");
-      }
-      leg->Draw();
-
-      TLatex lab;
-      lab.SetNDC();
-      lab.SetTextSize(0.040);
-      lab.SetTextFont(42);
-      lab.DrawLatex(0.14, 0.92, combo.label);
+      hs.push_back(h);
     }
 
-    // for (std::size_t ip = pageCombos.size(); ip < 4; ++ip) {
-    //   c->cd(static_cast<int>(ip) + 1);
-    //   gPad->SetLeftMargin(0.13);
-    //   gPad->SetBottomMargin(0.12);
-    //   gPad->SetTopMargin(0.10);
-    //   TLatex omitted;
-    //   omitted.SetNDC();
-    //   omitted.SetTextSize(0.040);
-    //   omitted.SetTextColor(kGray + 1);
-    //   omitted.DrawLatex(0.18, 0.52, "Unused panel");
-    // }
+    if (hs.empty()) return;
 
-    c->cd(0);
+    double panelYMax = 0.;
+    for (TH1D *h : hs) {
+      panelYMax = std::max(panelYMax, overlay_src::finiteMax(h->GetMaximum()));
+    }
+
+    if (panelYMax <= 0.) panelYMax = 1.;
+    hs.front()->SetMinimum(0.);
+    hs.front()->SetMaximum(1.25 * panelYMax);
+    hs.front()->GetXaxis()->SetTitle(v.xTitle);
+    hs.front()->GetYaxis()->SetTitle(normalizeToUnity ? "Normalized counts" : "Counts");
+    hs.front()->GetXaxis()->SetTitleSize(0.050);
+    hs.front()->GetYaxis()->SetTitleSize(0.050);
+    hs.front()->GetXaxis()->SetLabelSize(0.043);
+    hs.front()->GetYaxis()->SetLabelSize(0.043);
+    hs.front()->GetYaxis()->SetTitleOffset(1.20);
+
+    hs.front()->Draw("E");
+    for (std::size_t is = 1; is < hs.size(); ++is) hs[is]->Draw("E SAME");
+
+    TLegend *leg = new TLegend(0.50, 0.64, 0.90, 0.89);
+    leg->SetBorderSize(0);
+    leg->SetFillStyle(0);
+    leg->SetTextSize(0.030);
+    for (std::size_t is = 0; is < hs.size(); ++is) {
+      leg->AddEntry(hs[is], Form("%s (sumW=%.1f)", labels[is].Data(), rawIntegrals[is]), "lep");
+    }
+    leg->Draw();
+
+    TLatex lab;
+    lab.SetNDC();
+    lab.SetTextSize(0.040);
+    lab.SetTextFont(42);
+    lab.DrawLatex(0.14, 0.92, Form("%s", pageTag));
+
     TLatex title;
     title.SetNDC();
     title.SetTextSize(0.030);
     title.SetTextFont(62);
-    title.DrawLatex(0.4, 0.965, Form("%s (%s)", v.name, pageTag));
+    title.DrawLatex(0.4, 0.965, v.name);
 
     c->Print(pdfName, "pdf");
   };
 
   for (const auto &v : vars) {
     if (isEpCompatible(v.name)) {
-      drawPage(v, epCombos, epCut, epBaseCut, "e'p", epWeights);
-      drawPage(v, combos, eppCut, baseCut, "e'pp", weights);
+      drawPage(v, epCut, epBaseCut, "e'p", epWeights);
+      drawPage(v, eppCut, baseCut, "e'pp", weights);
     } else {
-      drawPage(v, combos, eppCut, baseCut, "e'pp", weights);
+      drawPage(v, eppCut, baseCut, "e'pp", weights);
     }
   }
 

@@ -2,13 +2,23 @@
 //
 // Additive toy-ensemble diagnostics (does not replace existing workflows).
 //
-// Primary page implemented:
-//   - Distribution of toy values for (e,e'pp)/(e,e'p) in a selected
-//     pMiss bin and Q2 value bin, with nominal central value overlay.
+// Flexible toy distribution plotter for arbitrary variables.
+// Supports:
+//   - Single 1D variable yields (e.g., mMiss_ep, pOverQ_epp)
+//   - Ratio observables (e.g., pMiss_epp/pMiss_ep)
+//   - Differential observables (e.g., Q2_ep_SRC_pmiss with pMiss suffix)
 //
 // Usage:
-//   root -l -b -q 'plot_toy_diagnostics.C("Data_He_hists_6GeV.root")'
-//   root -l -b -q 'plot_toy_diagnostics.C("Data_He_hists_6GeV.root", "pdf/Q2_pmiss/toy_diagnostics.pdf", 3, 6)'
+//   // Plot toy dist for a single variable in bin ibin:
+//   root -l -b -q 'plot_toy_diagnostics.C("file.root", "mMiss_ep", 5)'
+//   root -l -b -q 'plot_toy_diagnostics.C("file.root", "pOverQ_epp", 3, "out.pdf")'
+//
+//   // Plot ratio observable (auto-detects numerator/denominator):
+//   root -l -b -q 'plot_toy_diagnostics.C("file.root", "pMiss_epp_over_pMiss_ep", 2)'
+//
+//   // Legacy: original ratio-in-Q2bin interface:
+//   root -l -b -q 'plot_toy_diagnostics.C("file.root")'
+//   root -l -b -q 'plot_toy_diagnostics_legacy.C("file.root", "pdf/toy_diagnostics.pdf", 3, 6)'
 
 #include <algorithm>
 #include <cmath>
@@ -356,10 +366,14 @@ void drawYieldToyDistributionPage(TCanvas* c,
 
 }  // namespace
 
-void plot_toy_diagnostics(const char* inFileName,
-                          const char* outPdfName = "pdf/Q2_pmiss/toy_diagnostics.pdf",
-                          int pMissBin = 3,
-                          int q2ValueBin = 6) {
+// ============================================================================
+// LEGACY INTERFACE (backwards compatible)
+// ============================================================================
+
+void plot_toy_diagnostics_legacy(const char* inFileName,
+                                 const char* outPdfName = "pdf/Q2_pmiss/toy_diagnostics.pdf",
+                                 int pMissBin = 3,
+                                 int q2ValueBin = 6) {
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
   gStyle->SetOptTitle(0);
@@ -386,6 +400,273 @@ void plot_toy_diagnostics(const char* inFileName,
   drawYieldToyDistributionPage(c, histsDir, outPdf,
                                "Q2_epp_SRC_pmiss", "e,e'pp", pMissBin, q2ValueBin);
   drawRatioToyDistributionPage(c, histsDir, outPdf, pMissBin, q2ValueBin);
+  c->Print((outPdf + "]").c_str());
+
+  std::cout << "Wrote " << outPdf << std::endl;
+  f->Close();
+}
+
+// ============================================================================
+// FLEXIBLE NEW INTERFACE
+// ============================================================================
+
+// Helper: draw toy distribution for a single variable/bin (yield page)
+void drawGenericYieldToyPage(TCanvas* c,
+                             TDirectory* histsDir,
+                             const string& taskName,
+                             int binIndex,
+                             const string& outPdf,
+                             const string& pageLabel = "") {
+  // Try histogram names: first with bin suffix (e.g., taskName_pMiss3),
+  // then direct bin lookup in unsuffixed histogram.
+  
+  string suffix = "";
+  TH1D* hNom = nullptr;
+  int rootBin = binIndex + 1;  // TH1 bins are 1-based
+  
+  // Strategy 1: Try with "_pMiss" suffix (for differential variables)
+  suffix = string("_pMiss") + std::to_string(binIndex);
+  string histName1 = "nominal_" + taskName + suffix;
+  hNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/" + histName1).c_str()));
+  
+  // Strategy 2: Try direct histogram (for 1D variables)
+  if (!hNom) {
+    histName1 = "nominal_" + taskName;
+    hNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/" + histName1).c_str()));
+    suffix = "";  // No suffix for 1D histograms
+  }
+  
+  if (!hNom) {
+    c->Clear();
+    TLatex t;
+    t.SetNDC();
+    t.SetTextSize(0.04);
+    t.DrawLatex(0.08, 0.60, Form("Missing histogram: %s", taskName.c_str()));
+    c->Print(outPdf.c_str(), "pdf");
+    return;
+  }
+
+  const double nomVal = hNom->GetBinContent(rootBin);
+
+  vector<string> labels = toyLabels(histsDir);
+  vector<double> toyVals;
+  toyVals.reserve(labels.size());
+
+  for (const auto& lab : labels) {
+    TDirectory* d = histsDir->GetDirectory(lab.c_str());
+    if (!d) continue;
+    string hname = lab + "_" + taskName + suffix;
+    TH1D* hToy = dynamic_cast<TH1D*>(d->Get(hname.c_str()));
+    if (!hToy) continue;
+    toyVals.push_back(hToy->GetBinContent(rootBin));
+  }
+
+  c->Clear();
+  c->SetLeftMargin(0.12);
+  c->SetBottomMargin(0.12);
+  c->SetRightMargin(0.06);
+
+  if (toyVals.empty()) {
+    TLatex t;
+    t.SetNDC();
+    t.SetTextSize(0.04);
+    t.DrawLatex(0.08, 0.60, "No valid toy values found.");
+    c->Print(outPdf.c_str(), "pdf");
+    return;
+  }
+
+  double vmin = *std::min_element(toyVals.begin(), toyVals.end());
+  double vmax = *std::max_element(toyVals.begin(), toyVals.end());
+  const double span = std::max(1e-6, vmax - vmin);
+  vmin -= 0.15 * span;
+  vmax += 0.15 * span;
+  vmin = std::min(vmin, nomVal - 0.10 * span);
+  vmax = std::max(vmax, nomVal + 0.10 * span);
+
+  TH1D* hToyDist = new TH1D(Form("hToy_%s", taskName.c_str()), "", 40, vmin, vmax);
+  for (double v : toyVals) hToyDist->Fill(v);
+
+  hToyDist->SetLineColor(kGreen + 3);
+  hToyDist->SetFillColorAlpha(kGreen + 2, 0.30);
+  hToyDist->SetLineWidth(2);
+  hToyDist->GetXaxis()->SetTitle(Form("Bin content (%s, bin %d)", pageLabel.empty() ? taskName.c_str() : pageLabel.c_str(), binIndex));
+  hToyDist->GetYaxis()->SetTitle("Toy count");
+  hToyDist->GetXaxis()->SetTitleSize(0.045);
+  hToyDist->GetYaxis()->SetTitleSize(0.045);
+  hToyDist->GetXaxis()->SetLabelSize(0.040);
+  hToyDist->GetYaxis()->SetLabelSize(0.040);
+  hToyDist->Draw("HIST");
+
+  const ToySummary s = summarizeToyValues(toyVals);
+
+  TLegend* leg = new TLegend(0.15, 0.6, 0.5, 0.8);
+  leg->SetBorderSize(0);
+  leg->SetFillStyle(0);
+  leg->SetTextSize(0.03);
+  drawToySummary(leg, hToyDist, s, true, nomVal);
+  leg->Draw();
+
+  TLatex txt;
+  txt.SetNDC();
+  txt.SetTextSize(0.032);
+  txt.DrawLatex(0.12, 0.92, Form("Toy distribution: %s bin %d (yield spread)", 
+                                  pageLabel.empty() ? taskName.c_str() : pageLabel.c_str(),
+                                  binIndex));
+
+  c->Print(outPdf.c_str(), "pdf");
+}
+
+// Helper: draw toy distribution for a ratio (e.g., epp/ep)
+void drawGenericRatioToyPage(TCanvas* c,
+                             TDirectory* histsDir,
+                             const string& numTask,
+                             const string& denTask,
+                             int binIndex,
+                             const string& outPdf,
+                             const string& pageLabel = "") {
+  
+  string suffix = "";
+  int rootBin = binIndex + 1;
+  
+  // Try with suffix first, then without
+  suffix = string("_pMiss") + std::to_string(binIndex);
+  TH1D* hNumNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/nominal_" + numTask + suffix).c_str()));
+  TH1D* hDenNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/nominal_" + denTask + suffix).c_str()));
+  
+  if (!hNumNom || !hDenNom) {
+    suffix = "";
+    hNumNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/nominal_" + numTask).c_str()));
+    hDenNom = dynamic_cast<TH1D*>(histsDir->Get((string("nominal") + "/nominal_" + denTask).c_str()));
+  }
+  
+  if (!hNumNom || !hDenNom) {
+    c->Clear();
+    TLatex t;
+    t.SetNDC();
+    t.SetTextSize(0.04);
+    t.DrawLatex(0.08, 0.60, Form("Missing histograms for ratio: %s / %s", numTask.c_str(), denTask.c_str()));
+    c->Print(outPdf.c_str(), "pdf");
+    return;
+  }
+
+  const double nomNum = hNumNom->GetBinContent(rootBin);
+  const double nomDen = hDenNom->GetBinContent(rootBin);
+  const bool nomValid = (nomDen > 0.0);
+  const double nomRatio = nomValid ? (nomNum / nomDen) : 0.0;
+
+  vector<string> labels = toyLabels(histsDir);
+  vector<double> toyVals;
+  toyVals.reserve(labels.size());
+
+  for (const auto& lab : labels) {
+    TDirectory* d = histsDir->GetDirectory(lab.c_str());
+    if (!d) continue;
+    string hNumName = lab + "_" + numTask + suffix;
+    string hDenName = lab + "_" + denTask + suffix;
+    TH1D* hNum = dynamic_cast<TH1D*>(d->Get(hNumName.c_str()));
+    TH1D* hDen = dynamic_cast<TH1D*>(d->Get(hDenName.c_str()));
+    if (!hNum || !hDen) continue;
+    const double num = hNum->GetBinContent(rootBin);
+    const double den = hDen->GetBinContent(rootBin);
+    if (den <= 0.0) continue;
+    toyVals.push_back(num / den);
+  }
+
+  c->Clear();
+  c->SetLeftMargin(0.12);
+  c->SetBottomMargin(0.12);
+  c->SetRightMargin(0.06);
+
+  if (toyVals.empty()) {
+    TLatex t;
+    t.SetNDC();
+    t.SetTextSize(0.04);
+    t.DrawLatex(0.08, 0.60, "No valid toy ratio values found.");
+    c->Print(outPdf.c_str(), "pdf");
+    return;
+  }
+
+  double vmin = *std::min_element(toyVals.begin(), toyVals.end());
+  double vmax = *std::max_element(toyVals.begin(), toyVals.end());
+  const double span = std::max(1e-6, vmax - vmin);
+  vmin -= 0.15 * span;
+  vmax += 0.15 * span;
+  if (nomValid) {
+    vmin = std::min(vmin, nomRatio - 0.10 * span);
+    vmax = std::max(vmax, nomRatio + 0.10 * span);
+  }
+
+  TH1D* hToy = new TH1D("hToyRatio", "", 40, vmin, vmax);
+  for (double v : toyVals) hToy->Fill(v);
+
+  hToy->SetLineColor(kAzure + 2);
+  hToy->SetFillColorAlpha(kAzure + 1, 0.30);
+  hToy->SetLineWidth(2);
+  hToy->GetXaxis()->SetTitle(Form("Ratio value (%s, bin %d)", pageLabel.empty() ? "ratio" : pageLabel.c_str(), binIndex));
+  hToy->GetYaxis()->SetTitle("Toy count");
+  hToy->GetXaxis()->SetTitleSize(0.045);
+  hToy->GetYaxis()->SetTitleSize(0.045);
+  hToy->GetXaxis()->SetLabelSize(0.040);
+  hToy->GetYaxis()->SetLabelSize(0.040);
+  hToy->Draw("HIST");
+
+  const ToySummary s = summarizeToyValues(toyVals);
+
+  TLegend* leg = new TLegend(0.56, 0.66, 0.92, 0.89);
+  leg->SetBorderSize(0);
+  leg->SetFillStyle(0);
+  leg->SetTextSize(0.027);
+  drawToySummary(leg, hToy, s, nomValid, nomRatio);
+  leg->Draw();
+
+  TLatex txt;
+  txt.SetNDC();
+  txt.SetTextSize(0.032);
+  txt.DrawLatex(0.12, 0.92, Form("Toy distribution: %s bin %d (ratio spread)", 
+                                  pageLabel.empty() ? "ratio" : pageLabel.c_str(),
+                                  binIndex));
+
+  c->Print(outPdf.c_str(), "pdf");
+}
+
+// Main entry point: flexible toy diagnostics for any variable
+void plot_toy_diagnostics(const char* inFileName,
+                          const char* varName = "Q2_epp_SRC_pmiss_over_Q2_ep_SRC_pmiss",
+                          int binIndex = 3,
+                          const char* outPdfName = "pdf/toy_diag_temp.pdf") {
+  gROOT->SetBatch(kTRUE);
+  gStyle->SetOptStat(0);
+  gStyle->SetOptTitle(0);
+
+  TFile* f = TFile::Open(inFileName, "READ");
+  if (!f || f->IsZombie()) {
+    std::cerr << "Could not open input file: " << inFileName << std::endl;
+    return;
+  }
+
+  TDirectory* histsDir = f->GetDirectory("hists");
+  if (!histsDir) {
+    std::cerr << "Missing hists directory in: " << inFileName << std::endl;
+    f->Close();
+    return;
+  }
+
+  TCanvas* c = new TCanvas("c_toy", "Toy diagnostics", 1100, 800);
+  string var(varName);
+  string outPdf(outPdfName);
+
+  c->Print((outPdf + "[").c_str());
+
+  // Detect if this is a ratio (contains "_over_")
+  size_t overPos = var.find("_over_");
+  if (overPos != string::npos) {
+    string numTask = var.substr(0, overPos);
+    string denTask = var.substr(overPos + 6);  // skip "_over_"
+    drawGenericRatioToyPage(c, histsDir, numTask, denTask, binIndex, outPdf, var);
+  } else {
+    drawGenericYieldToyPage(c, histsDir, var, binIndex, outPdf, var);
+  }
+
   c->Print((outPdf + "]").c_str());
 
   std::cout << "Wrote " << outPdf << std::endl;

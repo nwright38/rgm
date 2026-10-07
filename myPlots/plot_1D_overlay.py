@@ -43,10 +43,23 @@ import ratio
 
 # (output key, task_name, selection, xlabel, xlim)
 VARIABLES = [
+    ('pMiss_ratio', 'pMiss_epp_over_pMiss_ep', 'ratio',
+     r'$p_{miss} [GeV]$', (0.4, 1.0)),
+    ('kMiss_ratio', 'kMiss_epp_over_kMiss_ep', 'ratio',
+     r'$k_{miss} [GeV]$', (0.3, 0.9)),
     ('pMiss_ep', 'pMiss_ep_note', 'ep', r'$p_{miss} [GeV]$', (0.4, 1.)),
     ('pMiss_epp', 'pMiss_epp_note', 'epp', r'$p_{miss} [GeV]$', (0.4, 1.)),
     ('kMiss_ep', 'kMiss_ep_note', 'ep', r'$k_{miss} [GeV]$', (0.3, 1.)),
     ('kMiss_epp', 'kMiss_epp_note', 'epp', r'$k_{miss} [GeV]$', (0.3, 1.)),
+    ('mMiss_ep', 'mMiss_ep_note', 'ep', r'$m_{miss} [GeV]$', (0.5, 1.4)),
+    ('mMiss_epp', 'mMiss_epp_note', 'epp', r'$m_{miss} [GeV]$', (0.5, 1.4)),
+    ('EStar_ep', 'EStar_ep_note', 'ep', r'$E^{*} [GeV]$', (-0.1, 0.6)),
+    ('EStar_epp', 'EStar_epp_note', 'epp', r'$E^{*} [GeV]$', (-0.1, 0.6)),
+    ('E1miss_adj_ep', 'E1miss_adj_ep_note', 'ep', r'$E_{1,miss}^{adj} [GeV]$', (-0.8, 0.4)),
+    ('E1miss_adj_epp', 'E1miss_adj_epp_note', 'epp', r'$E_{1,miss}^{adj} [GeV]$', (-0.8, 0.4)),
+    ('E1miss_ep', 'E1miss_ep_note', 'ep', r'$E_{1,miss} [GeV]$', (-0.25, 0.55)),
+    ('E1miss_epp', 'E1miss_epp_note', 'epp', r'$E_{1,miss} [GeV]$', (-0.2, 0.5)),
+    ('E2miss_epp', 'E2miss_epp_note', 'epp', r'$E_{2,miss} [GeV]$', (-0.25, 0.5)),
     ('Q2_ep', 'Q2_ep', 'ep', r'$Q^{2} [GeV^{2}]$', (1.5, 5.0)),
     ('Q2_epp', 'Q2_epp', 'epp', r'$Q^{2} [GeV^{2}]$', (1.5, 5.0)),
     ('xB_ep', 'xB_ep', 'ep', r'$x_{B}$', (1.0, 2.0)),
@@ -66,6 +79,8 @@ VARIABLES = [
     ('thetaRec_epp', 'thetaRec_epp', 'epp', r'$\theta_{rec} [deg]$', (0, 180)),
     ('phiRec_epp', 'phiRec_epp', 'epp', r'$\phi_{rec} [deg]$', (-180, 180)),
     ('theta_pRec_pmiss_epp', 'theta_pRec_pmiss_epp', 'epp', r'$\theta_{p_{rec},p_{miss}} [deg]$', (0, 180)),
+    ('theta_pRecq_epp', 'theta_pRecq_epp', 'epp', r'$\theta_{p_{rec},q} [deg]$', (0, 180)),
+    ('theta_pLeadPrec_epp', 'theta_pLeadPrec_epp', 'epp', r'$\theta_{p_{lead},p_{rec}} [deg]$', (0, 180)),
     ('pRel_epp', 'pRel_epp', 'epp', r'$p_{rel} [GeV]$', (0.15, 1.0)),
     ('pRec_epp', 'pRec_epp', 'epp', r'$p_{rec} [GeV]$', (0.3, 1.0)),
     ('pcmz_epp', 'pcmz_epp', 'epp', r'$\vec{p}_{C.M.} \cdot \hat{v}_{z} [GeV]$', (-0.75, 0.75)),
@@ -76,6 +91,8 @@ VARIABLES = [
     ('theta_pmiss_epp', 'theta_pmiss_epp', 'epp', r'$\theta_{p_{miss},q} [deg]$', (100, 180)),
     ('q_ep', 'q_ep', 'ep', r'$|\vec{q}| [GeV]$', (0, 4)),
     ('q_epp', 'q_epp', 'epp', r'$|\vec{q}| [GeV]$', (0, 4)),
+    ('pOverQ_ep', 'pOverQ_ep_note', 'ep', r'$p_{lead}/|\vec{q}|$', (0.3, 1.2)),
+    ('pOverQ_epp', 'pOverQ_epp_note', 'epp', r'$p_{lead}/|\vec{q}|$', (0.3, 1.2)),
     ('theta_pLeadq_ep', 'theta_pLeadq_ep', 'ep', r'$\theta_{p_{lead},q} [deg]$', (0, 40)),
     ('theta_pLeadq_epp', 'theta_pLeadq_epp', 'epp', r'$\theta_{p_{lead},q} [deg]$', (0, 40)),
 ]
@@ -163,15 +180,20 @@ def _selected_variables(args):
     return variables
 
 
-def _read_normalized(inp, task_name, selection):
+def _read_normalized(inp, task_name, selection, normalize=True):
     name = graph_names.diff_graph_name(task_name, selection, [])
     x, y, xerr_low, xerr_high, yerr_low, yerr_high = graph_io.read_graph_asymm_with_xerr(inp.file, name)
-    integral = sum(y)
-    if integral == 0.0:
-        raise ValueError('Integral is zero for graph %s in %s' % (name, inp.path))
-    y_norm = [yi / integral for yi in y]
-    err_low_norm = [ei / integral for ei in yerr_low]
-    err_high_norm = [ei / integral for ei in yerr_high]
+    if normalize:
+        integral = sum(y)
+        if integral == 0.0:
+            raise ValueError('Integral is zero for graph %s in %s' % (name, inp.path))
+        y_norm = [yi / integral for yi in y]
+        err_low_norm = [ei / integral for ei in yerr_low]
+        err_high_norm = [ei / integral for ei in yerr_high]
+    else:
+        y_norm = list(y)
+        err_low_norm = list(yerr_low)
+        err_high_norm = list(yerr_high)
     err_sym_norm = [max(lo, hi) for lo, hi in zip(err_low_norm, err_high_norm)]
     return x, xerr_low, xerr_high, y_norm, err_low_norm, err_high_norm, err_sym_norm
 
@@ -270,7 +292,8 @@ def _ratio_specs(args, n_inputs):
 
 def _plot_one(inputs, variable, args, out_path):
     key, task_name, selection, xlabel, fallback_xlim = variable
-    normalized = [_read_normalized(inp, task_name, selection) for inp in inputs]
+    normalize = (selection != 'ratio')
+    normalized = [_read_normalized(inp, task_name, selection, normalize=normalize) for inp in inputs]
     spacing = _median_spacing(normalized[0][0])
     offsets = _offsets(len(inputs), spacing, args.shift_fraction)
     xlim = _auto_xlim_from_points(normalized[0][0], fallback_xlim,
@@ -295,7 +318,10 @@ def _plot_one(inputs, variable, args, out_path):
         local_max = max([yi + ei for yi, ei in zip(y, yerr_high)] or [0.0])
         ymax = max(ymax, local_max)
 
-    ax.set_ylabel('Unit-normalized counts')
+    if selection == 'ratio':
+        ax.set_ylabel(r"$(e,e^{\prime}pp)/(e,e^{\prime}p)$")
+    else:
+        ax.set_ylabel('Unit-normalized counts')
     ax.set_xlim(*xlim)
     ax.set_ylim(0.0, ymax * 1.2 if ymax > 0.0 else 1.0)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=4))

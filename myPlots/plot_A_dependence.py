@@ -61,6 +61,15 @@ ph.plot_overlay(
     xlabel_size=25, ylabel_size=25, annotations=annotations)
 
 # ---------------------------------------------------------------------------
+# epp/ep vs kMiss, all nuclei (already a ratio quantity -- no rescaling)
+# ---------------------------------------------------------------------------
+ph.plot_overlay(
+    pdf, 'kMiss_epp_over_kMiss_ep', [he_data] + nuclei, selection='ratio',
+    xlabel=r'$k_{miss}$', ylabel=r'$epp/ep$',
+    xlim=(0.3, 0.95), ylim=(0, 0.2), with_ratio=False,
+    xlabel_size=25, ylabel_size=25, annotations=annotations)
+
+# ---------------------------------------------------------------------------
 # E1miss 4x2, E2miss 4x1, all nuclei (narrow offsets via offset_scale=0.4)
 # ---------------------------------------------------------------------------
 ph.plot_emiss_4x2(

@@ -122,7 +122,7 @@ def _plot_sigma_q2(pdf, data, sims, out_dir, has_sim, missing_notes):
         _save_call(
             lambda path: ph.plot_q2_single(
                 pdf, data, sims, task_name, ylabel,
-                selection='epp', xlim=(1.5, 5.0), ylim=(0.0, 0.35),
+                selection='epp', xlim=(1.5, 5.0), ylim=None,
                 with_ratio=has_sim, unit_scale=True, save_as=path),
             out_path, missing_notes)
 
@@ -152,8 +152,10 @@ def _plot_sigma_q2_pmiss_if_available(pdf, data, sims, out_dir, has_sim, missing
         _save_call(
             lambda path: ph.plot_q2_2x2(
                 pdf, data, sims, task_name, ylabel, PMISS_LABELS,
-                selection='epp', ylim=(0.0, 0.35),
-                ylabel_size=13, unit_scale=True, save_as=path),
+                selection='epp', ylim=None,
+                ylabel_size=13, unit_scale=True,
+                right_column_on_right_axis=True,
+                save_as=path),
             out_path, missing_notes)
 
         if has_sim:
@@ -162,8 +164,10 @@ def _plot_sigma_q2_pmiss_if_available(pdf, data, sims, out_dir, has_sim, missing
             _save_call(
                 lambda path: ph.plot_q2_2x2_data_over_sim(
                     pdf, data, sims, task_name, PMISS_LABELS,
-                    selection='epp', ylim=(0.5, 1.5),
-                    ylabel_size=13, unit_scale=True, save_as=path),
+                    selection='epp', ylim=None,
+                    ylabel_size=13, unit_scale=True,
+                    right_column_on_right_axis=True,
+                    save_as=path),
                 ratio_out, missing_notes)
 
 
@@ -203,7 +207,8 @@ def _plot_ratios(pdf, data, sims, out_dir, has_sim, missing_notes):
             lambda path: ph.plot_q2_2x2_data_over_sim_ratio_only(
                 pdf, data, sims,
                 'Q2_epp_SRC_pmiss', 'Q2_ep_SRC_pmiss', PMISS_LABELS,
-                ylim=(0.5, 1.5), label_xy=(2.3, 1.35), ylabel_size=13,
+                ylim=None, label_xy=(2.3, 1.35), ylabel_size=13,
+                right_column_on_right_axis=True,
                 save_as=path),
             os.path.join(out_dir, 'epp_over_ep_vs_q2_pmiss_2x2_data_over_sim.pdf'),
             missing_notes)
@@ -250,8 +255,9 @@ def _plot_emiss_stats_q2_pmiss(pdf, data, sims, out_dir, has_sim, missing_notes)
         _save_call(
             lambda path: ph.plot_q2_2x2(
                 pdf, data, sims, task_name, ylabel, PMISS_LABELS,
-                selection=selection, ylim=ylim, ylabel_size=10,
-                big_label=big_label, unit_scale=True, save_as=path),
+                selection=selection, ylim=None, ylabel_size=10,
+                big_label=big_label, unit_scale=True,
+                right_column_on_right_axis=True, save_as=path),
             out_path, missing_notes)
 
         if has_sim:
@@ -260,8 +266,10 @@ def _plot_emiss_stats_q2_pmiss(pdf, data, sims, out_dir, has_sim, missing_notes)
             _save_call(
                 lambda path: ph.plot_q2_2x2_data_over_sim(
                     pdf, data, sims, task_name, PMISS_LABELS,
-                    selection=selection, ylim=(0.5, 1.5),
-                    ylabel_size=13, unit_scale=True, save_as=path),
+                    selection=selection, ylim=None,
+                    ylabel_size=13, unit_scale=True,
+                    right_column_on_right_axis=True,
+                    save_as=path),
                 ratio_out, missing_notes)
 
 
