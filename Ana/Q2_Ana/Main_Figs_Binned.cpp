@@ -256,13 +256,14 @@ EventKinematics computeEventKinematics(const std::unique_ptr<clas12::clas12reade
 // the effect of a single coherent alternate cut choice (which is what a
 // cut-variation systematic is supposed to estimate).
 struct CutVariation {
+  
   double xB_lower = 1.2;
   double Q2_lower = 1.5;
   double mMiss_lower = 0.65;
   double mMiss_upper = 1.10;
   double kMiss_lower = 0.3;
   double pLead_lower = 1.0;
-  double tLead_upper = 37;
+  double tLead_upper = 180;
   double tLead_lower = 45;
   double pRecoil_lower = 0.3;
 

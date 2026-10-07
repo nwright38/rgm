@@ -45,10 +45,12 @@ PADDED_ID=$(printf "%05d" ${BKG_ID})
 BKGDFILE=/cache/clas12/rg-m/production/bkgfiles/tor-1.00_sol-1.00/Cx4_5986MeV/c_${PADDED_ID}.hipo
 
 #DON'T NEED TO TOUCH BELOW HERE UNLESS YOU NEED TO
-ROOTOUT=${OUTPATH}/rootfiles/C12_Sep11
-LUNDOUT=${OUTPATH}/lundfiles/C12_Sep11
-MCOUT=${OUTPATH}/mchipo/C12_Sep11
-RECONOUT=${OUTPATH}/reconhipo/C12_Sep11
+OUTDIRNAME=C12_Oct6
+
+ROOTOUT=${OUTPATH}/rootfiles/${OUTDIRNAME}
+LUNDOUT=${OUTPATH}/lundfiles/${OUTDIRNAME}
+MCOUT=${OUTPATH}/mchipo/${OUTDIRNAME}
+RECONOUT=${OUTPATH}/reconhipo/${OUTDIRNAME}
 
 # SLURM_ARRAY_TASK_ID=1 #for testing, comment out for array job submission
 

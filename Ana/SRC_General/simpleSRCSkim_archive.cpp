@@ -862,7 +862,8 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
+  reweighter newWeight(Ebeam, 2,2, kelly, "AV18", .15);
+ // reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
 
   int ctr = 0;
   while(chain.Next())
@@ -1056,13 +1057,20 @@ int main(int argc, char **argv)
       double E0miss = sqrt(pMissV.Mag2() + mN*mN) - mN;
       double TP = leadP4.E() - leadP4.M();
       double TB = omega + targetCfg.mass - leadP4.E() - sqrt((omega + targetCfg.mass - leadP4.E())*(omega + targetCfg.mass - leadP4.E()) - pMissV.Mag2());
+   //   double TB = missP4.E() - missP4.M();
       double E1miss = omega - TP - TB;
 
       // SRC lead cuts
       bool passCuts = true;
-      if(pLead3.Mag() < 1.)                        passCuts = false;
-      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+       if(pLead3.Mag() < 1.)                        passCuts = false;
+      if(missP4.M() > 1.1)   passCuts = false;
       if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
+      if(pLead3.Mag()/qP3.Mag() > 0.95) passCuts = false;
+
+
+    //  if(pLead3.Mag() < 1.)                        passCuts = false;
+      // if(missP4.M() < 0.65 || missP4.M() > 1.1)   passCuts = false;
+    // if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
     //  if(pLead3.Angle(qP3) < 37.*M_PI/180.)             passCuts = false;
 
       // if(pMissV.Mag() < 0.4)                passCuts = false;
@@ -1295,7 +1303,10 @@ int main(int argc, char **argv)
         double EMiss_truth = sqrt(lead_truth.Mag2() + mP*mP) - omega_truth;
         double E0miss_truth = sqrt(pMiss_truth.Mag2() + mN*mN) - mN;
         double TP_truth = leadP4_truth.E() - leadP4_truth.M();
-        double TB_truth = missP4_truth.E() - missP4_truth.M();
+     //   double TB_truth = missP4_truth.E() - missP4_truth.M();
+
+        double TB_truth = omega_truth + targetCfg.mass - leadP4_truth.E() - sqrt((omega_truth + targetCfg.mass - leadP4_truth.E())*(omega_truth + targetCfg.mass - leadP4_truth.E()) - pMiss_truth.Mag2());
+
         double E1miss_truth = omega_truth - TP_truth - TB_truth;
 
         b_eP_truth     = e_truth.Mag();

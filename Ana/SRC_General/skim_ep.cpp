@@ -146,8 +146,8 @@ int main(int argc, char ** argv)
       double Q2  = -q.M2();
       double xB  = Q2 / (2 * mass_p * (beam.E() - el.E()));
 
-      if(xB < 1.2){continue;}
-      if(Q2 < 1.5){continue;}
+      if(xB < 1.){continue;}
+      if(Q2 < 1.){continue;}
       // if(Q2 > 5){continue;}
 
       // --- Build lead/recoil directly from reconstructed protons ---
@@ -166,7 +166,7 @@ int main(int argc, char ** argv)
         if(isMC){SetLorentzVector_MomentumSimulationSmear(p4,protons[ip]);}
         proton_p4.push_back(p4);
 
-        const double pMag = p4.P();l
+        const double pMag = p4.P();
         if(pMag > 1. && pMag > max_lead_mom){
           max_lead_mom = pMag;
           lead_idx = ip;
