@@ -4,6 +4,8 @@
 
 #include <TFile.h>
 #include <TTree.h>
+#include <TLeaf.h>
+#include <TString.h>
 #include <TLorentzVector.h>
 #include <TRandom3.h>
 #include <TVector3.h>
@@ -297,7 +299,13 @@ void convert_events2N_to_srcTree(
   double minKMiss = 0.3,
   double maxKMiss = 1.0,
   double minMMiss = 0.65,
-  double maxMMiss = 1.1) {
+  double maxMMiss = 1.1,
+  bool inputIsGenT = false) {
+
+  if (TString(inputFileName) == TString(outputFileName)) {
+    std::cerr << "Input and output filenames must differ.\n";
+    return;
+  }
 
   TFile *inFile = TFile::Open(inputFileName, "READ");
   if (!inFile || inFile->IsZombie()) {
@@ -328,6 +336,33 @@ void convert_events2N_to_srcTree(
   double xB_in = -9.;
   double nu_in = -9.;
 
+  // Leaf reads support both Float_t and Double_t generator arrays.
+  TLeaf *genPe = nullptr, *genLead = nullptr, *genRec = nullptr;
+  TLeaf *genQ = nullptr, *genWeight = nullptr;
+  TLeaf *genLeadType = nullptr, *genRecType = nullptr;
+  if (inputIsGenT) {
+    for (const char *name : {"pe", "pLead", "pRec", "weight", "lead_type", "rec_type"}) {
+      TLeaf *leaf = inTree->GetLeaf(name);
+      const bool vector = TString(name) == "pe" || TString(name) == "pLead" || TString(name) == "pRec";
+      if (!leaf || leaf->GetLeafCount() || leaf->GetLenStatic() != (vector ? 3 : 1)) {
+        std::cerr << "Invalid or missing genT leaf: " << name << "\n";
+        inFile->Close();
+        return;
+      }
+    }
+    genPe = inTree->GetLeaf("pe");
+    genLead = inTree->GetLeaf("pLead");
+    genRec = inTree->GetLeaf("pRec");
+    genWeight = inTree->GetLeaf("weight");
+    genLeadType = inTree->GetLeaf("lead_type");
+    genRecType = inTree->GetLeaf("rec_type");
+    genQ = inTree->GetLeaf("q");
+    if (eBeamOverride <= 0. && (!genQ || genQ->GetLeafCount() || genQ->GetLenStatic() != 3)) {
+      std::cerr << "genT needs q[3] to infer beam energy, or a positive eBeam argument.\n";
+      inFile->Close();
+      return;
+    }
+  } else {
   inTree->SetBranchAddress("weight", &weight);
   inTree->SetBranchAddress("lead_type", &lead_type);
   inTree->SetBranchAddress("rec_type", &rec_type);
@@ -341,6 +376,7 @@ void convert_events2N_to_srcTree(
   inTree->SetBranchAddress("Q2", &Q2_in);
   inTree->SetBranchAddress("xB", &xB_in);
   inTree->SetBranchAddress("nu", &nu_in);
+  }
 
   TFile *outFile = TFile::Open(outputFileName, "RECREATE");
   if (!outFile || outFile->IsZombie()) {
@@ -490,6 +526,23 @@ void convert_events2N_to_srcTree(
   for (Long64_t i = 0; i < nEntries; ++i) {
     inTree->GetEntry(i);
     ++nTotal;
+    if (inputIsGenT) {
+      weight = genWeight->GetValue();
+      lead_type = static_cast<int>(genLeadType->GetValue());
+      rec_type = static_cast<int>(genRecType->GetValue());
+      for (int j = 0; j < 3; ++j) {
+        electron[j] = genPe->GetValue(j);
+        lead_post[j] = lead_pre[j] = genLead->GetValue(j);
+        recoil_post[j] = recoil_pre[j] = genRec->GetValue(j);
+      }
+      electron[3] = std::sqrt(TVector3(electron).Mag2() + kMe * kMe);
+      lead_post[3] = lead_pre[3] = std::sqrt(TVector3(lead_post).Mag2() + std::pow(getMassFromType(lead_type), 2));
+      recoil_post[3] = recoil_pre[3] = std::sqrt(TVector3(recoil_post).Mag2() + std::pow(getMassFromType(rec_type), 2));
+      // q + pe is the incoming beam momentum along the laboratory z axis.
+      const double beamE = eBeamOverride > 0. ? eBeamOverride :
+          std::sqrt(std::pow(genQ->GetValue(2) + electron[2], 2) + kMe * kMe);
+      nu_in = beamE - electron[3];
+    }
 
     if (requireEpp) {
       if (std::abs(lead_type) != 2212 || std::abs(rec_type) != 2212) continue;
@@ -517,7 +570,7 @@ void convert_events2N_to_srcTree(
       applyMomentumSimulationSmearApprox(recP4);
     }
 
-    const double eBeamEvent = nu_in + electron[3];
+    const double eBeamEvent = eBeamOverride > 0. ? eBeamOverride : nu_in + electron[3];
     const TVector3 beamVec(0., 0., eBeamEvent);
     const TVector3 eVec = eP4.Vect();
     const TVector3 qVec = beamVec - eVec;
@@ -575,17 +628,6 @@ void convert_events2N_to_srcTree(
     double q2Val = qVec.Mag2() - nu * nu;
     double xBVal = (std::abs(omegaVal) > 1e-12) ? q2Val / (2.0 * kMp * omegaVal) : -9.;
 
-    // If requested, replace inferred beam-energy dependent quantities.
-    if (eBeamOverride > 0.) {
-      const double omegaFix = eBeamOverride - electron[3];
-      const double q2Fix = qVec.Mag2() - omegaFix * omegaFix;
-      const double xBFix =
-          (std::abs(omegaFix) > 1e-12) ? q2Fix / (2.0 * kMp * omegaFix) : -9.;
-      omegaVal = omegaFix;
-      q2Val = q2Fix;
-      xBVal = xBFix;
-    }
-
     if (applyBasicSrcCuts) {
       if (xBVal < minXB) continue;
       ++passXB;
@@ -617,7 +659,7 @@ void convert_events2N_to_srcTree(
     qTheta = static_cast<float>(qVec.Theta());
     qPhi = static_cast<float>(qVec.Phi());
 
-    nProtons = 2;
+    nProtons = (std::abs(lead_type) == 2212) + (std::abs(rec_type) == 2212);
 
     leadP = static_cast<float>(pLeadMag);
     leadTheta = static_cast<float>(leadVec.Theta());

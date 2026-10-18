@@ -17,21 +17,25 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_sim_skim.root,~/data/RGM_DATA/c12_sim_skim_noPS.root,~/data/RGM_DATA/c12_src_skim.root",
+    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim_512_vtx.root,~/data/RGM_DATA/c12_inclusive_sim_skim_noCut.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_ep_test.pdf",
     bool normalizeToUnity = true,
-    const char *eppCut = "pCM > 0",
-    const char *baseCut = "Q2 < 5. && pMiss < 1.",
-    const char *weightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
-    const char *labelsCsv = "PS cut, no PS cut,Data",
+    const char *eppCut = "pCM > 0 && recP > .38",
+    const char *baseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.3 && leadP > .8 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95 && leadP/qP > .7",
+    const char *weightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
+    const char *labelsCsv = "Data, GEMC 5.12, GEMC 5.12 no lund cut",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
     Long64_t maxEvents = -1,
     Long64_t firstEvent = 0,
     const char *epCut = "goodLead",
-    const char *epBaseCut = "Q2 < 5. && pMiss < 1.",
-    const char *epWeightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)") {
+    const char *epBaseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.3 && leadP > .8 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95  && leadP/qP > .7",
+    const char *epWeightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
+    bool useTruth = false) {
+
+  // useTruth selects *_truth branches for every plotted expression. Cuts and
+  // weights are used verbatim; supply truth-level cuts explicitly if desired.
 
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -114,6 +118,7 @@ void overlay_default_multi(
     std::vector<double> rawIntegrals;
     hs.reserve(fileNames.size());
     rawIntegrals.reserve(fileNames.size());
+    const TString expression = overlay_src::plotExpression(v, useTruth);
 
     for (std::size_t is = 0; is < trees.size(); ++is) {
       TH1D *h = new TH1D(Form("h_%s_%s_s%zu", v.name, pageTag, is), "",
@@ -127,10 +132,10 @@ void overlay_default_multi(
         overlay_src::applyWeightToSelection(pageWeights[is].Data(), boolSel);
 
       if (maxEvents > 0) {
-        trees[is]->Project(h->GetName(), v.expr, weightedSel.Data(), "", maxEvents,
+        trees[is]->Project(h->GetName(), expression.Data(), weightedSel.Data(), "", maxEvents,
                            firstEvent);
       } else {
-        trees[is]->Project(h->GetName(), v.expr, weightedSel.Data());
+        trees[is]->Project(h->GetName(), expression.Data(), weightedSel.Data());
       }
       const double rawInt = h->Integral(0, h->GetNbinsX() + 1);
       rawIntegrals.push_back(rawInt);
@@ -164,12 +169,13 @@ void overlay_default_multi(
     hs.front()->Draw("E");
     for (std::size_t is = 1; is < hs.size(); ++is) hs[is]->Draw("E SAME");
 
-    TLegend *leg = new TLegend(0.50, 0.64, 0.90, 0.89);
+    TLegend *leg = new TLegend(0.6, 0.7, 0.95, 0.89);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
     leg->SetTextSize(0.030);
     for (std::size_t is = 0; is < hs.size(); ++is) {
-      leg->AddEntry(hs[is], Form("%s (sumW=%.1f)", labels[is].Data(), rawIntegrals[is]), "lep");
+      leg->AddEntry(hs[is], Form("%s", labels[is].Data()), "lep");
+      //leg->AddEntry(hs[is], Form("%s (sumW=%.1f)", labels[is].Data(), rawIntegrals[is]), "lep");
     }
     leg->Draw();
 
@@ -183,7 +189,7 @@ void overlay_default_multi(
     title.SetNDC();
     title.SetTextSize(0.030);
     title.SetTextFont(62);
-    title.DrawLatex(0.4, 0.965, v.name);
+    title.DrawLatex(0.4, 0.965, Form("%s%s", v.name, useTruth ? "_truth" : ""));
 
     c->Print(pdfName, "pdf");
   };

@@ -2,8 +2,10 @@
 #define OVERLAY_SRC_COMMON_H
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -30,6 +32,43 @@ struct PlotVar {
   double xmin;
   double xmax;
 };
+
+// Suffix branch identifiers, preserving numbers, namespace names and functions.
+// Transform the expression rather than the plot name (pLead uses leadP, etc.).
+inline TString plotExpression(const PlotVar &var, bool useTruth = false) {
+  if (!useTruth) return var.expr;
+  const std::string expr(var.expr);
+  std::string result;
+  for (std::size_t i = 0; i < expr.size();) {
+    const unsigned char ch = static_cast<unsigned char>(expr[i]);
+    if (std::isdigit(ch) ||
+        (expr[i] == '.' && i + 1 < expr.size() &&
+         std::isdigit(static_cast<unsigned char>(expr[i + 1])))) {
+      char *end = nullptr;
+      std::strtod(expr.c_str() + i, &end);
+      const std::size_t next = static_cast<std::size_t>(end - expr.c_str());
+      result.append(expr, i, next - i);
+      i = next;
+    } else if (std::isalpha(ch) || expr[i] == '_') {
+      const std::size_t start = i++;
+      while (i < expr.size() &&
+             (std::isalnum(static_cast<unsigned char>(expr[i])) || expr[i] == '_')) ++i;
+      const std::string token = expr.substr(start, i - start);
+      result += token;
+      std::size_t next = i;
+      while (next < expr.size() &&
+             std::isspace(static_cast<unsigned char>(expr[next]))) ++next;
+      const bool functionOrNamespace = next < expr.size() &&
+          (expr[next] == '(' || expr.compare(next, 2, "::") == 0);
+      const bool alreadyTruth = token.size() >= 6 &&
+          token.compare(token.size() - 6, 6, "_truth") == 0;
+      if (!functionOrNamespace && !alreadyTruth) result += "_truth";
+    } else {
+      result += expr[i++];
+    }
+  }
+  return TString(result);
+}
 
 inline double finiteMax(double x, double fallback = 0.) {
   return std::isfinite(x) ? x : fallback;
@@ -143,7 +182,7 @@ inline std::vector<PlotVar> defaultVariables() {
   return {
       {"xB", "xB", "x_{B}", 40, 1., 2.},
       {"Q2", "Q2", "Q^{2} [GeV^{2}]", 40, 1.0, 5.0},
-      {"omega", "omega", "#omega [GeV]", 40, 0.5, 3.0},
+      {"omega", "omega", "#omega [GeV]", 40, 0., 3.0},
       {"eP", "eP", "p_{e} [GeV]", 40, 3.0, 6.0},
       {"eTheta", "eTheta*180./TMath::Pi()", "#theta_{e} [deg]", 40, 9.0, 35.0},
       {"pLead", "leadP", "p_{lead} [GeV/c]", 40, 0.8, 3.0},
@@ -196,8 +235,8 @@ inline std::vector<PlotVar> defaultVariables() {
       {"alpha_rel", "alpha_rel", "#alpha_{rel}", 40, 0.4, 1.5},
       {"alpha_q", "alpha_q", "#alpha_{q}", 40, -1.5, -.50},
       {"alpha_pLead", "alpha_pLead", "#alpha_{p_{lead}}", 40, 0., 1.0},
-      {"p1_plus", "p1_plus", "p_{miss}^{+} [GeV]", 40, -0.5, 2.5},
-      {"p2_plus", "p2_plus", "p_{rec}^{+} [GeV]", 40, -0.5, 2.5},
+      {"p1_plus", "p1_plus", "p_{miss}^{+} [GeV]", 40, -1., 1.5},
+      {"p2_plus", "p2_plus", "p_{rec}^{+} [GeV]", 40, -1., 1.5},
       {"p1_lc_z", "(p1_plus - alpha_1*m_bar)/2.", "p_{miss,z}^{LC} [GeV/c]", 40,
        -1.2, 1.2},
       {"p2_lc_z", "(p2_plus - alpha_2*m_bar)/2.", "p_{rec,z}^{LC} [GeV/c]", 40,

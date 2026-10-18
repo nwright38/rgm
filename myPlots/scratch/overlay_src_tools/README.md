@@ -138,3 +138,37 @@ If you want to keep basic SRC cuts but allow non-e'pp PID combinations, set `req
 ```bash
 root -l -b -q 'myPlots/scratch/overlay_src_tools/convert_events2N_to_srcTree.C("~/data/RGM_DATA/events_2N.root","~/data/RGM_DATA/events_2N_srcTree_noepp.root","events",true,12,-1.0,false,true,true)'
 ```
+
+## 6) Convert standard GCF `genT` to `srcTree`
+
+```bash
+root -l -b -q 'myPlots/scratch/overlay_src_tools/convert_genT_to_srcTree.C("gcf.root","gcf_srcTree.root",12)'
+```
+
+Required input leaves: `pe[3]`, `pLead[3]`, `pRec[3]`, `weight`,
+`lead_type`, and `rec_type`. Momentum components are in GeV/c; Float_t
+and Double_t arrays are supported. `q[3]` is also required unless a positive
+beam energy is supplied. Without an override, beam energy is inferred from
+`q[2] + pe[2]` assuming the beam travels along positive laboratory z.
+Nucleon energies are reconstructed on shell from their PDG IDs.
+
+Arguments after the filenames: `targetA=12`, `eBeam=-1`, `requireEpp=true`,
+`applyMCSmearing=false`, `applyBasicSrcCuts=false`, `inputTreeName="genT"`.
+The remaining cut thresholds follow the events_2N converter's order and defaults.
+For helium-4 at 5.98636 GeV, enabling approximate smearing and SRC cuts:
+
+```bash
+root -l -b -q 'myPlots/scratch/overlay_src_tools/convert_genT_to_srcTree.C("gcf.root","gcf_srcTree.root",4,5.98636,true,true,true)'
+```
+
+The output uses the same 73 branch names/types and kinematic calculations as
+`convert_events2N_to_srcTree.C`. Angles are in radians. Generator weights are
+copied into `weight`, `weight_ep`, and `weight_epp`. By default only proton-pair
+events are retained; set `requireEpp=false` to retain other nucleon pairs.
+The generator's leading/recoil assignments are preserved. No detector simulation
+or acceptance is applied; optional smearing is an approximation.
+
+This is the existing skim-compatible kinematic subset, not the full 167-branch
+`simpleSRCSkim_archive.cpp` schema: detector fields, truth-suffixed fields,
+and some additional observables/selection flags are absent.
+Input and output must be different files; output is opened with `RECREATE`.
