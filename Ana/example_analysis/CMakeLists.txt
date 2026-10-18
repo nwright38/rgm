@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(clas12ana)
 # compile executables in source directory
-foreach(fnameSrc example_ana.cpp skim_events.cpp)
+foreach(fnameSrc example_ana.cpp skim_events.cpp skim_ep_example.cpp)
   message(STATUS ${fnameSRC})
   string (REPLACE ".cpp" "" fnameExe ${fnameSrc})
   add_executable(${fnameExe} ${fnameSrc})
