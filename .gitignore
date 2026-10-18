@@ -7,3 +7,6 @@
 *.ev
 *.hipo
 *.out
+myPlots/*
+*.pdf
+build/*

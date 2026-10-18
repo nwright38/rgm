@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+from subprocess import Popen, PIPE
+import sys
+
+if len(sys.argv) != 2:
+	print('Usage: ./submit_sim_pipeline_upd.py <number_of_jobs>')
+	sys.exit(1)
+
+NJOBS = int(sys.argv[1])
+NEVENTS_PER_JOB = 100000 # 100000 is the number for the memory request
+UNIQUE_STR='he4_noPS'
+
+SCRIPT = '/work/clas12/users/nwright/rgm_andrew/Simulation/submit_sim_pipeline_upd.sh'
+START_IDX = 2
+for idx in range(START_IDX, NJOBS + START_IDX):
+
+	command = f"""#!/bin/bash
+#SBATCH --job-name=rgm_{UNIQUE_STR}_{idx}
+#SBATCH --account=clas12
+#SBATCH -p production
+#SBATCH --constraint=farm19
+#SBATCH --mem-per-cpu=5000
+#SBATCH --time=13:00:00
+#SBATCH --error=/farm_out/nwright/err_rgm_{UNIQUE_STR}_{idx}.txt
+#SBATCH --output=/farm_out/nwright/out_rgm_{UNIQUE_STR}_{idx}.txt
+
+bash {SCRIPT} {idx} {NEVENTS_PER_JOB}
+"""
+
+	print(command)
+
+	p = Popen(args=["sbatch"], stdin=PIPE)
+	p.communicate(command.encode())
