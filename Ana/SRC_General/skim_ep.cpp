@@ -104,7 +104,7 @@ int main(int argc, char ** argv)
 
   ////////////////////////////////////////////////////////////////////
   // Lorentz vectors needed for the e'p selection
-  ////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////// 
   TLorentzVector beam(0,0,beam_E,beam_E);
   TLorentzVector deut_ptr(0,0,0,mD);
   TLorentzVector el(0,0,0,db->GetParticle(11)->Mass());
@@ -167,7 +167,7 @@ int main(int argc, char ** argv)
         proton_p4.push_back(p4);
 
         const double pMag = p4.P();
-        if(pMag > 1. && pMag > max_lead_mom){
+        if(pMag > .7 && pMag > max_lead_mom){
           max_lead_mom = pMag;
           lead_idx = ip;
         }

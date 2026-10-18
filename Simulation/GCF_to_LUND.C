@@ -69,9 +69,9 @@ void GCF_to_LUND(TString inputFile = "", TString outputFile = "", string target 
       double Q2 = q.Mag2() - nu*nu;
       double xB = Q2/(2*mass_p*nu);
       //Optional xB cut
-      if(xB<1.1){continue;}
-      if(Q2<1.3){continue;}
-      if(vLead.Mag()<0.9){continue;}
+      if(xB<1.){continue;}
+      if(Q2<1.){continue;}
+      // if(vLead.Mag()<0.9){continue;}
       //if(vLead.Theta()*180/M_PI > 40){continue;}
       // LUND header for the event:
       formatstring = "%i \t %i \t %i \t %.3f \t %.3f \t %i \t %.1f \t %i \t %i \t %.3f \n";

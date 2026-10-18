@@ -9,10 +9,10 @@ if len(sys.argv) != 2:
 
 NJOBS = int(sys.argv[1])
 NEVENTS_PER_JOB = 100000 # 100000 is the number for the memory request
-UNIQUE_STR='c12_noPS'
+UNIQUE_STR='he4_noPS'
 
 SCRIPT = '/work/clas12/users/nwright/rgm_andrew/Simulation/submit_sim_pipeline_upd.sh'
-START_IDX = 0
+START_IDX = 2
 for idx in range(START_IDX, NJOBS + START_IDX):
 
 	command = f"""#!/bin/bash

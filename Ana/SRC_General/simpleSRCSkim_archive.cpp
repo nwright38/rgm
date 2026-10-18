@@ -846,6 +846,16 @@ int main(int argc, char **argv)
 
   clas12ana clasAna;
 
+  if(isMC){
+    std::string dir = std::string(CLAS12ANA_DIR) + "/Ana/cutFiles/";
+    std::string par = (targetA==4)  ? "ana_he4.par"
+                    : (targetA==12) ? "ana_cx4.par"
+                    : (targetA==40) ? "ana_ca40.par"
+                    : (targetA==48) ? "ana_ca48.par"
+                    : (targetA==120)? "ana_cx4.par" : "ana_he4.par";
+    clasAna.readInputParam((dir+par).c_str());
+  }
+
   // fixed 4-vectors
   const double md = 2.01410178 * mU - me;
   TLorentzVector targP4(0., 0., 0., md);
@@ -862,7 +872,7 @@ int main(int argc, char **argv)
 
   int counter = 0;
 
-  reweighter newWeight(Ebeam, 2,2, kelly, "AV18", .15);
+  reweighter newWeight(Ebeam, 6,6, dipole, "AV18", .15);
  // reweighter newWeight(Ebeam, targetCfg.Z, targetCfg.N, kelly, "AV18", .15);
 
   int ctr = 0;
@@ -966,7 +976,7 @@ int main(int argc, char **argv)
     auto protons   = clasAna.getByPid(2212);
 
     if(electrons.size() != 1) continue;
-    if(protons.empty())       continue;
+//    if(protons.empty())       continue;
     if(!inFD(electrons[0]->getStatus())) continue;
 
     // ---- electron kinematics ----
@@ -982,13 +992,14 @@ int main(int argc, char **argv)
     double xB    = Q2 / (2. * mP * omega);
 
     double W = sqrt(mP*mP + 2.*mP*omega - Q2);
-   // if(W > 1.3) continue;
+  //  if(W > 1.3) continue;
 
-    if(xB < 1.2) continue;
-    if(Q2 < 1.5) continue;
+    // if(xB < 1.5) continue;
+    // if(Q2 < 1.5) continue;
 
-    // if(xB < 1.) continue;
-    // if(Q2 < 1.) continue;
+
+    if(xB < 1.) continue;
+    if(Q2 < 1.) continue;
 
     if(isMC){
       b_weight     = c12->mcevent()->getWeight();
@@ -1062,10 +1073,10 @@ int main(int argc, char **argv)
 
       // SRC lead cuts
       bool passCuts = true;
-       if(pLead3.Mag() < 1.)                        passCuts = false;
-      if(missP4.M() > 1.1)   passCuts = false;
-      if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
-      if(pLead3.Mag()/qP3.Mag() > 0.95) passCuts = false;
+      if(pLead3.Mag() < .3)                        passCuts = false;
+      // if(missP4.M() > 1.1)   passCuts = false;
+      // if(kMiss < 0.3 || kMiss > 1.)                passCuts = false;
+      // if(pLead3.Mag()/qP3.Mag() > 0.95) passCuts = false;
 
 
     //  if(pLead3.Mag() < 1.)                        passCuts = false;
@@ -1135,7 +1146,7 @@ int main(int argc, char **argv)
       b_goodLead = cand_goodLead[leadIdx];
     }
 
-    if(leadIdx < 0) continue;
+   
 
     if(leadIdx >= 0)
     {
@@ -1440,8 +1451,10 @@ int main(int argc, char **argv)
       }
     }
 
-    srcTree->Fill();
-    ctr++;
+   // if(leadIdx >= 0){
+      srcTree->Fill();
+      ctr++;
+   // } 
   }
 
   outFile->cd();
