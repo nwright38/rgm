@@ -17,21 +17,26 @@
 
 void overlay_default_multi(
     const char *fileNamesCsv =
-    "~/data/RGM_DATA/c12_src_skim.root,~/data/RGM_DATA/c12_sim_skim_512_vtx.root,~/data/RGM_DATA/c12_inclusive_sim_skim_noCut.root",
+    "~/data/RGM_DATA/c12_src_skim.root, \
+    /Users/nataliewright/Desktop/MIT/GCF_with3N/src/programs/genInclusiveCC1/output.root,\
+    ~/data/RGM_DATA/c12_inclusive_sim_skim_noCut.root,~/data/RGM_DATA/test_av18_gen_orig.root",
     const char *treeName = "srcTree",
     const char *outputPdfName = "pdf/c12_data_sim_overlay_default_multi_ep_test.pdf",
     bool normalizeToUnity = true,
     const char *eppCut = "pCM > 0 && recP > .38",
-    const char *baseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.3 && leadP > .8 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95 && leadP/qP > .7",
-    const char *weightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
-    const char *labelsCsv = "Data, GEMC 5.12, GEMC 5.12 no lund cut",
+    const char *baseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.2 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95 && leadP/qP > .7  && omega > 0.5",
+    const char *weightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
+    const char *labelsCsv = "Data, \
+    Simple Gen., \
+    GEMC 5.12, \
+    GCF orig",
     const char *pCMyTailCut = "",
     bool includeFdFd = false,
-    Long64_t maxEvents = -1,
+    Long64_t maxEvents = 5000000,
     Long64_t firstEvent = 0,
-    const char *epCut = "goodLead",
-    const char *epBaseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.3 && leadP > .8 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95  && leadP/qP > .7",
-    const char *epWeightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.)",
+    const char *epCut = "",
+    const char *epBaseCut = "Q2 < 5. && Q2 > 1.5 && xB > 1.2 && leadTheta*180./TMath::Pi() > 45. && kMiss > .3 && mMiss < 1.1 && leadP/qP < .95  && leadP/qP > .7 && omega > 0.5",
+    const char *epWeightsCsv = "(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.),(weight_ep)*(weight_ep < 150.), (weight_ep)*(weight_ep < 150.)",
     bool useTruth = false) {
 
   // useTruth selects *_truth branches for every plotted expression. Cuts and

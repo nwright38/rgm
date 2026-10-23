@@ -150,6 +150,9 @@ Required input leaves: `pe[3]`, `pLead[3]`, `pRec[3]`, `weight`,
 and Double_t arrays are supported. `q[3]` is also required unless a positive
 beam energy is supplied. Without an override, beam energy is inferred from
 `q[2] + pe[2]` assuming the beam travels along positive laboratory z.
+
+`E1miss` = omega - T_p - T_{A-1} is computed with the full target nucleus
+(`q + M_A - p_lead`), matching the skim; `mMiss` still uses the deuteron.
 Nucleon energies are reconstructed on shell from their PDG IDs.
 
 Arguments after the filenames: `targetA=12`, `eBeam=-1`, `requireEpp=true`,
