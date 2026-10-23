@@ -541,6 +541,7 @@ int main(int argc, char **argv)
 
   // electron
   Float_t b_eP, b_eTheta, b_ePhi;
+  Float_t b_eVz;
 
   // q vector (3-momentum transfer)
   Float_t b_qP, b_qTheta, b_qPhi;
@@ -589,6 +590,7 @@ int main(int argc, char **argv)
   // recoil kinematics (filled when a recoil is found)
   Float_t b_recP, b_recTheta, b_recPhi;
   Float_t b_recBeta, b_recToF;
+  Float_t b_recVz;
   Float_t b_theta_PleadPrec; // angle between lead and recoil momentum
   Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
   Float_t b_theta_PrecQ;  // angle between recoil momentum and q
@@ -642,6 +644,7 @@ int main(int argc, char **argv)
   srcTree->Branch("eP",          &b_eP,          "eP/F");
   srcTree->Branch("eTheta",      &b_eTheta,      "eTheta/F");
   srcTree->Branch("ePhi",        &b_ePhi,        "ePhi/F");
+  srcTree->Branch("eVz",         &b_eVz,         "eVz/F");
 
   srcTree->Branch("qP",          &b_qP,          "qP/F");
   srcTree->Branch("qTheta",      &b_qTheta,      "qTheta/F");
@@ -729,6 +732,7 @@ int main(int argc, char **argv)
   srcTree->Branch("recPhi",      &b_recPhi,      "recPhi/F");
   srcTree->Branch("recBeta",     &b_recBeta,     "recBeta/F");
   srcTree->Branch("recToF",      &b_recToF,      "recToF/F");
+  srcTree->Branch("recVz",       &b_recVz,       "recVz/F");
   srcTree->Branch("theta_PleadPrec",&b_theta_PleadPrec,"theta_PleadPrec/F");
   srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
   srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
@@ -881,6 +885,7 @@ int main(int argc, char **argv)
     b_weight_epp = 1.f;
     b_xB = -9.f;  b_Q2 = -9.f;  b_omega = -9.f;
     b_eP = -9.f;  b_eTheta = -9.f;  b_ePhi = -9.f;
+    b_eVz = -99.f;
     b_qP = -9.f;  b_qTheta = -9.f;  b_qPhi = -9.f;
 
     b_nProtons    = 0;
@@ -888,6 +893,7 @@ int main(int argc, char **argv)
     b_singleGoodLead = false;
     b_recP       = -9.f;  b_recTheta = -9.f;  b_recPhi = -9.f;
     b_recBeta    = -9.f;  b_recToF = -9.f;
+    b_recVz = -99.f;
 
     b_leadP = -9.f;  b_leadTheta = -9.f;  b_leadPhi = -9.f;
     b_leadBeta = -9.f;  b_leadToF = -9.f;  b_leadVz = -99.f;
@@ -1006,6 +1012,7 @@ int main(int argc, char **argv)
     b_eP     = eP3.Mag();
     b_eTheta = eP3.Theta();
     b_ePhi   = eP3.Phi();
+    b_eVz    = electrons[0]->par()->getVz();
 
     b_qP     = qP3.Mag();
     b_qTheta = qP3.Theta();
@@ -1223,6 +1230,7 @@ int main(int argc, char **argv)
         b_recPhi   = recoil_p3.Phi();
         b_recBeta  = cand_beta[recoilIdx];
         b_recToF   = cand_tof[recoilIdx];
+        b_recVz    = cand_vz[recoilIdx];
 
         b_theta_PleadPrec = lead_p3.Angle(recoil_p3);
         b_theta_PmPrec = miss_neg.Angle(recoil_p3);
