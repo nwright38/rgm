@@ -607,7 +607,11 @@ void convert_events2N_to_srcTree(
     const TLorentzVector missA2 = qP4 + nucleusP4 - leadP4 - recP4;
     const double TB2 = missA2.E() - missA2.M();
     const double E2missVal = nu - TP - TP2 - TB2;
-    const double E1missVal = nu - TP - (missP4.E() - missP4.M());
+    // E1miss = omega - T_p - T_{A-1}: the residual is (target nucleus + q - pLead),
+    // NOT the deuteron 4-vector used for mMiss. Matches the skim / genInclusiveCC1:
+    //   TB = X - sqrt(X^2 - pMiss^2), X = omega + M_A - E_lead.
+    const TLorentzVector missA1 = qP4 + nucleusP4 - leadP4;
+    const double E1missVal = nu - TP - (missA1.E() - missA1.M());
 
     const TVector3 pRelVec = 0.5 * (pMissVec - recVec);
     const TVector3 pCMVec = pMissVec + recVec;
@@ -628,6 +632,8 @@ void convert_events2N_to_srcTree(
     double q2Val = qVec.Mag2() - nu * nu;
     double xBVal = (std::abs(omegaVal) > 1e-12) ? q2Val / (2.0 * kMp * omegaVal) : -9.;
 
+    if(lead_type != 2212) continue;
+
     if (applyBasicSrcCuts) {
       if (xBVal < minXB) continue;
       ++passXB;
@@ -635,7 +641,7 @@ void convert_events2N_to_srcTree(
       ++passQ2;
       if (pLeadMag < minLeadP) continue;
       ++passLeadP;
-      if (pRecMag < minRecP) continue;
+      if (requireEpp && (pRecMag < minRecP)) continue;
       ++passRecP;
       if (mMissVal < minMMiss || mMissVal > maxMMiss) continue;
       ++passMMiss;
