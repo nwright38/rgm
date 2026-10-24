@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include <TFile.h>
@@ -514,6 +515,82 @@ void setProtonP4(TLorentzVector &p4, clas12::region_part_ptr proton, bool isMC)
   }
 }
 
+// mcparts() is MC::Lund, whereas MC::RecMatch.mcindex indexes MC::Particle.
+// Read the latter directly; never apply a RecMatch index to a Lund row.
+// Sources: JeffersonLab/clas12root Clas12Banks/{clas12reader,mcparticle,mcmatch}.h
+struct TruthParticle {
+  int pid;
+  TVector3 momentum;
+};
+
+struct TruthMatch {
+  int row = -1;
+  int method = 0; // 0: unmatched, 1: detector truth link, 2: kinematic fallback
+  double angle = -9.; // radians
+  double relativeDP = -9.; // (p_reconstructed - p_truth) / p_truth
+};
+
+// Starting windows for the fallback, NOT measured detector resolutions.
+// Validate efficiencies/purities and vary these windows for the MC sample used.
+constexpr double kTruthMatchMaxAngle = 5. * M_PI / 180.;
+constexpr double kTruthMatchMaxRelativeDP = 0.30;
+
+bool truthMatchResiduals(const TVector3 &reconstructed, const TVector3 &truth,
+                         double &angle, double &relativeDP)
+{
+  if(!std::isfinite(reconstructed.Mag2()) || !std::isfinite(truth.Mag2()) ||
+     reconstructed.Mag2() <= 0. || truth.Mag2() <= 0.) return false;
+  angle = reconstructed.Angle(truth); // handles the phi = +/-pi boundary
+  relativeDP = (reconstructed.Mag() - truth.Mag()) / truth.Mag();
+  return std::isfinite(angle) && std::isfinite(relativeDP);
+}
+
+TruthMatch matchTruthParticle(const clas12::region_part_ptr reconstructed,
+                             const vector<TruthParticle> &truth,
+                             hipo::bank *links)
+{
+  TruthMatch result;
+  const TVector3 momentum(reconstructed->getPx(), reconstructed->getPy(),
+                          reconstructed->getPz()); // before correction/smearing
+  int row = -1;
+  if(links){
+    // Use explicit pindex values: the filtered proton-vector index is not a
+    // REC::Particle index. An absent/invalid link must stay unmatched.
+    const int pindexOrder = links->getSchema().getEntryOrder("pindex");
+    const int mcindexOrder = links->getSchema().getEntryOrder("mcindex");
+    for(int i = 0; i < links->getRows(); ++i){
+      if(links->getShort(pindexOrder, i) != reconstructed->getIndex()) continue;
+      if(row != -1) return result; // duplicate link is ambiguous
+      row = links->getShort(mcindexOrder, i);
+      if(row < 0 || row >= static_cast<int>(truth.size())) return result;
+    }
+    if(row < 0 || truth[row].pid != reconstructed->getPid()) return result;
+    // Detector links establish identity. Record residuals without imposing
+    // arbitrary resolution cuts on a valid detector association.
+    if(!truthMatchResiduals(momentum, truth[row].momentum,
+                            result.angle, result.relativeDP)) return TruthMatch{};
+    result.method = 1;
+  } else {
+    // Require a unique same-PID candidate inside BOTH windows. Kinematics
+    // alone estimates identity; do not force the nearest unrelated particle.
+    for(int i = 0; i < static_cast<int>(truth.size()); ++i){
+      if(truth[i].pid != reconstructed->getPid()) continue;
+      double angle, relativeDP;
+      if(!truthMatchResiduals(momentum, truth[i].momentum, angle, relativeDP) ||
+         angle > kTruthMatchMaxAngle ||
+         std::abs(relativeDP) > kTruthMatchMaxRelativeDP) continue;
+      if(row >= 0) return TruthMatch{};
+      row = i;
+      result.angle = angle;
+      result.relativeDP = relativeDP;
+    }
+    if(row < 0) return result;
+    result.method = 2;
+  }
+  result.row = row;
+  return result;
+}
+
 int main(int argc, char **argv)
 {
   if(argc < 5){ Usage(); return -1; }
@@ -595,6 +672,11 @@ int main(int argc, char **argv)
   Float_t b_theta_PmPrec; // angle between pMiss and recoil momentum
   Float_t b_theta_PrecQ;  // angle between recoil momentum and q
   Float_t b_phiTrento;
+
+  Int_t b_eTruthRow, b_leadTruthRow, b_recTruthRow;
+  Int_t b_truthBank; // 0: none, 1: MC::Particle, 2: MC::Lund (rows are zero-based)
+  Int_t b_eTruthMatchMethod, b_leadTruthMatchMethod, b_recTruthMatchMethod;
+  Float_t b_leadTruthMatchAngle, b_leadTruthMatchRelativeDP;
 
   // truth-level MC quantities, named to mirror reco branches
   Float_t b_xB_truth, b_Q2_truth, b_omega_truth;
@@ -737,6 +819,16 @@ int main(int argc, char **argv)
   srcTree->Branch("theta_PmPrec",&b_theta_PmPrec,"theta_PmPrec/F");
   srcTree->Branch("theta_PrecQ", &b_theta_PrecQ, "theta_PrecQ/F");
   srcTree->Branch("phiTrento",   &b_phiTrento,   "phiTrento/F");
+
+  srcTree->Branch("eTruthRow", &b_eTruthRow, "eTruthRow/I");
+  srcTree->Branch("leadTruthRow", &b_leadTruthRow, "leadTruthRow/I");
+  srcTree->Branch("recTruthRow", &b_recTruthRow, "recTruthRow/I");
+  srcTree->Branch("truthBank", &b_truthBank, "truthBank/I");
+  srcTree->Branch("eTruthMatchMethod", &b_eTruthMatchMethod, "eTruthMatchMethod/I");
+  srcTree->Branch("leadTruthMatchMethod", &b_leadTruthMatchMethod, "leadTruthMatchMethod/I");
+  srcTree->Branch("recTruthMatchMethod", &b_recTruthMatchMethod, "recTruthMatchMethod/I");
+  srcTree->Branch("leadTruthMatchAngle", &b_leadTruthMatchAngle, "leadTruthMatchAngle/F");
+  srcTree->Branch("leadTruthMatchRelativeDP", &b_leadTruthMatchRelativeDP, "leadTruthMatchRelativeDP/F");
 
   srcTree->Branch("xB_truth",          &b_xB_truth,          "xB_truth/F");
   srcTree->Branch("Q2_truth",          &b_Q2_truth,          "Q2_truth/F");
@@ -940,6 +1032,10 @@ int main(int argc, char **argv)
     b_theta_PrecQ  = -9.f;
     b_phiTrento = -9.f;
 
+    b_eTruthRow = b_leadTruthRow = b_recTruthRow = -1;
+    b_truthBank = 0;
+    b_eTruthMatchMethod = b_leadTruthMatchMethod = b_recTruthMatchMethod = 0;
+    b_leadTruthMatchAngle = b_leadTruthMatchRelativeDP = -9.f;
     b_xB_truth = -9.f;  b_Q2_truth = -9.f;  b_omega_truth = -9.f;
     b_eP_truth = -9.f;  b_eTheta_truth = -9.f;  b_ePhi_truth = -9.f;
     b_qP_truth = -9.f;  b_qTheta_truth = -9.f;  b_qPhi_truth = -9.f;
@@ -1174,11 +1270,12 @@ int main(int argc, char **argv)
       }
     }
 
+    int recoilIdx = -1;
+
     // ---- pass 2: find the highest-momentum non-lead proton as recoil and fill e'pp variables ----
     if(leadIdx >= 0 && nFilled >= 2)
     {
       TVector3 miss_neg = cand_pMissV[leadIdx];
-      int recoilIdx = -1;
       double maxRecoilMomentum = 0.3;
 
       for(int j = 0; j < nFilled; j++)
@@ -1290,11 +1387,67 @@ int main(int argc, char **argv)
 
     if(isMC)
     {
-      auto mcInfo = c12->mcparts();
-      if(mcInfo && mcInfo->getRows() >= 2)
+      vector<TruthParticle> truth;
+      auto &dictionary = c12->getDictionary();
+      hipo::event truthEvent;
+      // read() retrieves the current event; it does not advance the reader.
+      c12->getReader().read(truthEvent);
+      std::unique_ptr<hipo::bank> links;
+      if(dictionary.hasSchema("MC::Particle")){
+        hipo::bank particles(dictionary.getSchema("MC::Particle"));
+        truthEvent.getStructure(particles);
+        auto &schema = particles.getSchema();
+        for(int i = 0; i < particles.getRows(); ++i){
+          truth.push_back({particles.getInt(schema.getEntryOrder("pid"), i),
+            TVector3(particles.getFloat(schema.getEntryOrder("px"), i),
+                     particles.getFloat(schema.getEntryOrder("py"), i),
+                     particles.getFloat(schema.getEntryOrder("pz"), i))});
+        }
+        b_truthBank = 1;
+        if(dictionary.hasSchema("MC::RecMatch")){
+          links.reset(new hipo::bank(dictionary.getSchema("MC::RecMatch")));
+          truthEvent.getStructure(*links);
+        }
+      } else if(auto mcInfo = c12->mcparts()){
+        // Preserve Lund row numbers but exclude non-final-state generator rows.
+        for(int i = 0; i < mcInfo->getRows(); ++i){
+          truth.push_back({mcInfo->getType(i) == 1 ? mcInfo->getPid(i) : 0,
+            TVector3(mcInfo->getPx(i), mcInfo->getPy(i), mcInfo->getPz(i))});
+        }
+        b_truthBank = 2;
+      }
+
+      TruthMatch electronMatch = matchTruthParticle(electrons[0], truth, links.get());
+      vector<TruthMatch> protonMatches;
+      for(const auto &proton : protons)
+        protonMatches.push_back(matchTruthParticle(proton, truth, links.get()));
+      // Enforce one-to-one identity, including protons not selected as lead or
+      // recoil. Reject shared associations rather than assigning one truth
+      // proton twice or arbitrarily resolving a reconstruction duplicate.
+      vector<TruthMatch> uniqueMatches = protonMatches;
+      for(size_t i = 0; i < protonMatches.size(); ++i){
+        if(protonMatches[i].row < 0) continue;
+        for(size_t j = 0; j < protonMatches.size(); ++j){
+          if(i != j && protonMatches[i].row == protonMatches[j].row)
+            uniqueMatches[i] = TruthMatch{};
+        }
+      }
+      const TruthMatch leadMatch = leadIdx >= 0 ? uniqueMatches[leadIdx] : TruthMatch{};
+      const TruthMatch recoilMatch = recoilIdx >= 0 ? uniqueMatches[recoilIdx] : TruthMatch{};
+      b_eTruthRow = electronMatch.row;
+      b_leadTruthRow = leadMatch.row;
+      b_recTruthRow = recoilMatch.row;
+      b_eTruthMatchMethod = electronMatch.method;
+      b_leadTruthMatchMethod = leadMatch.method;
+      b_recTruthMatchMethod = recoilMatch.method;
+      b_leadTruthMatchAngle = leadMatch.angle;
+      b_leadTruthMatchRelativeDP = leadMatch.relativeDP;
+      // Reconstructed events remain in the tree; unmatched truth quantities
+      // retain their -9 defaults. Never substitute a fixed generator row.
+      if(electronMatch.row >= 0 && leadMatch.row >= 0)
       {
-        TVector3 e_truth(mcInfo->getPx(0), mcInfo->getPy(0), mcInfo->getPz(0));
-        TVector3 lead_truth(mcInfo->getPx(1), mcInfo->getPy(1), mcInfo->getPz(1));
+        const TVector3 e_truth = truth[electronMatch.row].momentum;
+        const TVector3 lead_truth = truth[leadMatch.row].momentum;
         TVector3 q_truth = p_beam - e_truth;
 
         double omega_truth = Ebeam - sqrt(e_truth.Mag2() + me*me);
@@ -1376,9 +1529,9 @@ int main(int argc, char **argv)
           b_m_bar_truth = leadOnlyTruthLc.mBar;
         }
 
-        if(mcInfo->getRows() >= 3)
+        if(recoilMatch.row >= 0)
         {
-          TVector3 rec_truth(mcInfo->getPx(2), mcInfo->getPy(2), mcInfo->getPz(2));
+          const TVector3 rec_truth = truth[recoilMatch.row].momentum;
           TVector3 pRel_truth = (pMiss_truth - rec_truth) * 0.5;
           TVector3 pCM_truth = pMiss_truth + rec_truth;
 
